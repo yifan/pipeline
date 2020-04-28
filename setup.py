@@ -10,7 +10,7 @@ with open(os.path.join(os.path.dirname(__file__), "requirements.txt")) as f:
 with codecs.open(os.path.join(os.path.dirname(__file__), "README.rst"), "r", "utf-8") as f:
     readme = f.read()
 
-setup(name="pipeline",
+setup(name="tanbih-pipeline",
       version="0.0.1",
       description="a pipeline framework for streaming processing",
       long_description=readme,

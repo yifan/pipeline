@@ -2,3 +2,4 @@ tox
 pytest
 requests
 wheel
+twine
