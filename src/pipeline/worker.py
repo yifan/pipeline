@@ -1,0 +1,333 @@
+import argparse
+import logging
+import os
+import sys
+import traceback
+from abc import ABC
+from copy import copy
+
+from .exception import PipelineException
+from .message import Message
+from .monitor import Monitor
+from .tap import DestinationOf, SourceOf
+from .utils import parse_kind
+
+logger = logging.getLogger('pipeline')
+logger.setLevel(logging.INFO)
+
+
+class WorkerCore(ABC):
+    """Internal base class for pulsar-worker, DO NOT use it in your program!"""
+    NO_FLAG = 0
+    NO_INPUT = 1
+    NO_OUTPUT = 2
+
+    def __init__(self, name, version, description, flag, messageClass):
+        self.name = name
+        self.version = [int(x) for x in version.split('.')]
+        if len(self.version) != 3:
+            raise RuntimeError('Version format is not valid [x.x.x]')
+        self.description = description
+        self.kind = None
+        self.logger = logger
+        self.flag = flag
+        self.messageClass = messageClass
+
+        self.parser = argparse.ArgumentParser(
+            prog=name,
+            description=description,
+            conflict_handler='resolve',
+            formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        )
+
+        self.monitor = Monitor(self)
+
+    def setup(self):
+        """loading code goes here"""
+
+    def has_no_input(self):
+        return self.flag == self.NO_INPUT
+
+    def has_no_output(self):
+        return self.flag == self.NO_OUTPUT
+
+    def parse_args(self, args=sys.argv[1:], config=None):
+        self.kind, extras = parse_kind(args)
+        if self.flag != self.NO_INPUT:
+            self.sourceClass = SourceOf(self.kind)
+        if self.flag != self.NO_OUTPUT:
+            self.destinationClass = DestinationOf(self.kind)
+        self._add_arguments(self.parser)
+        if config:
+            self.parser.set_defaults(**config)
+        self.parser.set_defaults(message=self.messageClass)
+        self.options = self.parser.parse_args(extras)
+        if self.flag != self.NO_INPUT:
+            self.source = self.sourceClass(self.options, logger=logger)
+        if self.flag != self.NO_OUTPUT:
+            self.destination = self.destinationClass(self.options, logger=logger)
+        # report worker info to monitor
+        self.monitor.record_worker_info()
+
+    def _add_arguments(self, parser):
+        parser.add_argument('--debug', action='store_true', default=os.environ.get('DEBUG', 'FALSE') == 'TRUE',
+                            help='debug, more verbose logging')
+        if self.flag != self.NO_INPUT:
+            self.sourceClass.add_arguments(parser)
+        if self.flag != self.NO_OUTPUT:
+            self.destinationClass.add_arguments(parser)
+        self.add_arguments(parser)
+
+    def add_arguments(self, parser):
+        """Add commandline arguments, to be override by child classes."""
+
+
+class Generator(WorkerCore):
+    def __init__(self, name, version, description=None, messageClass=Message):
+        super().__init__(name, version, description, Generator.NO_INPUT, messageClass)
+
+    def generate(self):
+        """a generator to generate dict."""
+        yield self.messageClass()
+
+    def _generate(self):
+        for i in self.generate():
+            yield self.messageClass(i)
+
+    def start(self, monitoring=False):
+        try:
+            options = self.options
+        except AttributeError as e:
+            logger.critical('Did you forget to run .parse_args before start?')
+            raise e
+
+        logger.setLevel(level=logging.INFO)
+        if options.debug:
+            logger.setLevel(level=logging.DEBUG)
+
+        logger.info('settings: write topic %s', options.out_topic)
+
+        self.setup()
+
+        if monitoring:
+            self.monitor.expose()
+
+        self.monitor.record_start()
+
+        try:
+            for msg in self._generate():
+                msg.update_version(self.name, self.version)
+                logger.info('generated %s', msg)
+                if msg.is_valid():
+                    self.destination.write(msg)
+                else:
+                    logger.error('generated message is invalid, skipping')
+                    logger.error(msg.log_info())
+                    logger.error(msg.log_content())
+                self.monitor.record_write(self.destination.topic)
+            self.destination.close()
+        except PipelineException as e:
+            e.log(logger)
+        except Exception as e:
+            logger.error(traceback.format_exc())
+            self.monitor.record_error(str(e))
+
+        self.monitor.record_finish()
+
+
+class Splitter(WorkerCore):
+    """ Splitter will write to a topic whose name is based on a function
+    """
+    def __init__(self, name, version, description=None, messageClass=Message):
+        super().__init__(name, version, description, Splitter.NO_FLAG, messageClass)
+        # keep a dictionary for 'topic': 'destination', self.destination is only used to parse
+        # command line arguments
+        self.destinations = {}
+
+    def get_topic(self, dct):
+        return '{}-{}'.format(self.destination.topic, dct['language'])
+
+    def _run_streaming(self):
+        for msg in self.source.read():
+            logger.info("Received message '%s'", str(msg))
+            self.monitor.record_read(self.source.topic)
+
+            topic = self.get_topic(msg.dct)
+
+            if topic not in self.destinations:
+                config = copy(self.destination.config)
+                config.out_topic = topic
+                self.destinations[topic] = self.destinationClass(config, logger=logger)
+
+            destination = self.destinations[topic]
+
+            if msg.is_valid():
+                destination.write(msg)
+            else:
+                logger.error('generated message is invalid, skipping')
+                logger.error(msg.log_info())
+                logger.error(msg.log_content())
+            self.monitor.record_write(topic)
+            self.source.acknowledge()
+
+    def start(self, monitoring=False):
+        try:
+            options = self.options
+        except AttributeError as e:
+            logger.critical('Did you forget to run .parse_args before start?')
+            raise e
+
+        logger.setLevel(level=logging.INFO)
+        if options.debug:
+            logger.setLevel(level=logging.DEBUG)
+
+        if options.rewind:
+            # consumer.seek(pulsar.MessageId.earliest)
+            logger.info('seeked to earliest message available as requested')
+
+        self.setup()
+
+        logger.info('start listening')
+        # if batch_mode:
+        #  self._run_batch()
+        # else:
+
+        if monitoring:
+            self.monitor.expose()
+
+        self.monitor.record_start()
+        try:
+            self._run_streaming()
+            self.source.close()
+            self.destination.close()
+        except PipelineException as e:
+            e.log(logger)
+        except Exception as e:
+            logger.error(traceback.format_exc())
+            self.monitor.record_error(str(e))
+        self.monitor.record_finish()
+
+
+class Processor(WorkerCore):
+    def __init__(self, name, version, description=None, nooutput=False, messageClass=Message):
+        flag = Processor.NO_OUTPUT if nooutput else None
+        super().__init__(name, version, description, flag, messageClass)
+        self.retryEnabled = False
+
+    def use_retry_topic(self, name=None):
+        """
+            Retry topic is introduced to solve error handling by saving
+            message being processed when error occurs to a separate topic.
+            In this way, these messages can be reprocessed at a later stage.
+        """
+        config = copy(self.destination.config)
+        config.out_topic = name if name else self.name + "-retry"
+        self.retryDestination = self.destinationClass(config, logger=logger)
+        self.retryEnabled = True
+
+    def process(self, dct_or_dcts):
+        """ process function to be overridden by users, for streaming
+            processing, this function needs to do in-place update and return
+            an error or a list of errors (for batch processing)
+        """
+        return None
+
+    def _process(self, msg):
+        try:
+            return self.process(msg.dct)
+        except Exception as e:
+            # TODO log detailed errors
+            logger.error(msg.log_content())
+            raise e
+
+    def _run_streaming(self):
+        """ streaming processing messages from source and write resulted messages to destination
+
+            error handling:
+            1) error indicated by .process returning non-None value
+                message will be written to retry topic if retry topic is enabled.
+                WARNING: The message may have been modified during process().
+            2) the result message is invalid
+                the result message will be written to retry topic if retry topic is enabled.
+                The message is processed, and invalid.
+                WARNING: Processor will not re-process message unless the version of processor
+                is higher than the version stored in message info.
+        """
+        for msg in self.source.read():
+            self.monitor.record_read(self.source.topic)
+            logger.info("Received message '%s'", str(msg))
+
+            hasError = False
+            if msg.should_update(self.name, self.version):
+                logger.info("Processing message '%s'", str(msg))
+                err = self._process(msg)
+                if err:
+                    logger.error("Error has occurred for message '%s'", str(msg))
+                    self.monitor.record_error(str(err))
+                    if self.retryEnabled:
+                        logger.warn('message is sent to retry topic %s', self.retryDestination.config.out_topic)
+                        self.retryDestination.write(msg)
+                        self.monitor.record_write(self.retryDestination.topic)
+                        logger.error(msg.log_info())
+                        logger.error(msg.log_content())
+                        hasError = True
+                else:
+                    msg.update_version(self.name, self.version)
+            else:
+                logger.warn('Message has been processed by higher version processor, no processed')
+
+            if self.flag != self.NO_OUTPUT and not hasError:
+                if msg.is_valid():
+                    logger.info("Writing message '%s'", str(msg))
+                    self.destination.write(msg)
+                    self.monitor.record_write(self.destination.topic)
+                else:
+                    if self.retryEnabled:
+                        logger.warn('message is sent to retry topic %s', self.retryDestination.config.out_topic)
+                        self.retryDestination.write(msg)
+                        self.monitor.record_write(self.retryDestination.topic)
+                    logger.error('generated message is invalid, skipping')
+                    logger.warn(msg.log_info())
+                    logger.warn(msg.log_content())
+            self.source.acknowledge()
+
+    def start(self, batch_mode=False, monitoring=False):
+        """ start processing. """
+        try:
+            options = self.options
+        except AttributeError as e:
+            logger.critical('Did you forget to run .parse_args before start?')
+            raise e
+
+        logger.setLevel(level=logging.INFO)
+        if options.debug:
+            logger.setLevel(level=logging.DEBUG)
+
+        if options.rewind:
+            # consumer.seek(pulsar.MessageId.earliest)
+            logger.info('seeked to earliest message available as requested')
+
+        self.setup()
+
+        logger.info('start listening on topic %s', self.source.topic)
+        # if batch_mode:
+        #  self._run_batch()
+        # else:
+
+        if monitoring:
+            self.monitor.expose()
+
+        self.monitor.record_start()
+
+        try:
+            self._run_streaming()
+            self.source.close()
+            if self.flag != self.NO_OUTPUT:
+                self.destination.close()
+        except PipelineException as e:
+            e.log(logger)
+        except Exception as e:
+            logger.error(traceback.format_exc())
+            self.monitor.record_error(str(e))
+
+        self.monitor.record_finish()

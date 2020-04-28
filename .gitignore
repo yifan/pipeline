@@ -1,0 +1,13 @@
+build
+dist
+*.egg-info
+.vscode
+venv
+.swp
+.pyc
+__pycache__
+.tox
+htmlcov
+**/__pycache__
+.coverage
+*.pyc
