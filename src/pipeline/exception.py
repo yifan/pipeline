@@ -11,4 +11,4 @@ class PipelineException(Exception):
             else:
                 logger.warn(self.data)
         if self.traceback:
-            logger.warn(self.traceback)
+            logger.warning(self.traceback)
