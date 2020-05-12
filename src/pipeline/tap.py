@@ -411,7 +411,12 @@ class PulsarSource(SourceTap):
             self.namespace,
             self.topic
         )
-        self.consumer = self.client.subscribe(self.name, self.subscription)
+        self.consumer = self.client.subscribe(
+            self.name,
+            self.subscription,
+            receiver_queue_size=1,
+            consumer_type=pulsar.ConsumerType.shared,
+        )
         self.last_msg = None
 
     def __repr__(self):
