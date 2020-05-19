@@ -1,5 +1,10 @@
 pipeline
 ========
+.. image:: https://badge.fury.io/py/tanbih-pipeline.svg
+    :target: https://badge.fury.io/py/tanbih-pipeline
+.. image:: https://readthedocs.org/projects/tanbih-pipeline/badge/?version=latest
+    :target: https://tanbih-pipeline.readthedocs.io/en/latest/?badge=latest
+    :alt: Documentation Status
 
 Pipeline is a data streaming framework supporting Pulsar/Kafka
 

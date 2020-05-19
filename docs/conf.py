@@ -17,11 +17,11 @@ extensions = [
 ]
 source_suffix = '.rst'
 master_doc = 'index'
-project = 'Tanbih Worker'
+project = 'Tanbih Pipeline'
 year = '2020'
 author = 'Yifan Zhang'
 copyright = '{0}, {1}'.format(year, author)
-release = '0.1.0'
+release = '0.0.1'
 #try:
 #    from pkg_resources import get_distribution
 #    version = release = get_distribution('tanbih-worker').version
@@ -32,8 +32,8 @@ release = '0.1.0'
 pygments_style = 'trac'
 templates_path = ['.']
 extlinks = {
-    'issue': ('https://gitlab.com/meganews/pulsarworker/issues/%s', '#'),
-    'pr': ('https://gitlab.com/meganews/pulsarworker/-/merge_requests/%s', 'PR #'),
+    'issue': ('https://github.com/yifan/pipeline/issues/%s', '#'),
+    'pr': ('https://github.com/yifan/pipeline/pulls/%s', 'PR #'),
 }
 #import sphinx_py3doc_enhanced_theme
 #html_theme = "sphinx_py3doc_enhanced_theme"
