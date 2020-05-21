@@ -63,9 +63,9 @@ class WorkerCore(ABC):
         self.parser.set_defaults(message=self.messageClass)
         self.options = self.parser.parse_args(extras)
         if self.flag != self.NO_INPUT:
-            self.source = self.sourceClass(self.options, logger=logger)
+            self.source = self.sourceClass(self.options, logger=self.logger)
         if self.flag != self.NO_OUTPUT:
-            self.destination = self.destinationClass(self.options, logger=logger)
+            self.destination = self.destinationClass(self.options, logger=self.logger)
         # report worker info to monitor
         self.monitor.record_worker_info()
 
@@ -101,11 +101,11 @@ class Generator(WorkerCore):
             logger.critical('Did you forget to run .parse_args before start?')
             raise e
 
-        logger.setLevel(level=logging.INFO)
+        self.logger.setLevel(level=logging.INFO)
         if options.debug:
-            logger.setLevel(level=logging.DEBUG)
+            self.logger.setLevel(level=logging.DEBUG)
 
-        logger.info('settings: write topic %s', options.out_topic)
+        self.logger.info('settings: write topic %s', options.out_topic)
 
         self.setup()
 
@@ -117,19 +117,19 @@ class Generator(WorkerCore):
         try:
             for msg in self._generate():
                 msg.update_version(self.name, self.version)
-                logger.info('generated %s', msg)
+                self.logger.info('generated %s', msg)
                 if msg.is_valid():
                     self.destination.write(msg)
                 else:
-                    logger.error('generated message is invalid, skipping')
-                    logger.error(msg.log_info())
-                    logger.error(msg.log_content())
+                    self.logger.error('generated message is invalid, skipping')
+                    self.logger.error(msg.log_info())
+                    self.logger.error(msg.log_content())
                 self.monitor.record_write(self.destination.topic)
             self.destination.close()
         except PipelineException as e:
-            e.log(logger)
+            e.log(self.logger)
         except Exception as e:
-            logger.error(traceback.format_exc())
+            self.logger.error(traceback.format_exc())
             self.monitor.record_error(str(e))
 
         self.monitor.record_finish()
@@ -149,7 +149,7 @@ class Splitter(WorkerCore):
 
     def _run_streaming(self):
         for msg in self.source.read():
-            logger.info("Received message '%s'", str(msg))
+            self.logger.info("Received message '%s'", str(msg))
             self.monitor.record_read(self.source.topic)
 
             topic = self.get_topic(msg.dct)
@@ -157,16 +157,16 @@ class Splitter(WorkerCore):
             if topic not in self.destinations:
                 config = copy(self.destination.config)
                 config.out_topic = topic
-                self.destinations[topic] = self.destinationClass(config, logger=logger)
+                self.destinations[topic] = self.destinationClass(config, logger=self.logger)
 
             destination = self.destinations[topic]
 
             if msg.is_valid():
                 destination.write(msg)
             else:
-                logger.error('generated message is invalid, skipping')
-                logger.error(msg.log_info())
-                logger.error(msg.log_content())
+                self.logger.error('generated message is invalid, skipping')
+                self.logger.error(msg.log_info())
+                self.logger.error(msg.log_content())
             self.monitor.record_write(topic)
             self.source.acknowledge()
 
@@ -174,20 +174,20 @@ class Splitter(WorkerCore):
         try:
             options = self.options
         except AttributeError as e:
-            logger.critical('Did you forget to run .parse_args before start?')
+            self.logger.critical('Did you forget to run .parse_args before start?')
             raise e
 
-        logger.setLevel(level=logging.INFO)
+        self.logger.setLevel(level=logging.INFO)
         if options.debug:
-            logger.setLevel(level=logging.DEBUG)
+            self.logger.setLevel(level=logging.DEBUG)
 
         if options.rewind:
             # consumer.seek(pulsar.MessageId.earliest)
-            logger.info('seeked to earliest message available as requested')
+            self.logger.info('seeked to earliest message available as requested')
 
         self.setup()
 
-        logger.info('start listening')
+        self.logger.info('start listening')
         # if batch_mode:
         #  self._run_batch()
         # else:
@@ -201,9 +201,9 @@ class Splitter(WorkerCore):
             self.source.close()
             self.destination.close()
         except PipelineException as e:
-            e.log(logger)
+            e.log(self.logger)
         except Exception as e:
-            logger.error(traceback.format_exc())
+            self.logger.error(traceback.format_exc())
             self.monitor.record_error(str(e))
         self.monitor.record_finish()
 
@@ -221,7 +221,7 @@ class Processor(WorkerCore):
         """
         config = copy(self.source.config)
         config.out_topic = name if name else self.name + "-retry"
-        self.retryDestination = self.destinationClass(config, logger=logger)
+        self.retryDestination = self.destinationClass(config, logger=self.logger)
         self.retryEnabled = True
 
     def process(self, dct_or_dcts):
@@ -236,7 +236,7 @@ class Processor(WorkerCore):
             return self.process(msg.dct)
         except Exception as e:
             # TODO log detailed errors
-            logger.error(msg.log_content())
+            self.logger.error(msg.log_content())
             raise e
 
     def _run_streaming(self):
@@ -254,29 +254,42 @@ class Processor(WorkerCore):
         """
         for msg in self.source.read():
             self.monitor.record_read(self.source.topic)
-            logger.info("Received message '%s'", str(msg))
+            self.logger.info("Received message '%s'", str(msg))
 
             failedOnError = False
 
             # process message
             if msg.should_update(self.name, self.version):
-                logger.info("Processing message '%s'", str(msg))
+                self.logger.info("Processing message '%s'", str(msg))
                 err = self._process(msg)
                 if err:
+<<<<<<< HEAD
                     logger.error("Error has occurred for message '%s'", str(msg))
                     failedOnError = True
+=======
+                    self.logger.error("Error has occurred for message '%s'", str(msg))
+                    self.monitor.record_error(str(err))
+                    if self.retryEnabled:
+                        self.logger.warn('message is sent to retry topic %s', self.retryDestination.config.out_topic)
+                        self.retryDestination.write(msg)
+                        self.monitor.record_write(self.retryDestination.topic)
+                        self.logger.error(msg.log_info())
+                        self.logger.error(msg.log_content())
+                        hasError = True
+>>>>>>> 856bd93... fix logger in worker
                 else:
                     msg.update_version(self.name, self.version)
             else:
-                logger.warn('Message has been processed by higher version processor, no processed')
+                self.logger.warn('Message has been processed by higher version processor, no processed')
 
             # check if output is valid
             if self.flag != self.NO_OUTPUT and not failedOnError:
                 if msg.is_valid():
-                    logger.info("Writing message '%s'", str(msg))
+                    self.logger.info("Writing message '%s'", str(msg))
                     self.destination.write(msg)
                     self.monitor.record_write(self.destination.topic)
                 else:
+<<<<<<< HEAD
                     failedOnError = True
                     logger.error('generated message is invalid, skipping')
                     logger.warn(msg.log_info())
@@ -288,6 +301,15 @@ class Processor(WorkerCore):
                 self.retryDestination.write(msg)
                 self.monitor.record_write(self.retryDestination.topic)
 
+=======
+                    if self.retryEnabled:
+                        self.logger.warn('message is sent to retry topic %s', self.retryDestination.config.out_topic)
+                        self.retryDestination.write(msg)
+                        self.monitor.record_write(self.retryDestination.topic)
+                    self.logger.error('generated message is invalid, skipping')
+                    self.logger.warn(msg.log_info())
+                    self.logger.warn(msg.log_content())
+>>>>>>> 856bd93... fix logger in worker
             self.source.acknowledge()
 
     def start(self, batch_mode=False, monitoring=False):
@@ -295,20 +317,20 @@ class Processor(WorkerCore):
         try:
             options = self.options
         except AttributeError as e:
-            logger.critical('Did you forget to run .parse_args before start?')
+            self.logger.critical('Did you forget to run .parse_args before start?')
             raise e
 
-        logger.setLevel(level=logging.INFO)
+        self.logger.setLevel(level=logging.INFO)
         if options.debug:
-            logger.setLevel(level=logging.DEBUG)
+            self.logger.setLevel(level=logging.DEBUG)
 
         if options.rewind:
             # consumer.seek(pulsar.MessageId.earliest)
-            logger.info('seeked to earliest message available as requested')
+            self.logger.info('seeked to earliest message available as requested')
 
         self.setup()
 
-        logger.info('start listening on topic %s', self.source.topic)
+        self.logger.info('start listening on topic %s', self.source.topic)
         # if batch_mode:
         #  self._run_batch()
         # else:
@@ -324,9 +346,9 @@ class Processor(WorkerCore):
             if self.flag != self.NO_OUTPUT:
                 self.destination.close()
         except PipelineException as e:
-            e.log(logger)
+            e.log(self.logger)
         except Exception as e:
-            logger.error(traceback.format_exc())
+            self.logger.error(traceback.format_exc())
             self.monitor.record_error(str(e))
 
         self.monitor.record_finish()

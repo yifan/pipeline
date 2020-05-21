@@ -1,8 +1,8 @@
 #!/usr/bin/env python
-import argparse
 import json
 import logging
 import os
+import sys
 from abc import ABC, abstractmethod
 
 import pulsar
@@ -165,7 +165,10 @@ class FileSource(SourceTap):
 
     def __init__(self, config, logger=logger):
         super().__init__(config, logger)
-        self.infile = config.infile
+        if config.infile == '-':
+            self.infile = sys.stdin
+        else:
+            self.infile = open(config.infile, 'r')
         self.repeat = config.repeat
 
     def __repr__(self):
@@ -174,7 +177,7 @@ class FileSource(SourceTap):
     @classmethod
     def add_arguments(cls, parser):
         super().add_arguments(parser)
-        parser.add_argument('--infile', type=argparse.FileType('r'), required=True,
+        parser.add_argument('--infile', type=str, required=True,
                             help='input file containing one message in JSON format per line')
         parser.add_argument('--repeat', type=int, default=1,
                             help='repeat input N times')
@@ -183,7 +186,8 @@ class FileSource(SourceTap):
         for i in range(0, self.repeat):
             for line in self.infile:
                 yield self.messageClass(line)
-            self.infile.seek(0, 0)
+            if self.repeat > 1:
+                self.infile.seek(0, 0)
 
 
 class FileDestination(DestinationTap):
@@ -203,7 +207,11 @@ class FileDestination(DestinationTap):
 
     def __init__(self, config, logger=logger):
         super().__init__(config, logger)
-        self.outFile = config.outfile
+        self.filename = config.outfile
+        if config.outfile == '-':
+            self.outFile = sys.stdout
+        else:
+            self.outFile = open(config.outfile, 'w')
 
     def __repr__(self):
         return 'FileDestination("{}")'.format(self.outFile.name)
@@ -211,15 +219,15 @@ class FileDestination(DestinationTap):
     @classmethod
     def add_arguments(cls, parser):
         super().add_arguments(parser)
-        parser.add_argument('--outfile', type=argparse.FileType('w'), required=True,
+        parser.add_argument('--outfile', type=str, required=True,
                             help='output json file')
 
     def write(self, message):
-        self.outFile.write(message.serialize().decode('utf-8'))
-        self.outFile.write('\n')
+        print(message.serialize().decode('utf-8'), file=self.outFile)
 
     def close(self):
-        self.outFile.close()
+        if self.filename != '-':
+            self.outFile.close()
 
 
 class KafkaSource(SourceTap):

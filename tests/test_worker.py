@@ -75,6 +75,13 @@ class TestWorkerCore(TestCase):
         with open(os.path.join(self.testDir.name, 'outfile.txt'), 'r') as f:
             assert len(list(f)) == 3
 
+    def test_file_stdin_stdout(self):
+        processor = Processor('fileprocessor', '0.1.0')
+        processor.parse_args(args=['--kind', 'FILE', '--in-topic', 'test', '--out-topic', 'test',
+                                   '--infile', os.path.join(self.testDir.name, 'infile.txt'),
+                                   '--outfile', '-'])
+        processor.start()
+
     def test_file_repeat(self):
         processor = Processor('fileprocessor', '0.1.0')
         processor.parse_args(args=['--kind', 'FILE', '--in-topic', 'test', '--out-topic', 'test',

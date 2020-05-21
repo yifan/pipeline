@@ -11,7 +11,7 @@ with codecs.open(os.path.join(os.path.dirname(__file__), "README.rst"), "r", "ut
     readme = f.read()
 
 setup(name="tanbih-pipeline",
-      version="0.0.1",
+      version="0.0.3",
       description="a pipeline framework for streaming processing",
       long_description=readme,
       long_description_content_type='text/x-rst',
@@ -29,5 +29,5 @@ setup(name="tanbih-pipeline",
       py_modules=["pipeline", ],
       include_package_data=True,
       zip_safe=False,
-      install_requires=required
+      install_requires=required,
       )
