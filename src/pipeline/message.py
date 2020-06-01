@@ -3,7 +3,7 @@ from abc import ABC
 import time
 import traceback
 
-from .exception import PipelineException
+from .exception import PipelineError
 
 
 class Message(ABC):
@@ -25,15 +25,15 @@ class Message(ABC):
                 elif isinstance(other, str):
                     [self.info, self.dct] = self.deserialize(other)
                 else:
-                    raise PipelineException(
+                    raise PipelineError(
                         'Message needs to be initialized with a message, a dict or str/bytes, not "{}"'
                         .format(type(other)),
                         data=other
                     )
-        except PipelineException as e:
+        except PipelineError as e:
             raise e
         except Exception as e:
-            raise PipelineException(
+            raise PipelineError(
                 str(e), data=other, traceback=traceback.print_exception()
             )
 

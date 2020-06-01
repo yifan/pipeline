@@ -9,14 +9,16 @@ class TestWorkerCore(TestCase):
     def setUp(self):
         self.testDir = tempfile.TemporaryDirectory()
         self.infile = open(os.path.join(self.testDir.name, 'infile.txt'), 'w')
-        self.infile.write("""[{}, {"language":"en"}]\n[{}, {"language":"it"}]\n[{}, {"language":"ar"}]""")
+        self.infile.write("""[{},{"key":1, "language":"en"}]
+                             [{},{"key":2, "language":"it"}]
+                             [{},{"key":3, "language":"ar"}]""")
         self.infile.close()
 
     def test_mem_generator(self):
         class MyGenerator(Generator):
             def generate(self):
                 for i in range(3):
-                    yield {"id": i}
+                    yield {"key": i}
         generator = MyGenerator('generator', '0.1.0')
         generator.parse_args(args=['--kind', 'MEM', '--out-topic', 'test'])
         generator.start()
@@ -26,6 +28,20 @@ class TestWorkerCore(TestCase):
         assert dct['version'] == [0, 1, 0]
         assert dct['order'] == 1
 
+    def test_mem_generator_with_data_writer(self):
+        class MyGenerator(Generator):
+            def generate(self):
+                for i in range(3):
+                    self.dataWriter.write(i, dict([(field, field) for field in self.dataWriter.fields]))
+                    yield {"key": i}
+        generator = MyGenerator('generator', '0.1.0', dataKind='MEM')
+        generator.parse_args(args=['--kind', 'MEM', '--out-topic', 'test', '--out-fields', 'key1,key2'])
+        generator.start()
+        assert len(generator.dataWriter.results) == 3
+        for i in range(3):
+            assert i in generator.dataWriter.results
+        assert generator.dataWriter.results[0]['key1'] == 'key1'
+
     def test_generator_invalid_message(self):
         class InvalidMessage(Message):
             def is_valid(self):
@@ -34,7 +50,7 @@ class TestWorkerCore(TestCase):
         class MyGenerator(Generator):
             def generate(self):
                 for i in range(3):
-                    yield {"id": i}
+                    yield {"key": i}
 
         generator = MyGenerator('generator', '0.1.0', messageClass=InvalidMessage)
         generator.parse_args(args=['--kind', 'MEM', '--out-topic', 'test'])
@@ -65,6 +81,43 @@ class TestWorkerCore(TestCase):
         pro1.start()
         assert len(pro1.destination.results) == 0
         assert len(pro1.retryDestination.results) == 3
+
+    def test_processor(self):
+        class MyProcessor(Processor):
+            def process(self, dct):
+                dct['newkey'] = 'newval'
+                return None
+        msgs = [{'key': '1'}, {'key': '2'}, {'key': '3'}]
+        pro1 = MyProcessor('tester1', '0.1.0')
+        pro1.parse_args(args=['--kind', 'MEM', '--out-topic', 'test'], config={'data': msgs})
+        pro1.start()
+        assert len(pro1.destination.results) == 3
+        m = pro1.destination.results[0]
+        assert m.dct['newkey'] == 'newval'
+
+    def test_processor_with_data(self):
+        class MyProcessor(Processor):
+            def process(self, dct):
+                self.dataWriter.write(dct['key'], {'key3': self.dataReader.read(dct['key'])})
+                return None
+        msgs = [{'key': 'm1'}, {'key': 'm2'}, {'key': 'm3'}]
+        pro1 = MyProcessor('tester1', '0.1.0', dataKind='MEM')
+        pro1.parse_args(
+            args='--kind MEM --out-topic test --in-fields key1,key2 --out-fields key3'.split(),
+            config={
+                'data': msgs,
+                'mem': {
+                    'm1': {'key1': 'val11', 'key2': 'val21'},
+                    'm2': {'key1': 'val12', 'key2': 'val22'},
+                    'm3': {'key1': 'val13', 'key2': 'val23'},
+                }
+            }
+        )
+        pro1.start()
+        assert len(pro1.destination.results) == 3
+        m = pro1.dataWriter.results['m1']
+        assert m['key3']['key1'] == 'val11'
+        assert m['key3']['key2'] == 'val21'
 
     def test_file(self):
         processor = Processor('fileprocessor', '0.1.0')
@@ -120,7 +173,7 @@ class TestWorkerCore(TestCase):
             def is_valid(self):
                 return False
 
-        msgs = [{'language': 'en'}, {'language': 'it'}]
+        msgs = [{"key": 1, 'language': 'en'}, {"key": 2, 'language': 'it'}]
         splitter = Splitter('spliter1', '0.1.0', messageClass=InvalidMessage)
         splitter.parse_args(args=['--kind', 'MEM', '--out-topic', 'test'], config={'data': msgs})
         splitter.start()

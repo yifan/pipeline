@@ -6,7 +6,8 @@ import traceback
 from abc import ABC
 from copy import copy
 
-from .exception import PipelineException
+from .data import DataReaderOf, DataWriterOf
+from .exception import PipelineError
 from .message import Message
 from .monitor import Monitor
 from .tap import DestinationOf, SourceOf
@@ -22,7 +23,7 @@ class WorkerCore(ABC):
     NO_INPUT = 1
     NO_OUTPUT = 2
 
-    def __init__(self, name, version, description, flag, messageClass):
+    def __init__(self, name, version, description, flag, messageClass, dataKind):
         self.name = name
         self.version = [int(x) for x in version.split('.')]
         if len(self.version) != 3:
@@ -32,6 +33,8 @@ class WorkerCore(ABC):
         self.logger = logger
         self.flag = flag
         self.messageClass = messageClass
+
+        self.dataKind = dataKind
 
         self.parser = argparse.ArgumentParser(
             prog=name,
@@ -55,8 +58,12 @@ class WorkerCore(ABC):
         self.kind, extras = parse_kind(args)
         if self.flag != self.NO_INPUT:
             self.sourceClass = SourceOf(self.kind)
+            if self.dataKind:
+                self.dataReaderClass = DataReaderOf(self.dataKind)
         if self.flag != self.NO_OUTPUT:
             self.destinationClass = DestinationOf(self.kind)
+            if self.dataKind:
+                self.dataWriterClass = DataWriterOf(self.dataKind)
         self._add_arguments(self.parser)
         if config:
             self.parser.set_defaults(**config)
@@ -64,8 +71,12 @@ class WorkerCore(ABC):
         self.options = self.parser.parse_args(extras)
         if self.flag != self.NO_INPUT:
             self.source = self.sourceClass(self.options, logger=self.logger)
+            if self.dataKind:
+                self.dataReader = self.dataReaderClass(self.options, logger=self.logger)
         if self.flag != self.NO_OUTPUT:
             self.destination = self.destinationClass(self.options, logger=self.logger)
+            if self.dataKind:
+                self.dataWriter = self.dataWriterClass(self.options, logger=self.logger)
         # report worker info to monitor
         self.monitor.record_worker_info()
 
@@ -74,8 +85,12 @@ class WorkerCore(ABC):
                             help='debug, more verbose logging')
         if self.flag != self.NO_INPUT:
             self.sourceClass.add_arguments(parser)
+            if self.dataKind:
+                self.dataReaderClass.add_arguments(parser)
         if self.flag != self.NO_OUTPUT:
             self.destinationClass.add_arguments(parser)
+            if self.dataKind:
+                self.dataWriterClass.add_arguments(parser)
         self.add_arguments(parser)
 
     def add_arguments(self, parser):
@@ -83,8 +98,8 @@ class WorkerCore(ABC):
 
 
 class Generator(WorkerCore):
-    def __init__(self, name, version, description=None, messageClass=Message):
-        super().__init__(name, version, description, Generator.NO_INPUT, messageClass)
+    def __init__(self, name, version, description=None, messageClass=Message, dataKind=None):
+        super().__init__(name, version, description, Generator.NO_INPUT, messageClass, dataKind)
 
     def generate(self):
         """a generator to generate dict."""
@@ -126,7 +141,7 @@ class Generator(WorkerCore):
                     self.logger.error(msg.log_content())
                 self.monitor.record_write(self.destination.topic)
             self.destination.close()
-        except PipelineException as e:
+        except PipelineError as e:
             e.log(self.logger)
         except Exception as e:
             self.logger.error(traceback.format_exc())
@@ -138,8 +153,8 @@ class Generator(WorkerCore):
 class Splitter(WorkerCore):
     """ Splitter will write to a topic whose name is based on a function
     """
-    def __init__(self, name, version, description=None, messageClass=Message):
-        super().__init__(name, version, description, Splitter.NO_FLAG, messageClass)
+    def __init__(self, name, version, description=None, messageClass=Message, dataKind=None):
+        super().__init__(name, version, description, Splitter.NO_FLAG, messageClass, dataKind)
         # keep a dictionary for 'topic': 'destination', self.destination is only used to parse
         # command line arguments
         self.destinations = {}
@@ -200,7 +215,7 @@ class Splitter(WorkerCore):
             self._run_streaming()
             self.source.close()
             self.destination.close()
-        except PipelineException as e:
+        except PipelineError as e:
             e.log(self.logger)
         except Exception as e:
             self.logger.error(traceback.format_exc())
@@ -209,9 +224,9 @@ class Splitter(WorkerCore):
 
 
 class Processor(WorkerCore):
-    def __init__(self, name, version, description=None, nooutput=False, messageClass=Message):
+    def __init__(self, name, version, description=None, nooutput=False, messageClass=Message, dataKind=None):
         flag = Processor.NO_OUTPUT if nooutput else None
-        super().__init__(name, version, description, flag, messageClass)
+        super().__init__(name, version, description, flag, messageClass, dataKind)
         self.retryEnabled = False
 
     def use_retry_topic(self, name=None):
@@ -263,20 +278,8 @@ class Processor(WorkerCore):
                 self.logger.info("Processing message '%s'", str(msg))
                 err = self._process(msg)
                 if err:
-<<<<<<< HEAD
                     logger.error("Error has occurred for message '%s'", str(msg))
                     failedOnError = True
-=======
-                    self.logger.error("Error has occurred for message '%s'", str(msg))
-                    self.monitor.record_error(str(err))
-                    if self.retryEnabled:
-                        self.logger.warn('message is sent to retry topic %s', self.retryDestination.config.out_topic)
-                        self.retryDestination.write(msg)
-                        self.monitor.record_write(self.retryDestination.topic)
-                        self.logger.error(msg.log_info())
-                        self.logger.error(msg.log_content())
-                        hasError = True
->>>>>>> 856bd93... fix logger in worker
                 else:
                     msg.update_version(self.name, self.version)
             else:
@@ -289,7 +292,6 @@ class Processor(WorkerCore):
                     self.destination.write(msg)
                     self.monitor.record_write(self.destination.topic)
                 else:
-<<<<<<< HEAD
                     failedOnError = True
                     logger.error('generated message is invalid, skipping')
                     logger.warn(msg.log_info())
@@ -301,15 +303,6 @@ class Processor(WorkerCore):
                 self.retryDestination.write(msg)
                 self.monitor.record_write(self.retryDestination.topic)
 
-=======
-                    if self.retryEnabled:
-                        self.logger.warn('message is sent to retry topic %s', self.retryDestination.config.out_topic)
-                        self.retryDestination.write(msg)
-                        self.monitor.record_write(self.retryDestination.topic)
-                    self.logger.error('generated message is invalid, skipping')
-                    self.logger.warn(msg.log_info())
-                    self.logger.warn(msg.log_content())
->>>>>>> 856bd93... fix logger in worker
             self.source.acknowledge()
 
     def start(self, batch_mode=False, monitoring=False):
@@ -345,7 +338,7 @@ class Processor(WorkerCore):
             self.source.close()
             if self.flag != self.NO_OUTPUT:
                 self.destination.close()
-        except PipelineException as e:
+        except PipelineError as e:
             e.log(self.logger)
         except Exception as e:
             self.logger.error(traceback.format_exc())

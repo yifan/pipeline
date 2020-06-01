@@ -1,4 +1,4 @@
-class PipelineException(Exception):
+class PipelineError(Exception):
     def __init__(self, message, data=None, traceback=None):
         super().__init__(message)
         self.data = data
