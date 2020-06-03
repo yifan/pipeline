@@ -71,7 +71,7 @@ class TestWorkerCore(TestCase):
                                    '--outfile', os.path.join(self.testDir.name, 'outfile.txt')])
         processor.start()
         with open(os.path.join(self.testDir.name, 'outfile.txt'), 'r') as f:
-            assert len([l for l in f]) == 3
+            assert len(list(f)) == 3
 
     def test_file_repeat(self):
         processor = Processor('fileprocessor', '0.1.0')
@@ -81,7 +81,7 @@ class TestWorkerCore(TestCase):
                                    '--outfile', os.path.join(self.testDir.name, 'outfile.txt')])
         processor.start()
         with open(os.path.join(self.testDir.name, 'outfile.txt'), 'r') as f:
-            assert len([l for l in f]) == 6
+            assert len(list(f)) == 6
 
     def test_mem_processor(self):
         msgs = [{}, {}, {}]
