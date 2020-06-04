@@ -18,9 +18,17 @@ class TestMessage(TestCase):
         m.update_version('tester', [0, 1, 0])
         assert m.updated is True
         assert m.get_version('tester')['version'] == [0, 1, 0]
+        assert m.get_version('tester')['order'] == 1
+        m.updated = False
         m.update_version('tester', [0, 1, 1])
         assert m.updated is True
         assert m.get_version('tester')['version'] == [0, 1, 1]
+        assert m.get_version('tester')['order'] == 1
+        m.updated = False
+        m.update_version('validator', [0, 0, 1])
+        assert m.updated is True
+        assert m.get_version('validator')['version'] == [0, 0, 1]
+        assert m.get_version('validator')['order'] == 2
 
     def test_subclass(self):
         class NewMessage(Message):

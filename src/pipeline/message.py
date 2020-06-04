@@ -73,8 +73,7 @@ class Message(ABC):
             return json.loads(raw)
 
     def get_version(self, name):
-        return self.info.setdefault('__info', {}).setdefault(
-            name, {'version': [], })
+        return self.info.setdefault(name, {'version': [], })
 
     def get_versions(self):
         return self.info
