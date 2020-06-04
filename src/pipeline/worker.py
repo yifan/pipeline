@@ -215,8 +215,7 @@ class Processor(WorkerCore):
         self.retryEnabled = False
 
     def use_retry_topic(self, name=None):
-        """
-            Retry topic is introduced to solve error handling by saving
+        """ Retry topic is introduced to solve error handling by saving
             message being processed when error occurs to a separate topic.
             In this way, these messages can be reprocessed at a later stage.
         """
