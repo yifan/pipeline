@@ -415,7 +415,7 @@ class PulsarSource(SourceTap):
             self.name,
             self.subscription,
             receiver_queue_size=1,
-            consumer_type=pulsar.ConsumerType.shared,
+            consumer_type=pulsar.ConsumerType.Shared,
         )
         self.last_msg = None
 
