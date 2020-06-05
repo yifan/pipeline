@@ -219,7 +219,7 @@ class Processor(WorkerCore):
             message being processed when error occurs to a separate topic.
             In this way, these messages can be reprocessed at a later stage.
         """
-        config = copy(self.destination.config)
+        config = copy(self.source.config)
         config.out_topic = name if name else self.name + "-retry"
         self.retryDestination = self.destinationClass(config, logger=logger)
         self.retryEnabled = True
@@ -256,38 +256,38 @@ class Processor(WorkerCore):
             self.monitor.record_read(self.source.topic)
             logger.info("Received message '%s'", str(msg))
 
-            hasError = False
+            failedOnError = False
+
+            # process message
             if msg.should_update(self.name, self.version):
                 logger.info("Processing message '%s'", str(msg))
                 err = self._process(msg)
                 if err:
                     logger.error("Error has occurred for message '%s'", str(msg))
-                    self.monitor.record_error(str(err))
-                    if self.retryEnabled:
-                        logger.warn('message is sent to retry topic %s', self.retryDestination.config.out_topic)
-                        self.retryDestination.write(msg)
-                        self.monitor.record_write(self.retryDestination.topic)
-                        logger.error(msg.log_info())
-                        logger.error(msg.log_content())
-                        hasError = True
+                    failedOnError = True
                 else:
                     msg.update_version(self.name, self.version)
             else:
                 logger.warn('Message has been processed by higher version processor, no processed')
 
-            if self.flag != self.NO_OUTPUT and not hasError:
+            # check if output is valid
+            if self.flag != self.NO_OUTPUT and not failedOnError:
                 if msg.is_valid():
                     logger.info("Writing message '%s'", str(msg))
                     self.destination.write(msg)
                     self.monitor.record_write(self.destination.topic)
                 else:
-                    if self.retryEnabled:
-                        logger.warn('message is sent to retry topic %s', self.retryDestination.config.out_topic)
-                        self.retryDestination.write(msg)
-                        self.monitor.record_write(self.retryDestination.topic)
+                    failedOnError = True
                     logger.error('generated message is invalid, skipping')
                     logger.warn(msg.log_info())
                     logger.warn(msg.log_content())
+
+            # retry if necessary
+            if failedOnError and self.retryEnabled:
+                logger.warn('message is sent to retry topic %s', self.retryDestination.config.out_topic)
+                self.retryDestination.write(msg)
+                self.monitor.record_write(self.retryDestination.topic)
+
             self.source.acknowledge()
 
     def start(self, batch_mode=False, monitoring=False):

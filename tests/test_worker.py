@@ -49,8 +49,10 @@ class TestWorkerCore(TestCase):
         msgs = [{}, {}, {}]
         pro1 = Processor('tester1', '0.1.0', messageClass=InvalidMessage)
         pro1.parse_args(args=['--kind', 'MEM', '--out-topic', 'test'], config={'data': msgs})
+        pro1.use_retry_topic('optional-retry-topic')
         pro1.start()
         assert len(pro1.destination.results) == 0
+        assert len(pro1.retryDestination.results) == 3
 
     def test_processor_retry(self):
         class RetryProcessor(Processor):
