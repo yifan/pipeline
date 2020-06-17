@@ -1,12 +1,12 @@
 import logging
 import os
 from abc import ABC, abstractmethod
+from types import SimpleNamespace
 
 import mysql.connector as mysql
 import redis
 
 from .exception import PipelineError
-from .utils import parse_connection_string
 
 FORMAT = '%(asctime)-15s %(levelname)s %(message)s'
 logging.basicConfig(format=FORMAT)
@@ -30,12 +30,56 @@ def DataWriterOf(typename):
             return cls
 
 
+def parse_connection_string(connectionString, no_port=False, no_username=False, defaults={}):
+    """ Parse connection string in user:password@host:port format
+
+    >>> parse_connection_string("username:password@host:port")
+    namespace(host='host', password='password', port='port', username='username')
+    >>> parse_connection_string("username@host")
+    namespace(host='host', password=None, port=None, username='username')
+    >>> parse_connection_string("username:password@host:port", no_port=True)
+    namespace(host='host:port', password='password', port=None, username='username')
+    >>> parse_connection_string("password@host:port", no_username=True)
+    namespace(host='host', password='password', port='port', username=None)
+    """
+    *userNameAndPasswordOrEmpty, remaining = connectionString.split('@')
+    password = None
+    if userNameAndPasswordOrEmpty:
+        if no_username:
+            username, password = None, userNameAndPasswordOrEmpty[0]
+        else:
+            username, *passwordOrEmpty = userNameAndPasswordOrEmpty[0].split(':')
+            if passwordOrEmpty:
+                password = passwordOrEmpty[0]
+    else:
+        username = None
+    if not username:
+        username = defaults.get('username')
+
+    port = None
+    if no_port:
+        host = remaining
+    else:
+        host, *portOrEmpty = remaining.split(':')
+        if portOrEmpty:
+            port = portOrEmpty[0]
+    if not port:
+        port = defaults.get('port')
+
+    return SimpleNamespace(
+        host=host,
+        port=port,
+        username=username,
+        password=password,
+    )
+
+
 class DataReader(ABC):
     kind = 'NONE'
 
     def __init__(self, config, logger=logger):
         self.config = config
-        self.fields = self.config.in_fields.split(',')
+        self.fields = self.config.in_fields.split(',') if self.config.in_fields else []
         self.logger = logger
 
     @classmethod
@@ -64,7 +108,7 @@ class DataWriter(ABC):
 
     def __init__(self, config, logger=logger):
         self.config = config
-        self.fields = self.config.out_fields.split(',')
+        self.fields = self.config.in_fields.split(',') if self.config.in_fields else []
         self.logger = logger
 
     @classmethod
@@ -137,6 +181,8 @@ class MySQLReader(DataReader):
     ...     MySQLReader(config, "text")
     MySQLReader(localhost:3306/database/table):['text']
     """
+    kind = 'MYSQL'
+
     def __init__(self, config, logger=logger):
         super().__init__(config, logger)
         self.setup()
@@ -212,6 +258,8 @@ class MySQLWriter(DataWriter):
     ...     MySQLWriter(config, "text")
     MySQLWriter(localhost:3306/database/table):['text']
     """
+    kind = 'MYSQL'
+
     def __init__(self, config, logger=logger):
         super().__init__(config, logger)
         self.setup()
@@ -281,6 +329,8 @@ class RedisReader(DataReader):
     ...     RedisReader(config)
     RedisReader(localhost:6379):['text', 'title']
     """
+    kind = 'REDIS'
+
     def __init__(self, config, logger=logger):
         super().__init__(config, logger)
         self.setup()
@@ -332,6 +382,8 @@ class RedisWriter(DataWriter):
     ...     RedisWriter(config)
     RedisWriter(localhost:6379):['text', 'title']
     """
+    kind = 'REDIS'
+
     def __init__(self, config, logger=logger):
         super().__init__(config, logger)
         self.setup()
@@ -358,7 +410,11 @@ class RedisWriter(DataWriter):
         )
 
     def setup(self):
-        self.redisConfig = parse_connection_string(self.config.redis, no_username=True)
+        self.redisConfig = parse_connection_string(
+            self.config.redis, 
+            no_username=True,
+            defaults={ 'port': 6379 },
+        )
         self.redis = redis.Redis(
             host=self.redisConfig.host,
             port=self.redisConfig.port,
@@ -373,6 +429,7 @@ class RedisWriter(DataWriter):
             TODO: check error after mset
         """
         self.redis.mset(
-            dict(['{}:{}'.format(key, k) for k, v in kvs.items()]),
-            ex=self.redisConfig.expire,
+            dict([(key, k) for k, v in kvs.items()]),
         )
+        for key in kvs.keys():
+            self.redis.expire(key, self.config.expire)

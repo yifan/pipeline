@@ -55,7 +55,9 @@ class WorkerCore(ABC):
         return self.flag == self.NO_OUTPUT
 
     def parse_args(self, args=sys.argv[1:], config=None):
-        self.kind, extras = parse_kind(args)
+        known, extras = parse_kind(args)
+        self.kind = known.kind
+        self.dataKind = known.dataKind
         if self.flag != self.NO_INPUT:
             self.sourceClass = SourceOf(self.kind)
             if self.dataKind:
@@ -64,6 +66,8 @@ class WorkerCore(ABC):
             self.destinationClass = DestinationOf(self.kind)
             if self.dataKind:
                 self.dataWriterClass = DataWriterOf(self.dataKind)
+        import sys
+        print(self.dataKind, file=sys.stderr)
         self._add_arguments(self.parser)
         if config:
             self.parser.set_defaults(**config)
