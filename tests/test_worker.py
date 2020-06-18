@@ -35,7 +35,10 @@ class TestWorkerCore(TestCase):
                     self.dataWriter.write(i, dict([(field, field) for field in self.dataWriter.fields]))
                     yield {"key": i}
         generator = MyGenerator('generator', '0.1.0', dataKind='MEM')
-        generator.parse_args(args=['--kind', 'MEM', '--out-topic', 'test', '--out-fields', 'key1,key2'])
+        generator.parse_args(args=[
+            '--kind', 'MEM', '--out-topic', 'test',
+            '--out-fields', 'key1,key2']
+        )
         generator.start()
         assert len(generator.dataWriter.results) == 3
         for i in range(3):

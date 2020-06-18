@@ -57,7 +57,7 @@ class WorkerCore(ABC):
     def parse_args(self, args=sys.argv[1:], config=None):
         known, extras = parse_kind(args)
         self.kind = known.kind
-        self.dataKind = known.dataKind
+        self.dataKind = known.dataKind or self.dataKind
         if self.flag != self.NO_INPUT:
             self.sourceClass = SourceOf(self.kind)
             if self.dataKind:

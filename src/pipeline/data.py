@@ -108,7 +108,7 @@ class DataWriter(ABC):
 
     def __init__(self, config, logger=logger):
         self.config = config
-        self.fields = self.config.in_fields.split(',') if self.config.in_fields else []
+        self.fields = self.config.out_fields.split(',') if self.config.out_fields else []
         self.logger = logger
 
     @classmethod
@@ -411,9 +411,9 @@ class RedisWriter(DataWriter):
 
     def setup(self):
         self.redisConfig = parse_connection_string(
-            self.config.redis, 
+            self.config.redis,
             no_username=True,
-            defaults={ 'port': 6379 },
+            defaults={'port': 6379},
         )
         self.redis = redis.Redis(
             host=self.redisConfig.host,

@@ -1,8 +1,6 @@
 import argparse
 import os
 
-from types import SimpleNamespace
-
 from .data import KindsOfDataReader
 from .tap import KindsOfSource
 
