@@ -441,11 +441,14 @@ class PulsarSource(SourceTap):
         parser.add_argument('--subscription', type=str,
                             default=os.environ.get('SUBSCRIPTION', 'subscription'),
                             help='subscription to read')
+        parser.add_argument('--timeout', type=int,
+                            default=os.environ.get('TIMEOUT', 30000),
+                            help='request timeout')
 
-    def read(self, timeout=0):
+    def read(self):
         while True:
             try:
-                msg = self.consumer.receive()
+                msg = self.consumer.receive(timeout_millis=self.config.timeout)
                 self.last_msg = msg
                 yield self.messageClass(msg.data())
             except Exception as ex:
