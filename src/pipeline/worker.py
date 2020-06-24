@@ -66,8 +66,6 @@ class WorkerCore(ABC):
             self.destinationClass = DestinationOf(self.kind)
             if self.dataKind:
                 self.dataWriterClass = DataWriterOf(self.dataKind)
-        import sys
-        print(self.dataKind, file=sys.stderr)
         self._add_arguments(self.parser)
         if config:
             self.parser.set_defaults(**config)
