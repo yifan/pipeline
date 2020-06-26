@@ -170,6 +170,7 @@ class FileSource(SourceTap):
         else:
             self.infile = open(config.infile, 'r')
         self.repeat = config.repeat
+        self.logger.info('File Source: %s (repeat %d)', config.infile, config.repeat)
 
     def __repr__(self):
         return 'FileSource("{}")'.format(self.infile.name)
@@ -212,6 +213,7 @@ class FileDestination(DestinationTap):
             self.outFile = sys.stdout
         else:
             self.outFile = open(config.outfile, 'w')
+        self.logger.info('File Destination: %s', config.outfile)
 
     def __repr__(self):
         return 'FileDestination("{}")'.format(self.outFile.name)
@@ -228,6 +230,7 @@ class FileDestination(DestinationTap):
     def close(self):
         if self.filename != '-':
             self.outFile.close()
+            self.logger.info('File Destination closed')
 
 
 class KafkaSource(SourceTap):

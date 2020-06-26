@@ -46,19 +46,21 @@ class TestWorkerCore(TestCase):
         assert generator.dataWriter.results[0]['key1'] == 'key1'
 
     def test_generator_invalid_message(self):
+        valids = [True, True, False]
+
         class InvalidMessage(Message):
             def is_valid(self):
-                return False
+                return self.dct.get('valid', False)
 
         class MyGenerator(Generator):
             def generate(self):
-                for i in range(3):
-                    yield {"key": i}
+                for i, v in enumerate(valids):
+                    yield {"key": i, "valid": v}
 
         generator = MyGenerator('generator', '0.1.0', messageClass=InvalidMessage)
         generator.parse_args(args=['--kind', 'MEM', '--out-topic', 'test'])
         generator.start()
-        assert len(generator.destination.results) == 0
+        assert len(generator.destination.results) == 2
 
     def test_processor_invalid_message(self):
         class InvalidMessage(Message):

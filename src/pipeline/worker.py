@@ -45,6 +45,8 @@ class WorkerCore(ABC):
 
         self.monitor = Monitor(self)
 
+        self.logger.info("Pipeline Worker %s (%s)", name, version)
+
     def setup(self):
         """loading code goes here"""
 
@@ -252,7 +254,7 @@ class Processor(WorkerCore):
         try:
             return self.process(msg.dct)
         except Exception as e:
-            # TODO log detailed errors
+            self.logger.error(traceback.format_exc())
             self.logger.error(msg.log_content())
             raise e
 
@@ -280,7 +282,7 @@ class Processor(WorkerCore):
                 self.logger.info("Processing message '%s'", str(msg))
                 err = self._process(msg)
                 if err:
-                    logger.error("Error has occurred for message '%s'", str(msg))
+                    self.logger.error("Error has occurred for message '%s': %s", str(msg), err)
                     failedOnError = True
                 else:
                     msg.update_version(self.name, self.version)
@@ -295,13 +297,13 @@ class Processor(WorkerCore):
                     self.monitor.record_write(self.destination.topic)
                 else:
                     failedOnError = True
-                    logger.error('generated message is invalid, skipping')
+                    logger.error('result message is invalid, skipping')
                     logger.warn(msg.log_info())
                     logger.warn(msg.log_content())
 
             # retry if necessary
             if failedOnError and self.retryEnabled:
-                logger.warn('message is sent to retry topic %s', self.retryDestination.config.out_topic)
+                self.logger.warn('message is sent to retry topic %s', self.retryDestination.config.out_topic)
                 self.retryDestination.write(msg)
                 self.monitor.record_write(self.retryDestination.topic)
 
