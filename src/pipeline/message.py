@@ -11,6 +11,7 @@ class Message(ABC):
 
     def __init__(self, other=None):
         self.updated = False
+        self.terminated = False
         self.info = {}
         self.dct = {}
         try:
@@ -30,11 +31,11 @@ class Message(ABC):
                         .format(type(other)),
                         data=other
                     )
-        except PipelineError as e:
-            raise e
-        except Exception as e:
+        except PipelineError as error:
+            raise error
+        except Exception as error:
             raise PipelineError(
-                str(e), data=other, traceback=traceback.print_exception()
+                str(error), data=other, traceback=traceback.print_exception()
             )
 
     def __str__(self):
@@ -68,9 +69,8 @@ class Message(ABC):
     def deserialize(cls, raw):
         """deserialize to json."""
         if isinstance(raw, bytes):
-            return json.loads(raw.decode('utf-8'))
-        else:
-            return json.loads(raw)
+            raw = raw.decode('utf-8')
+        return json.loads(raw)
 
     def get_version(self, name):
         return self.info.setdefault(name, {'version': [], })
@@ -97,3 +97,15 @@ class Message(ABC):
             if 'order' not in versionDct:
                 versionDct['order'] = len(self.get_versions())
             self.updated = True
+
+    def terminates(self):
+        """ set terminated flag for this message """
+        self.terminated = True
+
+    def get(self, key, default=None):
+        """ get value of key in content """
+        return self.dct.get(key, default)
+
+    def update(self, other):
+        """ update message content """
+        self.dct.update(other)

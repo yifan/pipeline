@@ -136,11 +136,11 @@ class Generator(WorkerCore):
         try:
             for msg in self._generate():
                 msg.update_version(self.name, self.version)
-                self.logger.info('generated %s', msg)
+                self.logger.info('Generated %s', msg)
                 if msg.is_valid():
                     self.destination.write(msg)
                 else:
-                    self.logger.error('generated message is invalid, skipping')
+                    self.logger.error('Generated message is invalid, skipping')
                     self.logger.error(msg.log_info())
                     self.logger.error(msg.log_content())
                 self.monitor.record_write(self.destination.topic)
@@ -183,7 +183,7 @@ class Splitter(WorkerCore):
             if msg.is_valid():
                 destination.write(msg)
             else:
-                self.logger.error('generated message is invalid, skipping')
+                self.logger.error('Produced message is invalid, skipping')
                 self.logger.error(msg.log_info())
                 self.logger.error(msg.log_content())
             self.monitor.record_write(topic)
@@ -243,16 +243,24 @@ class Processor(WorkerCore):
         self.retryDestination = self.destinationClass(config, logger=self.logger)
         self.retryEnabled = True
 
-    def process(self, dct_or_dcts):
+    def process(self, msg):
         """ process function to be overridden by users, for streaming
-            processing, this function needs to do in-place update and return
-            an error or a list of errors (for batch processing)
+            processing, this function needs to do in-place update on msg.dct
+            and return an error or a list of errors (for batch processing).
+            Message has been terminated though .terminates() will be skipped
+            in output.
+            A typical process definition will be:
+                value = msg.get('preExistingKey')
+                updates = {
+                    'newKey': 'newValue',
+                }
+                msg.update(updates)
         """
         return None
 
     def _process(self, msg):
         try:
-            return self.process(msg.dct)
+            return self.process(msg)
         except Exception as e:
             self.logger.error(traceback.format_exc())
             self.logger.error(msg.log_content())
@@ -289,8 +297,10 @@ class Processor(WorkerCore):
             else:
                 self.logger.warn('Message has been processed by higher version processor, no processed')
 
-            # check if output is valid
-            if self.flag != self.NO_OUTPUT and not failedOnError:
+            # skip validation and output for some cases
+            if msg.terminated:
+                self.logger.info('Message<%s> terminates here', str(msg))
+            elif not any((failedOnError, self.flag == Processor.NO_OUTPUT)):
                 if msg.is_valid():
                     self.logger.info("Writing message '%s'", str(msg))
                     self.destination.write(msg)

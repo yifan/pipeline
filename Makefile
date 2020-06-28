@@ -1,5 +1,4 @@
-.PHONY: docs
-init:
+venv:
 	rm -rf venv
 	python3 -m venv --system-site-packages venv
 	. venv/bin/activate
@@ -8,7 +7,10 @@ init:
 pytest:
 	. venv/bin/activate; \
 	python3 -m pytest
-test:
+pylint:
+	. venv/bin/activate; \
+	python3 -m pylint src
+test: requirements.txt requirements.dev.txt
 	. venv/bin/activate; \
 	tox
 upload:
@@ -16,5 +18,7 @@ upload:
 	rm -rf dist; \
 	python3 setup.py sdist bdist_wheel; \
 	python3 -m twine check dist/*; \
-	python3 -m twine upload --config-file ~/.pypirc --verbose -r testpypi dist/*; \
 	python3 -m twine upload dist/*
+clean:
+	rm -rf venv
+	rm -rf dist

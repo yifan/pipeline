@@ -26,7 +26,7 @@ will produce output without input. A crawler can be seen as a generator.
     >>> generator = MyGenerator('generator', '0.1.0', description='simple generator')
     >>> generator.parse_args("--kind MEM --out-topic test".split())
     >>> generator.start()
-    >>> [r.dct['id'] for r in generator.destination.results]
+    >>> [r.get('id') for r in generator.destination.results]
     [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 
 
@@ -41,18 +41,15 @@ can produce one output for each input, or no output.
     >>> from pipeline import Processor, Message
     >>>
     >>> class MyProcessor(Processor):
-    ...     def process(self, dct_or_dcts):
-    ...         if isinstance(dct_or_dcts, list):
-    ...             print('SHOULD NOT BE HERE')
-    ...         else:
-    ...             dct_or_dcts['processed'] = True
+    ...     def process(self, msg):
+    ...         msg.update({'processed': True})
     ...         return None
     >>>
     >>> processor = MyProcessor('processor', '0.1.0', description='simple processor')
     >>> config = {'data': [{'id': 1}]}
     >>> processor.parse_args("--kind MEM --in-topic test --out-topic test".split(), config=config)
     >>> processor.start()
-    >>> [r.dct['id'] for r in processor.destination.results]
+    >>> [r.get('id') for r in processor.destination.results]
     [1]
 
 

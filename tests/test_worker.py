@@ -77,7 +77,7 @@ class TestWorkerCore(TestCase):
 
     def test_processor_retry(self):
         class RetryProcessor(Processor):
-            def process(self, dct):
+            def process(self, msg):
                 return "Error"
         msgs = [{'key': '1'}, {'key': '2'}, {'key': '3'}]
         pro1 = RetryProcessor('tester1', '0.1.0')
@@ -87,10 +87,24 @@ class TestWorkerCore(TestCase):
         assert len(pro1.destination.results) == 0
         assert len(pro1.retryDestination.results) == 3
 
+    def test_processor_terminated_messages(self):
+        class RetryProcessor(Processor):
+            def process(self, msg):
+                msg.terminates()
+                return None
+        msgs = [{'key': '1'}, {'key': '2'}, {'key': '3'}]
+        pro1 = RetryProcessor('tester1', '0.1.0')
+        pro1.parse_args(args=['--kind', 'MEM', '--out-topic', 'test'], config={'data': msgs})
+        pro1.use_retry_topic('optional-retry-topic')
+        pro1.start()
+        assert len(pro1.destination.results) == 0
+        assert len(pro1.retryDestination.results) == 0
+
     def test_processor(self):
         class MyProcessor(Processor):
-            def process(self, dct):
-                dct['newkey'] = 'newval'
+            def process(self, msg):
+                updates = {'newkey': 'newval'}
+                msg.update(updates)
                 return None
         msgs = [{'key': '1'}, {'key': '2'}, {'key': '3'}]
         pro1 = MyProcessor('tester1', '0.1.0')
@@ -98,12 +112,16 @@ class TestWorkerCore(TestCase):
         pro1.start()
         assert len(pro1.destination.results) == 3
         m = pro1.destination.results[0]
-        assert m.dct['newkey'] == 'newval'
+        assert m.get('newkey') == 'newval'
 
     def test_processor_with_data(self):
         class MyProcessor(Processor):
-            def process(self, dct):
-                self.dataWriter.write(dct['key'], {'key3': self.dataReader.read(dct['key'])})
+            def process(self, msg):
+                self.logger.info("%s, %s", msg.dct.get('key', None), msg.get('key'))
+                self.dataWriter.write(
+                    msg.get('key'),
+                    {'key3': self.dataReader.read(msg.get('key'))}
+                )
                 return None
         msgs = [{'key': 'm1'}, {'key': 'm2'}, {'key': 'm3'}]
         pro1 = MyProcessor('tester1', '0.1.0', dataKind='MEM')
@@ -121,8 +139,8 @@ class TestWorkerCore(TestCase):
         pro1.start()
         assert len(pro1.destination.results) == 3
         m = pro1.dataWriter.results['m1']
-        assert m['key3']['key1'] == 'val11'
-        assert m['key3']['key2'] == 'val21'
+        assert m.get('key3')['key1'] == 'val11'
+        assert m.get('key3')['key2'] == 'val21'
 
     def test_file(self):
         processor = Processor('fileprocessor', '0.1.0')
@@ -200,4 +218,4 @@ class TestWorkerCore(TestCase):
         pro1 = Processor('tester3', '0.1.0', messageClass=CustomMessage)
         pro1.parse_args(args=['--kind', 'MEM'], config={'data': [{'key': 'key1', 'value': 'value1'}]})
         pro1.start()
-        assert pro1.destination.results[0].dct['key'] == 'key1'
+        assert pro1.destination.results[0].get('key') == 'key1'
