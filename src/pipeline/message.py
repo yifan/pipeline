@@ -109,3 +109,7 @@ class Message(ABC):
     def update(self, other):
         """ update message content """
         self.dct.update(other)
+
+    def replace(self, other):
+        """ replace message content """
+        self.dct = other

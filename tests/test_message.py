@@ -42,3 +42,11 @@ class TestMessage(TestCase):
         newMessage1 = NewMessage({'key': 'new1'})
         newMessage2 = NewMessage(newMessage1)
         assert newMessage2.dct['key'] == 'new1'
+
+    def test_update_replace(self):
+        m = Message()
+        m.update({'key': 'value'})
+        assert m.get('key') == 'value'
+        m.replace({'newkey': 'value'})
+        assert m.get('key') is None
+        assert m.get('newkey') == 'value'
