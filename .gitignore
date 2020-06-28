@@ -13,3 +13,4 @@ htmlcov
 *.pyc
 html
 .eggs/
+**.swp
