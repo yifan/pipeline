@@ -2,7 +2,12 @@ import os
 import tempfile
 from unittest import TestCase
 
-from pipeline import Message, Generator, Processor, Splitter
+from pipeline import (
+    Message,
+    GeneratorConfig, Generator,
+    ProcessorConfig, Processor,
+    SplitterConfig, Splitter,
+)
 
 
 class TestWorkerCore(TestCase):
@@ -34,7 +39,8 @@ class TestWorkerCore(TestCase):
                 for i in range(3):
                     self.dataWriter.write(i, dict([(field, field) for field in self.dataWriter.fields]))
                     yield {"key": i}
-        generator = MyGenerator('generator', '0.1.0', dataKind='MEM')
+        config = GeneratorConfig(dataKind='MEM')
+        generator = MyGenerator('generator', '0.1.0', config=config)
         generator.parse_args(args=[
             '--kind', 'MEM', '--out-topic', 'test',
             '--out-fields', 'key1,key2']
@@ -57,7 +63,8 @@ class TestWorkerCore(TestCase):
                 for i, v in enumerate(valids):
                     yield {"key": i, "valid": v}
 
-        generator = MyGenerator('generator', '0.1.0', messageClass=InvalidMessage)
+        config = GeneratorConfig(messageClass=InvalidMessage)
+        generator = MyGenerator('generator', '0.1.0', config=config)
         generator.parse_args(args=['--kind', 'MEM', '--out-topic', 'test'])
         generator.start()
         assert len(generator.destination.results) == 2
@@ -68,7 +75,8 @@ class TestWorkerCore(TestCase):
                 return False
 
         msgs = [{}, {}, {}]
-        pro1 = Processor('tester1', '0.1.0', messageClass=InvalidMessage)
+        config = ProcessorConfig(messageClass=InvalidMessage)
+        pro1 = Processor('tester1', '0.1.0', config=config)
         pro1.parse_args(args=['--kind', 'MEM', '--out-topic', 'test'], config={'data': msgs})
         pro1.use_retry_topic('optional-retry-topic')
         pro1.start()
@@ -124,7 +132,8 @@ class TestWorkerCore(TestCase):
                 )
                 return None
         msgs = [{'key': 'm1'}, {'key': 'm2'}, {'key': 'm3'}]
-        pro1 = MyProcessor('tester1', '0.1.0', dataKind='MEM')
+        config = ProcessorConfig(dataKind='MEM')
+        pro1 = MyProcessor('tester1', '0.1.0', config=config)
         pro1.parse_args(
             args='--kind MEM --out-topic test --in-fields key1,key2 --out-fields key3'.split(),
             config={
@@ -176,7 +185,8 @@ class TestWorkerCore(TestCase):
         assert len(pro1.destination.results) == 3
 
     def test_mem_processor_nooutput(self):
-        pro1 = Processor('tester2', '0.1.0', nooutput=True)
+        config = ProcessorConfig(noOutput=True)
+        pro1 = Processor('tester2', '0.1.0', config=config)
         pro1.parse_args(args=['--kind', 'MEM'], config={'data': [{}]})
         pro1.start()
         assert not hasattr(pro1, 'destination')
@@ -197,7 +207,8 @@ class TestWorkerCore(TestCase):
                 return False
 
         msgs = [{"key": 1, 'language': 'en'}, {"key": 2, 'language': 'it'}]
-        splitter = Splitter('spliter1', '0.1.0', messageClass=InvalidMessage)
+        config = SplitterConfig(messageClass=InvalidMessage)
+        splitter = Splitter('spliter1', '0.1.0', config=config)
         splitter.parse_args(args=['--kind', 'MEM', '--out-topic', 'test'], config={'data': msgs})
         splitter.start()
         assert len(splitter.destinations['test-en'].results) == 0
@@ -215,7 +226,8 @@ class TestWorkerCore(TestCase):
         class CustomMessage(Message):
             def __str__(self):
                 return 'Message({}: {})'.format(self.dct['key'], self.dct['value'])
-        pro1 = Processor('tester3', '0.1.0', messageClass=CustomMessage)
+        config = ProcessorConfig(messageClass=CustomMessage)
+        pro1 = Processor('tester3', '0.1.0', config=config)
         pro1.parse_args(args=['--kind', 'MEM'], config={'data': [{'key': 'key1', 'value': 'value1'}]})
         pro1.start()
         assert pro1.destination.results[0].get('key') == 'key1'

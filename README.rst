@@ -64,21 +64,20 @@ generate output topic based on the processing message, and use it when writing o
     >>> from pipeline import Splitter, Message
     >>>
     >>> class MySplitter(Splitter):
-    ...     def get_topic(self, dct):
-    ...         return '{}-{}'.format(self.destination.topic, dct['id'])
+    ...     def get_topic(self, msg):
+    ...         return '{}-{}'.format(self.destination.topic, msg.get('id'))
     ...
-    ...     def process(self, dct_or_dcts):
-    ...         if isinstance(dct_or_dcts, list):
-    ...             print('SHOULD NOT BE HERE')
-    ...         else:
-    ...             dct_or_dcts['processed'] = True
+    ...     def process(self, msg):
+    ...         msg.update({
+    ...             'processed': True,
+    ...         })
     ...         return None
     >>>
     >>> splitter = MySplitter('splitter', '0.1.0', description='simple splitter')
     >>> config = {'data': [{'id': 1}]}
     >>> splitter.parse_args("--kind MEM --in-topic test --out-topic test".split(), config=config)
     >>> splitter.start()
-    >>> [r.dct['id'] for r in splitter.destinations['test-1'].results]
+    >>> [r.get('id') for r in splitter.destinations['test-1'].results]
     [1]
 
 
