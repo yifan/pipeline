@@ -466,6 +466,9 @@ class PulsarSource(SourceTap):
     def acknowledge(self):
         self.consumer.acknowledge(self.last_msg)
 
+    def close(self):
+        self.client.close()
+
 
 class PulsarDestination(DestinationTap):
     """ PulsarDestination writes to Pulsar
@@ -513,3 +516,6 @@ class PulsarDestination(DestinationTap):
 
     def write(self, message):
         self.producer.send(message.serialize())
+
+    def close(self):
+        self.client.close()
