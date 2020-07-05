@@ -329,9 +329,9 @@ class Processor(WorkerCore):
                 self.monitor.record_write(self.destination.topic)
             else:
                 failedOnError = True
-                logger.error('result message is invalid, skipping')
-                logger.warn(msg.log_info())
-                logger.warn(msg.log_content())
+                self.logger.error('result message is invalid, skipping')
+                self.logger.warn(msg.log_info())
+                self.logger.warn(msg.log_content())
 
         # retry if necessary
         if failedOnError and self.retryEnabled:
