@@ -3,3 +3,4 @@ prometheus-client==0.7.*
 pulsar-client==2.5.1
 mysql-connector-python
 redis
+azure-cosmosdb-table

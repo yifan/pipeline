@@ -5,6 +5,7 @@ from types import SimpleNamespace
 
 import mysql.connector as mysql
 import redis
+import azure.cosmosdb.table
 
 from .exception import PipelineError
 
@@ -325,7 +326,7 @@ class RedisReader(DataReader):
     >>> parser = ArgumentParser()
     >>> RedisReader.add_arguments(parser)
     >>> config = parser.parse_args(["--in-fields", "text,title"])
-    >>> with patch('mysql.connector.connect') as c:
+    >>> with patch('redis.Redis') as c:
     ...     RedisReader(config)
     RedisReader(localhost:6379):['text', 'title']
     """
@@ -378,7 +379,7 @@ class RedisWriter(DataWriter):
     >>> parser = ArgumentParser()
     >>> RedisWriter.add_arguments(parser)
     >>> config = parser.parse_args(["--out-fields", "text,title"])
-    >>> with patch('mysql.connector.connect') as c:
+    >>> with patch('redis.Redis') as c:
     ...     RedisWriter(config)
     RedisWriter(localhost:6379):['text', 'title']
     """
@@ -433,3 +434,117 @@ class RedisWriter(DataWriter):
         )
         for key in kvs.keys():
             self.redis.expire(key, self.config.expire)
+
+
+class AzureTableReader(DataReader):
+    """ AzureTableReader reads data from Redis
+
+    >>> from unittest.mock import patch
+    >>> from argparse import ArgumentParser
+    >>> parser = ArgumentParser()
+    >>> AzureTableReader.add_arguments(parser)
+    >>> config = parser.parse_args(["--in-fields", "text,title"])
+    >>> with patch('azure.cosmosdb.table.TableService') as c:
+    ...     AzureTableReader(config)
+    AzureTableReader
+    """
+    kind = 'AZURE'
+
+    def __init__(self, config, logger=logger):
+        super().__init__(config, logger)
+        self.setup()
+
+    def __repr__(self):
+        return 'AzureTableReader'
+
+    @classmethod
+    def add_arguments(cls, parser):
+        super().add_arguments(parser)
+        parser.add_argument(
+            '--azuredb', type=str,
+            default=os.environ.get('AZUREDB', ''),
+            help='azure table connection string'
+        )
+        parser.add_argument(
+            '--table', type=str,
+            default=os.environ.get('TABLE', ''),
+            help='azure table table name'
+        )
+
+    def setup(self):
+        self.service = azure.cosmosdb.table.TableService(
+            endpoint_suffix="table.cosmos.azure.com",
+            connection_string=self.config.azuredb
+        )
+
+    def read(self, key):
+        """ entries are stored as following in redis:
+            a set is managed for each key to contain fields available
+            a key:field -> value for accessing field for each key
+
+            TODO: raise error if fields are not available
+        """
+        entity = self.service.get_entity(
+            self.config.table,
+            'key',  # PartitionKey
+            key,  # RowKey
+            timeout=5.0,
+        )
+        return {k: v for k, v in entity.items() if k not in ('PartitionKey', 'RowKey')}
+
+
+class AzureTableWriter(DataWriter):
+    """ AzureTableWriter reads data from Redis
+
+    >>> from unittest.mock import patch
+    >>> from argparse import ArgumentParser
+    >>> parser = ArgumentParser()
+    >>> AzureTableWriter.add_arguments(parser)
+    >>> config = parser.parse_args(["--out-fields", "text,title"])
+    >>> with patch('azure.cosmosdb.table.TableService') as c:
+    ...     AzureTableWriter(config)
+    AzureTableWriter
+    """
+    kind = 'AZURE'
+
+    def __init__(self, config, logger=logger):
+        super().__init__(config, logger)
+        self.setup()
+
+    def __repr__(self):
+        return 'AzureTableWriter'
+
+    @classmethod
+    def add_arguments(cls, parser):
+        super().add_arguments(parser)
+        parser.add_argument(
+            '--azuredb', type=str,
+            default=os.environ.get('AZUREDB', ''),
+            help='azure table connection string'
+        )
+        parser.add_argument(
+            '--table', type=str,
+            default=os.environ.get('TABLE', ''),
+            help='azure table table name'
+        )
+
+    def setup(self):
+        self.service = azure.cosmosdb.table.TableService(
+            endpoint_suffix="table.cosmos.azure.com",
+            connection_string=self.config.azuredb
+        )
+
+    def write(self, key, kvs):
+        """ entries are stored as following in redis:
+            a set is managed for each key to contain fields available
+            a key:field -> value for accessing field for each key
+        """
+        kvs.update({
+            'PartitionKey': 'key',
+            'RowKey': key,
+        })
+        self.service.insert_or_merge_entity(
+            self.config.table,
+            kvs,
+            timeout=5.0,
+        )
