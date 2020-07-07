@@ -41,9 +41,9 @@ class TestWorkerCore(TestCase):
                     yield {"key": i}
         config = GeneratorConfig(dataKind='MEM')
         generator = MyGenerator('generator', '0.1.0', config=config)
-        generator.parse_args(args=[
-            '--kind', 'MEM', '--out-topic', 'test',
-            '--out-fields', 'key1,key2']
+        generator.parse_args(
+            args=['--kind', 'MEM', '--out-topic', 'test', '--out-fields', 'key1,key2'],
+            config={'mem': {}}
         )
         generator.start()
         assert len(generator.dataWriter.results) == 3

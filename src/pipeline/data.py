@@ -154,7 +154,7 @@ class MemoryWriter(DataWriter):
     It is for testing only.
 
     >>> from types import SimpleNamespace
-    >>> d = MemoryWriter(SimpleNamespace(out_fields='text,title'))
+    >>> d = MemoryWriter(SimpleNamespace(out_fields='text,title', mem={}))
     >>> d.write('key1', {'text': 'text1', 'title': 'title1'})
     >>> d.write('key2', {'text': 'text2', 'title': 'title2'})
     >>> d.results
@@ -164,7 +164,7 @@ class MemoryWriter(DataWriter):
 
     def __init__(self, config, logger=logger):
         super().__init__(config, logger)
-        self.results = {}
+        self.results = config.mem
 
     def write(self, key, kvs):
         self.results[key] = kvs
