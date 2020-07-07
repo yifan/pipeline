@@ -349,7 +349,7 @@ class AzureTableCache(Cache):
         if self.in_fields:
             fields = self.in_fields
         else:
-            fields = (k for k in entity.keys() if k not in ('PartitionKey', 'RowKey'))
+            fields = [k for k in entity.keys() if k not in ('PartitionKey', 'RowKey', 'Timestamp', 'etag')]
         return {k: v for k, v in entity.items() if k in fields}
 
     def write(self, key, kvs):
@@ -357,12 +357,13 @@ class AzureTableCache(Cache):
             a set is managed for each key to contain fields available
             a key:field -> value for accessing field for each key
         """
-        kvs.update({
+        dct = {
             'PartitionKey': 'key',
             'RowKey': key,
-        })
+        }
+        dct.update(kvs)
         self.service.insert_or_merge_entity(
             self.config.table,
-            kvs,
+            dct,
             timeout=5.0,
         )
