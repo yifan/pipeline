@@ -6,7 +6,7 @@ from .worker import (
     ProcessorConfig, Processor,
     SplitterConfig, Splitter,
 )
-from .data import DataReaderOf, DataWriterOf
+from .cache import CacheOf
 from .utils import parse_kind
 
 
@@ -24,6 +24,5 @@ __all__ = [
     'Splitter',
     'Message',
     'parse_kind',
-    'DataReaderOf',
-    'DataWriterOf',
+    'CacheOf',
 ]

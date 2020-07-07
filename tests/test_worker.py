@@ -33,23 +33,22 @@ class TestWorkerCore(TestCase):
         assert dct['version'] == [0, 1, 0]
         assert dct['order'] == 1
 
-    def test_mem_generator_with_data_writer(self):
+    def test_mem_generator_with_cache(self):
         class MyGenerator(Generator):
             def generate(self):
                 for i in range(3):
-                    self.dataWriter.write(i, dict([(field, field) for field in self.dataWriter.fields]))
+                    self.cache.write(i, dict([(field, field) for field in self.cache.out_fields]))
                     yield {"key": i}
-        config = GeneratorConfig(dataKind='MEM')
+        memory = {}
+        config = GeneratorConfig(cacheKind='MEM')
         generator = MyGenerator('generator', '0.1.0', config=config)
         generator.parse_args(
             args=['--kind', 'MEM', '--out-topic', 'test', '--out-fields', 'key1,key2'],
-            config={'mem': {}}
+            config={'mem': memory}
         )
         generator.start()
-        assert len(generator.dataWriter.results) == 3
-        for i in range(3):
-            assert i in generator.dataWriter.results
-        assert generator.dataWriter.results[0]['key1'] == 'key1'
+        assert len(memory) == 3
+        assert memory.get(1) is not None
 
     def test_generator_invalid_message(self):
         valids = [True, True, False]
@@ -122,32 +121,33 @@ class TestWorkerCore(TestCase):
         m = pro1.destination.results[0]
         assert m.get('newkey') == 'newval'
 
-    def test_processor_with_data(self):
+    def test_processor_with_cache(self):
         class MyProcessor(Processor):
             def process(self, msg):
                 self.logger.info("%s, %s", msg.dct.get('key', None), msg.get('key'))
-                self.dataWriter.write(
+                self.cache.write(
                     msg.get('key'),
-                    {'key3': self.dataReader.read(msg.get('key'))}
+                    {'key3': self.cache.read(msg.get('key'))}
                 )
                 return None
         msgs = [{'key': 'm1'}, {'key': 'm2'}, {'key': 'm3'}]
-        config = ProcessorConfig(dataKind='MEM')
+        memory = {
+            'm1': {'key1': 'val11', 'key2': 'val21'},
+            'm2': {'key1': 'val12', 'key2': 'val22'},
+            'm3': {'key1': 'val13', 'key2': 'val23'},
+        }
+        config = ProcessorConfig(cacheKind='MEM')
         pro1 = MyProcessor('tester1', '0.1.0', config=config)
         pro1.parse_args(
             args='--kind MEM --out-topic test --in-fields key1,key2 --out-fields key3'.split(),
             config={
                 'data': msgs,
-                'mem': {
-                    'm1': {'key1': 'val11', 'key2': 'val21'},
-                    'm2': {'key1': 'val12', 'key2': 'val22'},
-                    'm3': {'key1': 'val13', 'key2': 'val23'},
-                }
+                'mem': memory,
             }
         )
         pro1.start()
         assert len(pro1.destination.results) == 3
-        m = pro1.dataWriter.results['m1']
+        m = memory.get('m1')
         assert m.get('key3')['key1'] == 'val11'
         assert m.get('key3')['key2'] == 'val21'
 

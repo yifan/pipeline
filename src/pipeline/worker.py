@@ -6,7 +6,7 @@ import traceback
 from abc import ABC
 from copy import copy
 
-from .data import DataReaderOf, DataWriterOf
+from .cache import CacheOf
 from .exception import PipelineError
 from .message import Message
 from .monitor import Monitor
@@ -22,7 +22,7 @@ class WorkerConfig:
     NO_INPUT = 1
     NO_OUTPUT = 2
 
-    def __init__(self, noInput=False, noOutput=False, messageClass=Message, dataKind=None):
+    def __init__(self, noInput=False, noOutput=False, messageClass=Message, cacheKind=None):
         if noInput and noOutput:
             raise ValueError('Worker cannot has no input AND no output')
         self.flag = WorkerConfig.NO_FLAG
@@ -31,7 +31,7 @@ class WorkerConfig:
         if noOutput:
             self.flag = WorkerConfig.NO_OUTPUT
         self.messageClass = messageClass
-        self.dataKind = dataKind
+        self.cacheKind = cacheKind
 
     def disable_input(self):
         self.flag = WorkerConfig.NO_INPUT
@@ -53,7 +53,7 @@ class WorkerCore(ABC):
         self.logger = logger
         self.flag = config.flag
         self.messageClass = config.messageClass
-        self.dataKind = config.dataKind
+        self.cacheKind = config.cacheKind
 
         self.parser = argparse.ArgumentParser(
             prog=name,
@@ -78,15 +78,13 @@ class WorkerCore(ABC):
     def parse_args(self, args=sys.argv[1:], config=None):
         known, extras = parse_kind(args)
         self.kind = known.kind
-        self.dataKind = known.dataKind or self.dataKind
+        self.cacheKind = known.cacheKind or self.cacheKind
         if self.flag != WorkerConfig.NO_INPUT:
             self.sourceClass = SourceOf(self.kind)
-            if self.dataKind:
-                self.dataReaderClass = DataReaderOf(self.dataKind)
         if self.flag != WorkerConfig.NO_OUTPUT:
             self.destinationClass = DestinationOf(self.kind)
-            if self.dataKind:
-                self.dataWriterClass = DataWriterOf(self.dataKind)
+        if self.cacheKind:
+            self.cacheClass = CacheOf(self.cacheKind)
         self._add_arguments(self.parser)
         if config:
             self.parser.set_defaults(**config)
@@ -94,12 +92,10 @@ class WorkerCore(ABC):
         self.options = self.parser.parse_args(extras)
         if self.flag != WorkerConfig.NO_INPUT:
             self.source = self.sourceClass(self.options, logger=self.logger)
-            if self.dataKind:
-                self.dataReader = self.dataReaderClass(self.options, logger=self.logger)
         if self.flag != WorkerConfig.NO_OUTPUT:
             self.destination = self.destinationClass(self.options, logger=self.logger)
-            if self.dataKind:
-                self.dataWriter = self.dataWriterClass(self.options, logger=self.logger)
+        if self.cacheKind:
+            self.cache = self.cacheClass(self.options, logger=self.logger)
         # report worker info to monitor
         self.monitor.record_worker_info()
 
@@ -108,12 +104,10 @@ class WorkerCore(ABC):
                             help='debug, more verbose logging')
         if self.flag != WorkerConfig.NO_INPUT:
             self.sourceClass.add_arguments(parser)
-            if self.dataKind:
-                self.dataReaderClass.add_arguments(parser)
         if self.flag != WorkerConfig.NO_OUTPUT:
             self.destinationClass.add_arguments(parser)
-            if self.dataKind:
-                self.dataWriterClass.add_arguments(parser)
+        if self.cacheKind:
+            self.cacheClass.add_arguments(parser)
         self.add_arguments(parser)
 
     def add_arguments(self, parser):

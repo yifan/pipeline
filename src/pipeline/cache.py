@@ -15,18 +15,12 @@ logger = logging.getLogger('worker')
 logger.setLevel(logging.DEBUG)
 
 
-def KindsOfDataReader():
-    return [cls.kind for cls in DataReader.__subclasses__()]
+def KindsOfCache():
+    return [cls.kind for cls in Cache.__subclasses__()]
 
 
-def DataReaderOf(typename):
-    for cls in DataReader.__subclasses__():
-        if cls.is_cls_of(typename):
-            return cls
-
-
-def DataWriterOf(typename):
-    for cls in DataWriter.__subclasses__():
+def CacheOf(typename):
+    for cls in Cache.__subclasses__():
         if cls.is_cls_of(typename):
             return cls
 
@@ -75,12 +69,13 @@ def parse_connection_string(connectionString, no_port=False, no_username=False, 
     )
 
 
-class DataReader(ABC):
+class Cache(ABC):
     kind = 'NONE'
 
     def __init__(self, config, logger=logger):
         self.config = config
-        self.fields = self.config.in_fields.split(',') if self.config.in_fields else []
+        self.in_fields = self.config.in_fields.split(',') if self.config.in_fields else []
+        self.out_fields = self.config.out_fields.split(',') if self.config.out_fields else []
         self.logger = logger
 
     @classmethod
@@ -88,6 +83,9 @@ class DataReader(ABC):
         parser.add_argument('--in-fields', type=str,
                             default=os.environ.get('INFIELDS', None),
                             help='database fields to read (comma separated)')
+        parser.add_argument('--out-fields', type=str,
+                            default=os.environ.get('OUTFIELDS', None),
+                            help='database fields to write (comma separated)')
 
     def setup(self):
         """ establish connection for example """
@@ -95,31 +93,6 @@ class DataReader(ABC):
     @abstractmethod
     def read(self, key):
         """ return corresponding *fields* from database with key """
-
-    @classmethod
-    def is_cls_of(cls, kind):
-        return kind == cls.kind
-
-    def close(self):
-        pass
-
-
-class DataWriter(ABC):
-    kind = 'NONE'
-
-    def __init__(self, config, logger=logger):
-        self.config = config
-        self.fields = self.config.out_fields.split(',') if self.config.out_fields else []
-        self.logger = logger
-
-    @classmethod
-    def add_arguments(cls, parser):
-        parser.add_argument('--out-fields', type=str,
-                            default=os.environ.get('OUTFIELDS', None),
-                            help='database fields to write (comma separated)')
-
-    def setup(self):
-        """ establish connection for example """
 
     @abstractmethod
     def write(self, key, kv):
@@ -133,54 +106,43 @@ class DataWriter(ABC):
         pass
 
 
-class MemoryReader(DataReader):
+class MemoryCache(Cache):
     """ MemoryReader read data from memory.
     It is for testing only.
 
     >>> from types import SimpleNamespace
-    >>> data = {'key1':{'text':'text1', 'title':'title1'},'key2':{'text': 'text2', 'title': 'title2'}}
-    >>> MemoryReader(SimpleNamespace(in_fields='title', mem=data)).read('key1')
-    {'title': 'title1'}
+    >>> data = {'key1':{'text':'text1', 'title':'title1'}}
+    >>> mem = MemoryCache(SimpleNamespace(in_fields='title', out_fields='text,title', mem=data))
+    >>> mem.write('key3', {'text': 'text3', 'title': 'title3'})
+    >>> mem.read('key3')
+    {'title': 'title3'}
     """
     kind = 'MEM'
+
+    def __repr__(self):
+        return 'MemoryCache'
 
     def read(self, key):
         dct = self.config.mem[key]
-        return dict([(k, dct[k]) for k in self.fields])
-
-
-class MemoryWriter(DataWriter):
-    """ MemoryWriter writes data in memory
-    It is for testing only.
-
-    >>> from types import SimpleNamespace
-    >>> d = MemoryWriter(SimpleNamespace(out_fields='text,title', mem={}))
-    >>> d.write('key1', {'text': 'text1', 'title': 'title1'})
-    >>> d.write('key2', {'text': 'text2', 'title': 'title2'})
-    >>> d.results
-    {'key1': {'text': 'text1', 'title': 'title1'}, 'key2': {'text': 'text2', 'title': 'title2'}}
-    """
-    kind = 'MEM'
-
-    def __init__(self, config, logger=logger):
-        super().__init__(config, logger)
-        self.results = config.mem
+        if self.in_fields:
+            dct = dict([(k, dct[k]) for k in self.in_fields])
+        return dct
 
     def write(self, key, kvs):
-        self.results[key] = kvs
+        self.config.mem[key] = kvs
 
 
-class MySQLReader(DataReader):
+class MySqlCache(Cache):
     """ MySQLReader reads data from MySQL
 
     >>> from unittest.mock import patch
     >>> from argparse import ArgumentParser
     >>> parser = ArgumentParser()
-    >>> MySQLReader.add_arguments(parser)
+    >>> MySqlCache.add_arguments(parser)
     >>> config = parser.parse_args(["--in-fields", "text"])
     >>> with patch('mysql.connector.connect') as c:
-    ...     MySQLReader(config, "text")
-    MySQLReader(localhost:3306/database/table):['text']
+    ...     MySqlCache(config, "text")
+    MySqlCache(localhost:3306/database/table):['text']:[]
     """
     kind = 'MYSQL'
 
@@ -189,11 +151,12 @@ class MySQLReader(DataReader):
         self.setup()
 
     def __repr__(self):
-        return 'MySQLReader({}/{}/{}):{}'.format(
+        return 'MySqlCache({}/{}/{}):{}:{}'.format(
             self.mysqlConfig.host,
             self.config.database,
             self.config.table,
-            self.fields
+            self.in_fields,
+            self.out_fields,
         )
 
     @classmethod
@@ -246,67 +209,6 @@ class MySQLReader(DataReader):
             r
         ))
 
-
-class MySQLWriter(DataWriter):
-    """ MySQLWriter writes data from MySQL
-
-    >>> from unittest.mock import patch
-    >>> from argparse import ArgumentParser
-    >>> parser = ArgumentParser()
-    >>> MySQLWriter.add_arguments(parser)
-    >>> config = parser.parse_args(["--out-fields", "text"])
-    >>> with patch('mysql.connector.connect') as c:
-    ...     MySQLWriter(config, "text")
-    MySQLWriter(localhost:3306/database/table):['text']
-    """
-    kind = 'MYSQL'
-
-    def __init__(self, config, logger=logger):
-        super().__init__(config, logger)
-        self.setup()
-
-    def __repr__(self):
-        return 'MySQLWriter({}/{}/{}):{}'.format(
-            self.mysqlConfig.host,
-            self.config.database,
-            self.config.table,
-            self.fields
-        )
-
-    @classmethod
-    def add_arguments(cls, parser):
-        super().add_arguments(parser)
-        parser.add_argument(
-            '--mysql', type=str,
-            default=os.environ.get('MYSQL', 'localhost:3306'),
-            help='mysql database host:port'
-        )
-        parser.add_argument(
-            '--database', type=str,
-            default=os.environ.get('MYSQLDATABASE', 'database'),
-            help='muysql database'
-        )
-        parser.add_argument(
-            '--table', type=str,
-            default=os.environ.get('MYSQLTABLE', 'table'),
-            help='mysql database table'
-        )
-        parser.add_argument(
-            '--keyname', type=str,
-            default=os.environ.get('KEYNAME', 'id'),
-            help='database field name of key'
-        )
-
-    def setup(self):
-        self.mysqlConfig = parse_connection_string(self.config.mysql, no_port=True)
-        self.db = mysql.connect(
-            host=self.mysqlConfig.host,
-            user=self.mysqlConfig.username,
-            passwd=self.mysqlConfig.password,
-            database=self.config.database,
-        )
-        self.cursor = self.db.cursor()
-
     def write(self, key, kvs):
         query = "UPDATE {} SET {} WHERE {} = '{}'".format(
             self.config.table,
@@ -318,17 +220,17 @@ class MySQLWriter(DataWriter):
         self.db.commit()
 
 
-class RedisReader(DataReader):
-    """ RedisReader reads data from Redis
+class RedisCache(Cache):
+    """ RedisCache reads/writes data from/to Redis
 
     >>> from unittest.mock import patch
     >>> from argparse import ArgumentParser
     >>> parser = ArgumentParser()
-    >>> RedisReader.add_arguments(parser)
+    >>> RedisCache.add_arguments(parser)
     >>> config = parser.parse_args(["--in-fields", "text,title"])
     >>> with patch('redis.Redis') as c:
-    ...     RedisReader(config)
-    RedisReader(localhost:6379):['text', 'title']
+    ...     RedisCache(config)
+    RedisCache(localhost:6379):['text', 'title']:[]
     """
     kind = 'REDIS'
 
@@ -337,63 +239,11 @@ class RedisReader(DataReader):
         self.setup()
 
     def __repr__(self):
-        return 'RedisReader({}:{}):{}'.format(
+        return 'RedisCache({}:{}):{}:{}'.format(
             self.redisConfig.host,
             self.redisConfig.port,
-            self.fields
-        )
-
-    @classmethod
-    def add_arguments(cls, parser):
-        super().add_arguments(parser)
-        parser.add_argument(
-            '--redis', type=str,
-            default=os.environ.get('REDIS', 'localhost:6379'),
-            help='redis host:port'
-        )
-
-    def setup(self):
-        self.redisConfig = parse_connection_string(self.config.redis, no_username=True)
-        self.redis = redis.Redis(
-            host=self.redisConfig.host,
-            port=self.redisConfig.port,
-            password=self.redisConfig.password,
-        )
-
-    def read(self, key):
-        """ entries are stored as following in redis:
-            a set is managed for each key to contain fields available
-            a key:field -> value for accessing field for each key
-
-            TODO: raise error if fields are not available
-        """
-        results = self.redis.mget(['{}:{}'.format(key, field) for field in self.fields])
-        return dict(zip(self.fields, results))
-
-
-class RedisWriter(DataWriter):
-    """ RedisWriter reads data from Redis
-
-    >>> from unittest.mock import patch
-    >>> from argparse import ArgumentParser
-    >>> parser = ArgumentParser()
-    >>> RedisWriter.add_arguments(parser)
-    >>> config = parser.parse_args(["--out-fields", "text,title"])
-    >>> with patch('redis.Redis') as c:
-    ...     RedisWriter(config)
-    RedisWriter(localhost:6379):['text', 'title']
-    """
-    kind = 'REDIS'
-
-    def __init__(self, config, logger=logger):
-        super().__init__(config, logger)
-        self.setup()
-
-    def __repr__(self):
-        return 'RedisWriter({}:{}):{}'.format(
-            self.redisConfig.host,
-            self.redisConfig.port,
-            self.fields
+            self.in_fields,
+            self.out_fields,
         )
 
     @classmethod
@@ -411,16 +261,22 @@ class RedisWriter(DataWriter):
         )
 
     def setup(self):
-        self.redisConfig = parse_connection_string(
-            self.config.redis,
-            no_username=True,
-            defaults={'port': 6379},
-        )
+        self.redisConfig = parse_connection_string(self.config.redis, no_username=True)
         self.redis = redis.Redis(
             host=self.redisConfig.host,
             port=self.redisConfig.port,
             password=self.redisConfig.password,
         )
+
+    def read(self, key):
+        """ entries are stored as following in redis:
+            a set is managed for each key to contain fields available
+            a key:field -> value for accessing field for each key
+
+            TODO: raise error if fields are not available
+        """
+        results = self.redis.mget(['{}:{}'.format(key, field) for field in self.in_fields])
+        return dict(zip(self.fields, results))
 
     def write(self, key, kvs):
         """ entries are stored as following in redis:
@@ -436,17 +292,17 @@ class RedisWriter(DataWriter):
             self.redis.expire(key, self.config.expire)
 
 
-class AzureTableReader(DataReader):
-    """ AzureTableReader reads data from Redis
+class AzureTableCache(Cache):
+    """ AzureTableCache reads/writes data from/to Azure Table
 
     >>> from unittest.mock import patch
     >>> from argparse import ArgumentParser
     >>> parser = ArgumentParser()
-    >>> AzureTableReader.add_arguments(parser)
+    >>> AzureTableCache.add_arguments(parser)
     >>> config = parser.parse_args(["--in-fields", "text,title"])
     >>> with patch('azure.cosmosdb.table.TableService') as c:
-    ...     AzureTableReader(config)
-    AzureTableReader
+    ...     AzureTableCache(config)
+    AzureTableCache:['text', 'title']:[]
     """
     kind = 'AZURE'
 
@@ -455,7 +311,7 @@ class AzureTableReader(DataReader):
         self.setup()
 
     def __repr__(self):
-        return 'AzureTableReader'
+        return 'AzureTableCache:{}:{}'.format(self.in_fields, self.out_fields)
 
     @classmethod
     def add_arguments(cls, parser):
@@ -490,49 +346,11 @@ class AzureTableReader(DataReader):
             key,  # RowKey
             timeout=5.0,
         )
-        return {k: v for k, v in entity.items() if k not in ('PartitionKey', 'RowKey')}
-
-
-class AzureTableWriter(DataWriter):
-    """ AzureTableWriter reads data from Redis
-
-    >>> from unittest.mock import patch
-    >>> from argparse import ArgumentParser
-    >>> parser = ArgumentParser()
-    >>> AzureTableWriter.add_arguments(parser)
-    >>> config = parser.parse_args(["--out-fields", "text,title"])
-    >>> with patch('azure.cosmosdb.table.TableService') as c:
-    ...     AzureTableWriter(config)
-    AzureTableWriter
-    """
-    kind = 'AZURE'
-
-    def __init__(self, config, logger=logger):
-        super().__init__(config, logger)
-        self.setup()
-
-    def __repr__(self):
-        return 'AzureTableWriter'
-
-    @classmethod
-    def add_arguments(cls, parser):
-        super().add_arguments(parser)
-        parser.add_argument(
-            '--azuredb', type=str,
-            default=os.environ.get('AZUREDB', ''),
-            help='azure table connection string'
-        )
-        parser.add_argument(
-            '--table', type=str,
-            default=os.environ.get('TABLE', ''),
-            help='azure table table name'
-        )
-
-    def setup(self):
-        self.service = azure.cosmosdb.table.TableService(
-            endpoint_suffix="table.cosmos.azure.com",
-            connection_string=self.config.azuredb
-        )
+        if self.in_fields:
+            fields = self.in_fields
+        else:
+            fields = (k for k in entity.keys() if k not in ('PartitionKey', 'RowKey'))
+        return {k: v for k, v in fields}
 
     def write(self, key, kvs):
         """ entries are stored as following in redis:
