@@ -350,7 +350,7 @@ class AzureTableCache(Cache):
             fields = self.in_fields
         else:
             fields = (k for k in entity.keys() if k not in ('PartitionKey', 'RowKey'))
-        return {k: v for k, v in fields}
+        return {k: v for k, v in entity.items() if k in fields}
 
     def write(self, key, kvs):
         """ entries are stored as following in redis:
