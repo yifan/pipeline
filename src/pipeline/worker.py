@@ -210,6 +210,7 @@ class Splitter(WorkerCore):
             destination = self.destinations[topic]
 
             if msg.is_valid():
+                self.logger.info("Writing message %s to topic <%s>", str(msg), topic)
                 destination.write(msg)
             else:
                 self.logger.error('Produced message is invalid, skipping')
