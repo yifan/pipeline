@@ -100,7 +100,8 @@ class WorkerCore(ABC):
         self.monitor.record_worker_info()
 
     def _add_arguments(self, parser):
-        parser.add_argument('--debug', action='store_true', default=os.environ.get('DEBUG', 'FALSE') == 'TRUE',
+        parser.add_argument('--debug', action='store_true',
+                            default=os.environ.get('DEBUG', 'FALSE') == 'TRUE',
                             help='debug, more verbose logging')
         if self.flag != WorkerConfig.NO_INPUT:
             self.sourceClass.add_arguments(parser)
