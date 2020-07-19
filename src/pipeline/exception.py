@@ -9,6 +9,6 @@ class PipelineError(Exception):
             if hasattr(self.data, 'log'):
                 self.data(logger)
             else:
-                logger.warn(self.data)
+                logger.warning(self.data)
         if self.traceback:
             logger.warning(self.traceback)

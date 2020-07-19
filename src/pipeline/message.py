@@ -48,8 +48,8 @@ class Message(ABC):
         return self.__str__()
 
     def log(self, logger):
-        logger.warn(self.log_info)
-        logger.warn(self.log_content)
+        logger.warning(self.log_info)
+        logger.warning(self.log_content)
 
     def log_info(self):
         return json.dumps(self.info, indent=4)

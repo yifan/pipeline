@@ -313,7 +313,7 @@ class Processor(WorkerCore):
             else:
                 msg.update_version(self.name, self.version)
         else:
-            self.logger.warn('Message has been processed by higher version processor, no processed')
+            self.logger.warning('Message has been processed by higher version processor, no processed')
 
         # skip validation and output for some cases
         if msg.terminated:
@@ -326,12 +326,12 @@ class Processor(WorkerCore):
             else:
                 failedOnError = True
                 self.logger.error('result message is invalid, skipping')
-                self.logger.warn(msg.log_info())
-                self.logger.warn(msg.log_content())
+                self.logger.warning(msg.log_info())
+                self.logger.warning(msg.log_content())
 
         # retry if necessary
         if failedOnError and self.retryEnabled:
-            self.logger.warn('message is sent to retry topic %s', self.retryDestination.config.out_topic)
+            self.logger.warning('message is sent to retry topic %s', self.retryDestination.config.out_topic)
             self.retryDestination.write(msg)
             self.monitor.record_write(self.retryDestination.topic)
 

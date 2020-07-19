@@ -322,12 +322,12 @@ class KafkaSource(SourceTap):
         while True:
             msg = self.consumer.poll(timeout=self.config.poll_timeout)
             if msg is None:
-                self.logger.warn('No message to read, timed out')
+                self.logger.warning('No message to read, timed out')
                 break
 
             if msg.error():
                 if msg.error().code() == KafkaError._PARTITION_EOF:
-                    self.logger.warn('Reaching EOF')
+                    self.logger.warning('Reaching EOF')
                     break
                 else:
                     raise KafkaException(msg.error())
