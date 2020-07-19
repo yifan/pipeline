@@ -200,6 +200,9 @@ class FileDestination(DestinationTap):
     >>> FileDestination.add_arguments(parser)
     >>> tmpdir = tempfile.mkdtemp()
     >>> outFilename = os.path.join(tmpdir, 'outfile.txt')
+    >>> config = parser.parse_args(args=[])
+    >>> FileDestination(config)
+    FileDestination("out-topic.json")
     >>> config = parser.parse_args("--outfile {}".format(outFilename).split())
     >>> FileDestination(config)
     FileDestination("...outfile.txt")
@@ -208,24 +211,36 @@ class FileDestination(DestinationTap):
 
     def __init__(self, config, logger=logger):
         super().__init__(config, logger)
-        self.filename = config.outfile
+        if config.outfile is None:
+            if config.out_topic.find('.') >= 0:
+                self.filename = config.out_topic
+            else:
+                self.filename = config.out_topic + '.json'
+        else:
+            self.filename = config.outfile
+
         if config.outfile == '-':
             self.outFile = sys.stdout
         else:
-            self.outFile = open(config.outfile, 'w')
-        self.logger.info('File Destination: %s', config.outfile)
+            if config.overwrite:
+                self.outFile = open(self.filename, 'w')
+            else:
+                self.outFile = open(self.filename, 'a')
+        self.logger.info('File Destination: %s', self.filename)
 
     def __repr__(self):
-        return 'FileDestination("{}")'.format(self.outFile.name)
+        return 'FileDestination("{}")'.format(self.filename)
 
     @classmethod
     def add_arguments(cls, parser):
         super().add_arguments(parser)
-        parser.add_argument('--outfile', type=str, required=True,
+        parser.add_argument('--outfile', type=str,
                             help='output json file')
+        parser.add_argument('--overwrite', action='store_true', default=False,
+                            help='overwrite output file instead of append')
 
     def write(self, message):
-        print(message.serialize().decode('utf-8'), file=self.outFile)
+        print(message.serialize().decode('utf-8'), file=self.outFile, flush=True)
 
     def close(self):
         if self.filename != '-':
