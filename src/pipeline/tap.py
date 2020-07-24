@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import sys
+import time
 from abc import ABC, abstractmethod
 
 import pulsar
@@ -10,8 +11,10 @@ from confluent_kafka import (
     OFFSET_BEGINNING, Consumer, KafkaError,
     KafkaException, Producer
 )
+import redis
 
 from .message import Message
+from .cache import parse_connection_string
 
 FORMAT = '%(asctime)-15s %(levelname)s %(message)s'
 logging.basicConfig(format=FORMAT)
@@ -534,3 +537,130 @@ class PulsarDestination(DestinationTap):
 
     def close(self):
         self.client.close()
+
+
+class RedisSource(SourceTap):
+    """ RedisSource reads from Redis Stream
+
+    >>> from unittest.mock import patch
+    >>> from argparse import ArgumentParser
+    >>> parser = ArgumentParser()
+    >>> RedisSource.add_arguments(parser)
+    >>> config = parser.parse_args([])
+    >>> with patch('redis.Redis') as c:
+    ...     RedisSource(config)
+    RedisSource(host="localhost:6379",name="in-topic")
+    """
+    kind = 'REDIS'
+
+    def __init__(self, config, logger=logger):
+        super().__init__(config, logger)
+        self.config = config
+        self.client = redis.Redis(config.redis)
+        self.topic = config.in_topic
+        self.name = config.in_topic
+        self.redisConfig = parse_connection_string(self.config.redis, no_username=True)
+        self.redis = redis.Redis(
+            host=self.redisConfig.host,
+            port=self.redisConfig.port,
+            password=self.redisConfig.password,
+        )
+        self.consumer = self.redis.pubsub(ignore_subscribe_messages=True)
+        # TODO use namespace
+        self.consumer.subscribe(self.name)
+        self.last_msg = None
+
+    def __repr__(self):
+        return 'RedisSource(host="{}:{}",name="{}")'.format(
+            self.redisConfig.host,
+            self.redisConfig.port,
+            self.name,
+        )
+
+    @classmethod
+    def add_arguments(cls, parser):
+        super().add_arguments(parser)
+        parser.add_argument(
+            '--redis', type=str,
+            default=os.environ.get('REDIS', 'localhost:6379'),
+            help='redis host:port'
+        )
+        parser.add_argument(
+            '--expire', type=int,
+            default=os.environ.get('REDISEXPIRE', 7*86400),
+            help='expire time for database (default: 7 days)'
+        )
+
+    def read(self, timeout=0):
+        timedOut = False
+        lastMessageTime = time.time()
+        while not timedOut:
+            try:
+                msg = self.consumer.get_message()
+                if msg and msg['type'].endswith('message'):
+                    self.last_msg = msg
+                    yield self.messageClass(msg['data'])
+                    lastMessageTime = time.time()
+            except Exception as ex:
+                self.logger.error(ex)
+                break
+            time.sleep(0.001)
+            if timeout > 0 and time.time() - lastMessageTime > timeout:
+                timedOut = True
+
+    def acknowledge(self):
+        pass
+
+    def close(self):
+        self.consumer.unsubscribe()
+        self.redis.close()
+
+
+class RedisDestination(DestinationTap):
+    """ RedisDestination writes to Redis Stream
+
+    >>> from unittest.mock import patch
+    >>> from argparse import ArgumentParser
+    >>> parser = ArgumentParser()
+    >>> RedisDestination.add_arguments(parser)
+    >>> config = parser.parse_args([])
+    >>> with patch('redis.Redis') as c:
+    ...     RedisDestination(config)
+    RedisDestination(host="localhost:6379",name="out-topic")
+    """
+    kind = 'REDIS'
+
+    def __init__(self, config, logger=logger):
+        super().__init__(config, logger)
+        self.config = config
+        self.client = redis.Redis(config.redis)
+        self.topic = config.out_topic
+        self.name = config.out_topic
+        self.redisConfig = parse_connection_string(self.config.redis, no_username=True)
+        self.redis = redis.Redis(
+            host=self.redisConfig.host,
+            port=self.redisConfig.port,
+            password=self.redisConfig.password,
+        )
+
+    def __repr__(self):
+        return 'RedisDestination(host="{}:{}",name="{}")'.format(
+            self.redisConfig.host,
+            self.redisConfig.port,
+            self.name,
+        )
+
+    @classmethod
+    def add_arguments(cls, parser):
+        super().add_arguments(parser)
+        parser.add_argument(
+            '--redis', type=str,
+            default=os.environ.get('REDIS', 'localhost:6379'),
+            help='redis host:port'
+        )
+
+    def write(self, message):
+        self.redis.publish(self.name, message.serialize())
+
+    def close(self):
+        self.redis.close()
