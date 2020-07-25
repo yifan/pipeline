@@ -191,6 +191,14 @@ class TestWorkerCore(TestCase):
         pro1.start()
         assert not hasattr(pro1, 'destination')
 
+    def test_mem_processor_limit(self):
+        msgs = [{}, {}, {}]
+        config = ProcessorConfig(limit=2)
+        pro1 = Processor('tester1', '0.1.0', config=config)
+        pro1.parse_args(args=['--kind', 'MEM', '--out-topic', 'test'], config={'data': msgs})
+        pro1.start()
+        assert len(pro1.destination.results) == 2
+
     def test_splitter(self):
         msgs = [{'language': 'en'}, {'language': 'it'}]
         splitter = Splitter('spliter1', '0.1.0')

@@ -259,13 +259,16 @@ class Splitter(WorkerCore):
 
 
 class ProcessorConfig(WorkerConfig):
-    pass
+    def __init__(self, noInput=False, noOutput=False, messageClass=Message, cacheKind=None, limit=None):
+        super().__init__(noInput, noOutput, messageClass, cacheKind)
+        self.limit = limit
 
 
 class Processor(WorkerCore):
     def __init__(self, name, version, description=None, config=ProcessorConfig()):
         super().__init__(name, version, description, config)
         self.retryEnabled = False
+        self.limit = config.limit - 1 if config.limit else config.limit
 
     def use_retry_topic(self, name=None):
         """ Retry topic is introduced to solve error handling by saving
@@ -348,13 +351,16 @@ class Processor(WorkerCore):
                 WARNING: Processor will not re-process message unless the version of processor
                 is higher than the version stored in message info.
         """
-        for msg in self.source.read():
+        for i, msg in enumerate(self.source.read()):
             self.monitor.record_read(self.source.topic)
-            self.logger.info("Received message '%s'", str(msg))
+            self.logger.info("Received %d-th message '%s'", i, str(msg))
 
             self._step(msg)
 
             self.source.acknowledge()
+
+            if i == self.limit:
+                return
 
     def start(self, batch_mode=False, monitoring=False):
         """ start processing. """
