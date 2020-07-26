@@ -46,8 +46,8 @@ class SourceTap(ABC):
     @classmethod
     def add_arguments(cls, parser):
         parser.add_argument('--namespace', type=str,
-                            default=os.environ.get('NAMESPACE', 'test'),
-                            help='namespace (default: test)')
+                            default=os.environ.get('NAMESPACE'),
+                            help='namespace (default: None)')
         parser.add_argument('--in-topic', type=str,
                             default=os.environ.get('INTOPIC', 'in-topic'),
                             help='topic to read from')
@@ -87,8 +87,8 @@ class DestinationTap(ABC):
     @classmethod
     def add_arguments(cls, parser):
         parser.add_argument('--namespace', type=str,
-                            default=os.environ.get('NAMESPACE', 'test'),
-                            help='namespace (default: test)')
+                            default=os.environ.get('NAMESPACE'),
+                            help='namespace (default: None)')
         parser.add_argument('--out-topic', type=str, default=os.environ.get('OUTTOPIC', 'out-topic'),
                             help='topic to write')
 
@@ -545,8 +545,11 @@ class PulsarDestination(DestinationTap):
         self.client.close()
 
 
-def namespacedTopic(namespace, topic):
-    return "{}/{}".format(namespace, topic)
+def namespacedTopic(topic, namespace=None):
+    if namespace:
+        return "{}/{}".format(namespace, topic)
+    else:
+        return topic
 
 
 class RedisSource(SourceTap):
@@ -559,7 +562,7 @@ class RedisSource(SourceTap):
     >>> config = parser.parse_args([])
     >>> with patch('redis.Redis') as c:
     ...     RedisSource(config)
-    RedisSource(host="localhost:6379",name="test/in-topic")
+    RedisSource(host="localhost:6379",name="in-topic")
     """
     kind = 'REDIS'
 
@@ -568,7 +571,7 @@ class RedisSource(SourceTap):
         self.config = config
         self.client = redis.Redis(config.redis)
         self.topic = config.in_topic
-        self.name = namespacedTopic(config.namespace, config.in_topic)
+        self.name = namespacedTopic(config.in_topic, config.namespace)
         self.redisConfig = parse_connection_string(self.config.redis, no_username=True)
         self.redis = redis.Redis(
             host=self.redisConfig.host,
@@ -636,7 +639,7 @@ class RedisDestination(DestinationTap):
     >>> config = parser.parse_args([])
     >>> with patch('redis.Redis') as c:
     ...     RedisDestination(config)
-    RedisDestination(host="localhost:6379",name="test/out-topic")
+    RedisDestination(host="localhost:6379",name="out-topic")
     """
     kind = 'REDIS'
 
@@ -645,7 +648,7 @@ class RedisDestination(DestinationTap):
         self.config = config
         self.client = redis.Redis(config.redis)
         self.topic = config.out_topic
-        self.name = namespacedTopic(config.namespace, config.out_topic)
+        self.name = namespacedTopic(config.out_topic, config.namespace)
         self.redisConfig = parse_connection_string(self.config.redis, no_username=True)
         self.redis = redis.Redis(
             host=self.redisConfig.host,
