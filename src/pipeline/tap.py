@@ -45,11 +45,14 @@ class SourceTap(ABC):
 
     @classmethod
     def add_arguments(cls, parser):
-        parser.add_argument('--rewind', action='store_true', default=False,
-                            help='read from earliest message')
+        parser.add_argument('--namespace', type=str,
+                            default=os.environ.get('NAMESPACE', 'test'),
+                            help='namespace (default: test)')
         parser.add_argument('--in-topic', type=str,
                             default=os.environ.get('INTOPIC', 'in-topic'),
-                            help='pulsar topic to read, exclude tenant and namespace')
+                            help='topic to read from')
+        parser.add_argument('--rewind', action='store_true', default=False,
+                            help='read from earliest message')
 
     @classmethod
     def is_cls_of(cls, kind):
@@ -83,8 +86,11 @@ class DestinationTap(ABC):
 
     @classmethod
     def add_arguments(cls, parser):
+        parser.add_argument('--namespace', type=str,
+                            default=os.environ.get('NAMESPACE', 'test'),
+                            help='namespace (default: test)')
         parser.add_argument('--out-topic', type=str, default=os.environ.get('OUTTOPIC', 'out-topic'),
-                            help='topic to write, for pulsar, exclude tenant and namespace')
+                            help='topic to write')
 
     def close(self):
         pass
@@ -418,7 +424,7 @@ class PulsarSource(SourceTap):
 
     >>> from unittest.mock import patch
     >>> from argparse import ArgumentParser
-    >>> parser = ArgumentParser()
+    >>> parser = ArgumentParser(conflict_handler='resolve')
     >>> PulsarSource.add_arguments(parser)
     >>> config = parser.parse_args([])
     >>> with patch('pulsar.Client') as c:
@@ -466,7 +472,7 @@ class PulsarSource(SourceTap):
                             help='pulsar tenant, always is meganews')
         parser.add_argument('--namespace', type=str,
                             default=os.environ.get('NAMESPACE', 'test'),
-                            help='pulsar namespace, by default test')
+                            help='pulsar namespace (default: test')
         parser.add_argument('--subscription', type=str,
                             default=os.environ.get('SUBSCRIPTION', 'subscription'),
                             help='subscription to read')
@@ -493,7 +499,7 @@ class PulsarDestination(DestinationTap):
 
     >>> from unittest.mock import patch
     >>> from argparse import ArgumentParser
-    >>> parser = ArgumentParser()
+    >>> parser = ArgumentParser(conflict_handler='resolve')
     >>> PulsarDestination.add_arguments(parser)
     >>> config = parser.parse_args([])
     >>> with patch('pulsar.Client') as c:
@@ -530,7 +536,7 @@ class PulsarDestination(DestinationTap):
                             help='pulsar tenant, always is meganews')
         parser.add_argument('--namespace', type=str,
                             default=os.environ.get('NAMESPACE', 'test'),
-                            help='pulsar namespace, by default test')
+                            help='pulsar namespace (default: test)')
 
     def write(self, message):
         self.producer.send(message.serialize())
@@ -539,17 +545,21 @@ class PulsarDestination(DestinationTap):
         self.client.close()
 
 
+def namespacedTopic(namespace, topic):
+    return "{}/{}".format(namespace, topic)
+
+
 class RedisSource(SourceTap):
     """ RedisSource reads from Redis Stream
 
     >>> from unittest.mock import patch
     >>> from argparse import ArgumentParser
-    >>> parser = ArgumentParser()
+    >>> parser = ArgumentParser(conflict_handler='resolve')
     >>> RedisSource.add_arguments(parser)
     >>> config = parser.parse_args([])
     >>> with patch('redis.Redis') as c:
     ...     RedisSource(config)
-    RedisSource(host="localhost:6379",name="in-topic")
+    RedisSource(host="localhost:6379",name="test/in-topic")
     """
     kind = 'REDIS'
 
@@ -558,7 +568,7 @@ class RedisSource(SourceTap):
         self.config = config
         self.client = redis.Redis(config.redis)
         self.topic = config.in_topic
-        self.name = config.in_topic
+        self.name = namespacedTopic(config.namespace, config.in_topic)
         self.redisConfig = parse_connection_string(self.config.redis, no_username=True)
         self.redis = redis.Redis(
             host=self.redisConfig.host,
@@ -621,12 +631,12 @@ class RedisDestination(DestinationTap):
 
     >>> from unittest.mock import patch
     >>> from argparse import ArgumentParser
-    >>> parser = ArgumentParser()
+    >>> parser = ArgumentParser(conflict_handler='resolve')
     >>> RedisDestination.add_arguments(parser)
     >>> config = parser.parse_args([])
     >>> with patch('redis.Redis') as c:
     ...     RedisDestination(config)
-    RedisDestination(host="localhost:6379",name="out-topic")
+    RedisDestination(host="localhost:6379",name="test/out-topic")
     """
     kind = 'REDIS'
 
@@ -635,7 +645,7 @@ class RedisDestination(DestinationTap):
         self.config = config
         self.client = redis.Redis(config.redis)
         self.topic = config.out_topic
-        self.name = config.out_topic
+        self.name = namespacedTopic(config.namespace, config.out_topic)
         self.redisConfig = parse_connection_string(self.config.redis, no_username=True)
         self.redis = redis.Redis(
             host=self.redisConfig.host,
