@@ -4,6 +4,7 @@ import logging
 import os
 import sys
 import time
+import uuid
 from abc import ABC, abstractmethod
 
 import pulsar
@@ -32,6 +33,7 @@ class SourceTap(ABC):
         self.config = config
         self.rewind = config.rewind
         self.topic = config.in_topic
+        self.timeout = config.timeout
         self.logger = logger
         self.messageClass = config.message if hasattr(config, 'message') else Message
 
@@ -53,6 +55,9 @@ class SourceTap(ABC):
                             help='topic to read from')
         parser.add_argument('--rewind', action='store_true', default=False,
                             help='read from earliest message')
+        parser.add_argument('--timeout', type=int,
+                            default=os.environ.get('TIMEOUT', 0),
+                            help='request timeout')
 
     @classmethod
     def is_cls_of(cls, kind):
@@ -118,7 +123,8 @@ class MemorySource(SourceTap):
 
     >>> from types import SimpleNamespace
     >>> data = [{'id':1},{'id':2}]
-    >>> [ m.dct for m in MemorySource(SimpleNamespace(rewind=False, in_topic='test', data=data)).read() ]
+    >>> config = SimpleNamespace(rewind=False, in_topic='test', data=data, timeout=0)
+    >>> [ m.dct for m in MemorySource(config).read() ]
     [{'id': 1}, {'id': 2}]
     """
     kind = 'MEM'
@@ -261,7 +267,7 @@ class KafkaSource(SourceTap):
     """ KafkaSource reads from KAFKA
 
     >>> from argparse import ArgumentParser
-    >>> parser = ArgumentParser()
+    >>> parser = ArgumentParser(conflict_handler='resolve')
     >>> KafkaSource.add_arguments(parser)
     >>> config = parser.parse_args(["--config", '{"sasl.mechanisms": "PLAIN"}'])
     >>> KafkaSource(config)
@@ -280,7 +286,6 @@ class KafkaSource(SourceTap):
             # 'log_level': 0,
             # 'debug': 'consumer',
             'enable.auto.commit': 'false',
-            'session.timeout.ms': config.timeout
         }
 
         if config.config:
@@ -318,9 +323,6 @@ class KafkaSource(SourceTap):
         parser.add_argument('--group-id', type=str,
                             default=os.environ.get('GROUPID', 'group-id'),
                             help='group id')
-        parser.add_argument('--timeout', type=int,
-                            default=os.environ.get('TIMEOUT', 30000),
-                            help='request timeout')
         parser.add_argument('--config', type=str,
                             default=os.environ.get('KAFKACONFIG', None),
                             help='kafka configuration in JSON format')
@@ -328,7 +330,9 @@ class KafkaSource(SourceTap):
                             help='poll new message timeout in seconds')
 
     def read(self):
-        while True:
+        timedOut = False
+        lastMessageTime = time.time()
+        while not timedOut:
             msg = self.consumer.poll(timeout=self.config.poll_timeout)
             if msg is None:
                 self.logger.warning('No message to read, timed out')
@@ -344,6 +348,10 @@ class KafkaSource(SourceTap):
                 self.logger.info('Read {}, {}'.format(msg.topic(), msg.offset()))
                 self.last_msg = msg
                 yield self.messageClass(msg.value())
+                lastMessageTime = time.time()
+            time.sleep(0.01)
+            if self.timeout > 0 and time.time() - lastMessageTime > self.timeout:
+                timedOut = True
 
     def acknowledge(self):
         if self.last_msg:
@@ -357,7 +365,7 @@ class KafkaDestination(DestinationTap):
     """ KafkaDestination writes to KAFKA
 
     >>> from argparse import ArgumentParser
-    >>> parser = ArgumentParser()
+    >>> parser = ArgumentParser(conflict_handler='resolve')
     >>> KafkaDestination.add_arguments(parser)
     >>> config = parser.parse_args(["--config", '{"sasl.mechanisms": "PLAIN"}'])
     >>> KafkaDestination(config)
@@ -477,15 +485,21 @@ class PulsarSource(SourceTap):
                             default=os.environ.get('SUBSCRIPTION', 'subscription'),
                             help='subscription to read')
 
-    def read(self, timeout=0):
-        while True:
+    def read(self):
+        timedOut = False
+        lastMessageTime = time.time()
+        while not timedOut:
             try:
                 msg = self.consumer.receive()
                 self.last_msg = msg
                 yield self.messageClass(msg.data())
+                lastMessageTime = time.time()
             except Exception as ex:
                 self.logger.error(ex)
                 break
+            time.sleep(0.01)
+            if self.timeout > 0 and time.time() - lastMessageTime > self.timeout:
+                timedOut = True
 
     def acknowledge(self):
         self.consumer.acknowledge(self.last_msg)
@@ -571,16 +585,21 @@ class RedisSource(SourceTap):
         self.config = config
         self.client = redis.Redis(config.redis)
         self.topic = config.in_topic
+        self.group = config.group
         self.name = namespacedTopic(config.in_topic, config.namespace)
+        self.timeout = config.timeout
         self.redisConfig = parse_connection_string(self.config.redis, no_username=True)
         self.redis = redis.Redis(
             host=self.redisConfig.host,
             port=self.redisConfig.port,
             password=self.redisConfig.password,
         )
-        self.consumer = self.redis.pubsub(ignore_subscribe_messages=True)
-        # TODO use namespace
-        self.consumer.subscribe(self.name)
+        try:
+            self.redis.xgroup_create(self.name, self.group, id=u'0', mkstream=True)
+        except redis.exceptions.ResponseError as e:
+            logger.error(str(e))
+
+        self.consumer = str(uuid.uuid1())
         self.last_msg = None
 
     def __repr__(self):
@@ -593,39 +612,38 @@ class RedisSource(SourceTap):
     @classmethod
     def add_arguments(cls, parser):
         super().add_arguments(parser)
-        parser.add_argument(
-            '--redis', type=str,
-            default=os.environ.get('REDIS', 'localhost:6379'),
-            help='redis host:port'
-        )
-        parser.add_argument(
-            '--expire', type=int,
-            default=os.environ.get('REDISEXPIRE', 7*86400),
-            help='expire time for database (default: 7 days)'
-        )
+        parser.add_argument('--redis', type=str,
+                            default=os.environ.get('REDIS', 'localhost:6379'),
+                            help='redis host:port')
+        parser.add_argument('--group', type=str,
+                            default=os.environ.get('GROUP', 'group'),
+                            help='consumer group name')
 
-    def read(self, timeout=0):
+    def read(self):
         timedOut = False
         lastMessageTime = time.time()
         while not timedOut:
             try:
-                msg = self.consumer.get_message()
-                if msg and msg['type'].endswith('message'):
-                    self.last_msg = msg
-                    yield self.messageClass(msg['data'])
+                msg = self.redis.xreadgroup(self.group, self.consumer, {self.topic: '>'}, count=1)
+                if msg:
+                    (msgId, data) = msg[0][1][0]
+                    self.last_msg = msgId
+                    self.logger.info('Read message %s', msgId)
+                    yield self.messageClass(data[b'data'])
                     lastMessageTime = time.time()
             except Exception as ex:
                 self.logger.error(ex)
                 break
-            time.sleep(0.001)
-            if timeout > 0 and time.time() - lastMessageTime > timeout:
+            time.sleep(0.01)
+            if self.timeout > 0 and time.time() - lastMessageTime > self.timeout:
                 timedOut = True
 
     def acknowledge(self):
-        pass
+        self.logger.info('acknowledged message %s', self.last_msg)
+        self.redis.xack(self.topic, self.group, self.last_msg)
 
     def close(self):
-        self.consumer.unsubscribe()
+        self.redis.xgroup_delconsumer(self.topic, self.group, self.consumer)
         self.redis.close()
 
 
@@ -666,14 +684,12 @@ class RedisDestination(DestinationTap):
     @classmethod
     def add_arguments(cls, parser):
         super().add_arguments(parser)
-        parser.add_argument(
-            '--redis', type=str,
-            default=os.environ.get('REDIS', 'localhost:6379'),
-            help='redis host:port'
-        )
+        parser.add_argument('--redis', type=str,
+                            default=os.environ.get('REDIS', 'localhost:6379'),
+                            help='redis host:port')
 
     def write(self, message):
-        self.redis.publish(self.name, message.serialize())
+        self.redis.xadd(self.name, fields={'data': message.serialize()})
 
     def close(self):
         self.redis.close()

@@ -23,3 +23,4 @@ upload:
 clean:
 	rm -rf venv
 	rm -rf dist
+	find . -name '__pycache__' -delete
