@@ -732,9 +732,9 @@ class RabbitMQSource(SourceTap):
     @classmethod
     def add_arguments(cls, parser):
         super().add_arguments(parser)
-        parser.add_argument('--rabbit', type=str,
-                            default=os.environ.get('RABBIT', 'localhost'),
-                            help='redis host:port')
+        parser.add_argument('--rabbitmq', type=str,
+                            default=os.environ.get('RABBITMQ', 'localhost'),
+                            help='RabbitMQ host')
 
     def read(self):
         timedOut = False
@@ -803,9 +803,9 @@ class RabbitMQDestination(DestinationTap):
     @classmethod
     def add_arguments(cls, parser):
         super().add_arguments(parser)
-        parser.add_argument('--rabbit', type=str,
-                            default=os.environ.get('RABBIT', 'localhost'),
-                            help='redis host:port')
+        parser.add_argument('--rabbitmq', type=str,
+                            default=os.environ.get('RABBITMQ', 'localhost'),
+                            help='RabbitMQ host')
 
     def write(self, message):
         self.channel.basic_publish(exchange='', routing_key=self.name, body=message.serialize())
