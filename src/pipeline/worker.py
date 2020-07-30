@@ -78,6 +78,9 @@ class WorkerCore(ABC):
     def parse_args(self, args=sys.argv[1:], config=None):
         known, extras = parse_kind(args)
         self.kind = known.kind
+        if self.kind is None:
+            logger.critical("Please specify pipeline kind with '--kind' or environment 'PIPELINE'!")
+            return
         self.cacheKind = known.cacheKind or self.cacheKind
         if self.flag != WorkerConfig.NO_INPUT:
             self.sourceClass = SourceOf(self.kind)
@@ -137,6 +140,7 @@ class Generator(WorkerCore):
         msg.update_version(self.name, self.version)
         self.logger.info('Generated %s', msg)
         if msg.is_valid():
+            self.logger.info('Writing %s', msg)
             self.destination.write(msg)
             self.monitor.record_write(self.destination.topic)
         else:
@@ -150,7 +154,7 @@ class Generator(WorkerCore):
             options = self.options
         except AttributeError:
             logger.critical('Did you forget to run .parse_args before start?')
-            raise
+            return
 
         self.logger.setLevel(level=logging.INFO)
         if options.debug:
