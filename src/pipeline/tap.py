@@ -717,7 +717,8 @@ class RabbitMQSource(SourceTap):
         self.topic = config.in_topic
         self.name = namespacedTopic(config.in_topic, config.namespace)
         self.timeout = config.timeout
-        self.rabbit = pika.BlockingConnection(pika.ConnectionParameters(config.rabbit))
+        parameters = pika.ConnectionParameters(config.rabbitmq, heartbeat=None)
+        self.rabbit = pika.BlockingConnection(parameters)
         self.channel = self.rabbit.channel()
         self.channel.queue_declare(queue=self.name)
         self.delivery_tag = None
@@ -790,7 +791,8 @@ class RabbitMQDestination(DestinationTap):
         self.config = config
         self.topic = config.out_topic
         self.name = namespacedTopic(config.out_topic, config.namespace)
-        self.rabbit = pika.BlockingConnection(pika.ConnectionParameters(config.rabbit))
+        parameters = pika.ConnectionParameters(config.rabbitmq, heartbeat=5)
+        self.rabbit = pika.BlockingConnection(parameters)
         self.channel = self.rabbit.channel()
         self.channel.queue_declare(queue=self.name)
         self.logger.info('RabbitMQDestination initialized.')
@@ -808,7 +810,14 @@ class RabbitMQDestination(DestinationTap):
                             help='RabbitMQ host')
 
     def write(self, message):
-        self.channel.basic_publish(exchange='', routing_key=self.name, body=message.serialize())
+        try:
+            self.channel.basic_publish(exchange='', routing_key=self.name, body=message.serialize())
+            return
+        except pika.exceptions.StreamLostError:
+            logger.warning('Reconnecting to RabbitMQ...')
+            self.rabbit = pika.BlockingConnection(pika.ConnectionParameters(self.config.rabbitmq))
+            self.channel = self.rabbit.channel()
+            self.channel.basic_publish(exchange='', routing_key=self.name, body=message.serialize())
 
     def close(self):
         self.logger.info('RabbitMQDestination closed.')
