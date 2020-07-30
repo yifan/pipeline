@@ -1,9 +1,9 @@
 venv:
-	rm -rf venv
-	python3 -m venv --system-site-packages venv
-	. venv/bin/activate
-	python3 -m pip install -r requirements.txt
-	python3 -m pip install -r requirements.dev.txt
+	rm -rf venv && \
+	python3 -m venv --system-site-packages venv && \
+	. venv/bin/activate && \
+	python3 -m pip install -r requirements.txt && \
+	python3 -m pip install -r requirements.dev.txt &&\
 	pyenv local 3.7.7 3.8.2
 pytest:
 	. venv/bin/activate; \
@@ -23,4 +23,5 @@ upload:
 clean:
 	rm -rf venv
 	rm -rf dist
+	rm -rf .tox
 	find . -name '__pycache__' -delete
