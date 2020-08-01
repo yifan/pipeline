@@ -1,5 +1,6 @@
 import argparse
 import os
+import sys
 
 from .cache import KindsOfCache
 from .tap import KindsOfSource
@@ -14,4 +15,6 @@ def parse_kind(args):
                             choices=KindsOfCache(),
                             help='cache kind, can be {}'.format(','.join(KindsOfCache())))
     known, extras = kindParser.parse_known_args(args)
+    if known.kind is None:
+        kindParser.print_help(sys.stderr)
     return known, extras

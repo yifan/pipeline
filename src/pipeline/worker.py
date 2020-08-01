@@ -372,7 +372,7 @@ class Processor(WorkerCore):
             options = self.options
         except AttributeError:
             self.logger.critical('Did you forget to run .parse_args before start?')
-            raise
+            return
 
         self.logger.setLevel(level=logging.INFO)
         if options.debug:
