@@ -699,6 +699,13 @@ class RedisDestination(DestinationTap):
 class RabbitMQSource(SourceTap):
     """ RabbitMQSource reads from RabbitMQ
 
+    RabbitMQ options:
+        --rabbitmq (env: RABBITMQ): RabbitMQ host
+
+    Source options:
+        --in-topic (env: INTOPIC): queue to read from
+        --timeout (env: TIMEOUT): seconds to exit if no new messages
+
     >>> from unittest.mock import patch
     >>> from argparse import ArgumentParser
     >>> parser = ArgumentParser(conflict_handler='resolve')
@@ -717,7 +724,7 @@ class RabbitMQSource(SourceTap):
         self.topic = config.in_topic
         self.name = namespacedTopic(config.in_topic, config.namespace)
         self.timeout = config.timeout
-        parameters = pika.ConnectionParameters(config.rabbitmq, heartbeat=None)
+        parameters = pika.ConnectionParameters(config.rabbitmq)
         self.rabbit = pika.BlockingConnection(parameters)
         self.channel = self.rabbit.channel()
         self.channel.queue_declare(queue=self.name)
@@ -741,21 +748,25 @@ class RabbitMQSource(SourceTap):
         timedOut = False
         lastMessageTime = time.time()
 
-        def callback(ch, method, properties, body):
-            self.delivery_tag = method.delivery_tag
-            self.msg = body
-
         while not timedOut:
             try:
                 method, header, body = self.channel.basic_get(self.name)
-                if method:
-                    self.delivery_tag = method.delivery_tag
-                    self.logger.info('Read message %s', self.delivery_tag)
-                    yield self.messageClass(body)
-                    lastMessageTime = time.time()
+            except pika.exceptions.AMQPConnectionError:
+                self.logger.warning('Trying to restore connection to RabbitMQ...')
+                parameters = pika.ConnectionParameters(self.config.rabbitmq)
+                self.rabbit = pika.BlockingConnection(parameters)
+                self.channel = self.rabbit.channel()
+                self.logger.warning('Connection to RabbitMQ restored.')
+                method, header, body = self.channel.basic_get(self.name)
             except Exception as ex:
                 self.logger.error(ex)
                 break
+
+            if method:
+                self.delivery_tag = method.delivery_tag
+                self.logger.info('Read message %s', self.delivery_tag)
+                yield self.messageClass(body)
+                lastMessageTime = time.time()
             time.sleep(0.01)
             if self.timeout > 0 and time.time() - lastMessageTime > self.timeout:
                 self.logger.info('RabbitMQSource timed out.')
@@ -773,6 +784,12 @@ class RabbitMQSource(SourceTap):
 
 class RabbitMQDestination(DestinationTap):
     """ RabbitMQDestination writes to RabbitMQ
+
+    options:
+        --rabbitmq (env: RABBITMQ): RabbitMQ host
+
+    standard options:
+        --out-topic (env: OUTTOPIC): queue to write to
 
     >>> from unittest.mock import patch
     >>> from argparse import ArgumentParser
@@ -814,9 +831,10 @@ class RabbitMQDestination(DestinationTap):
             self.channel.basic_publish(exchange='', routing_key=self.name, body=message.serialize())
             return
         except pika.exceptions.StreamLostError:
-            logger.warning('Reconnecting to RabbitMQ...')
+            self.logger.warning('Trying to restore connection to RabbitMQ...')
             self.rabbit = pika.BlockingConnection(pika.ConnectionParameters(self.config.rabbitmq))
             self.channel = self.rabbit.channel()
+            self.logger.warning('Connection to RabbitMQ restored.')
             self.channel.basic_publish(exchange='', routing_key=self.name, body=message.serialize())
 
     def close(self):
