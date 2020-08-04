@@ -567,19 +567,19 @@ def namespacedTopic(topic, namespace=None):
         return topic
 
 
-class RedisSource(SourceTap):
-    """ RedisSource reads from Redis Stream
+class RedisStreamSource(SourceTap):
+    """ RedisStreamSource reads from Redis Stream
 
     >>> from unittest.mock import patch
     >>> from argparse import ArgumentParser
     >>> parser = ArgumentParser(conflict_handler='resolve')
-    >>> RedisSource.add_arguments(parser)
+    >>> RedisStreamSource.add_arguments(parser)
     >>> config = parser.parse_args([])
     >>> with patch('redis.Redis') as c:
-    ...     RedisSource(config)
-    RedisSource(host="localhost:6379",name="in-topic")
+    ...     RedisStreamSource(config)
+    RedisStreamSource(host="localhost:6379",name="in-topic")
     """
-    kind = 'REDIS'
+    kind = 'XREDIS'
 
     def __init__(self, config, logger=logger):
         super().__init__(config, logger)
@@ -604,7 +604,7 @@ class RedisSource(SourceTap):
         self.last_msg = None
 
     def __repr__(self):
-        return 'RedisSource(host="{}:{}",name="{}")'.format(
+        return 'RedisStreamSource(host="{}:{}",name="{}")'.format(
             self.redisConfig.host,
             self.redisConfig.port,
             self.name,
@@ -648,19 +648,19 @@ class RedisSource(SourceTap):
         self.redis.close()
 
 
-class RedisDestination(DestinationTap):
+class RedisStreamDestination(DestinationTap):
     """ RedisDestination writes to Redis Stream
 
     >>> from unittest.mock import patch
     >>> from argparse import ArgumentParser
     >>> parser = ArgumentParser(conflict_handler='resolve')
-    >>> RedisDestination.add_arguments(parser)
+    >>> RedisStreamDestination.add_arguments(parser)
     >>> config = parser.parse_args([])
     >>> with patch('redis.Redis') as c:
-    ...     RedisDestination(config)
-    RedisDestination(host="localhost:6379",name="out-topic")
+    ...     RedisStreamDestination(config)
+    RedisStreamDestination(host="localhost:6379",name="out-topic")
     """
-    kind = 'REDIS'
+    kind = 'XREDIS'
 
     def __init__(self, config, logger=logger):
         super().__init__(config, logger)
@@ -676,7 +676,7 @@ class RedisDestination(DestinationTap):
         )
 
     def __repr__(self):
-        return 'RedisDestination(host="{}:{}",name="{}")'.format(
+        return 'RedisStreamDestination(host="{}:{}",name="{}")'.format(
             self.redisConfig.host,
             self.redisConfig.port,
             self.name,
@@ -841,3 +841,125 @@ class RabbitMQDestination(DestinationTap):
         self.logger.info('RabbitMQDestination closed.')
         self.channel.close()
         self.rabbit.close()
+
+
+class RedisListSource(SourceTap):
+    """ RedisListSource reads from Redis Stream
+
+    NOTE: Redis List does not support acknowledgement
+
+    >>> from unittest.mock import patch
+    >>> from argparse import ArgumentParser
+    >>> parser = ArgumentParser(conflict_handler='resolve')
+    >>> RedisListSource.add_arguments(parser)
+    >>> config = parser.parse_args([])
+    >>> with patch('redis.Redis') as c:
+    ...     RedisListSource(config)
+    RedisListSource(host="localhost:6379",name="in-topic")
+    """
+    kind = 'LREDIS'
+
+    def __init__(self, config, logger=logger):
+        super().__init__(config, logger)
+        self.config = config
+        self.client = redis.Redis(config.redis)
+        self.topic = config.in_topic
+        self.group = config.group
+        self.name = namespacedTopic(config.in_topic, config.namespace)
+        self.timeout = config.timeout
+        self.redisConfig = parse_connection_string(self.config.redis, no_username=True)
+        self.redis = redis.Redis(
+            host=self.redisConfig.host,
+            port=self.redisConfig.port,
+            password=self.redisConfig.password,
+        )
+        self.last_msg = None
+
+    def __repr__(self):
+        return 'RedisListSource(host="{}:{}",name="{}")'.format(
+            self.redisConfig.host,
+            self.redisConfig.port,
+            self.name,
+        )
+
+    @classmethod
+    def add_arguments(cls, parser):
+        super().add_arguments(parser)
+        parser.add_argument('--redis', type=str,
+                            default=os.environ.get('REDIS', 'localhost:6379'),
+                            help='redis host:port')
+        parser.add_argument('--group', type=str,
+                            default=os.environ.get('GROUP', 'group'),
+                            help='consumer group name')
+
+    def read(self):
+        timedOut = False
+        lastMessageTime = time.time()
+        while not timedOut:
+            try:
+                value = self.redis.lpop(self.topic)
+                if value:
+                    msg = self.messageClass(value)
+                    self.logger.info('Read message %s', str(msg))
+                    yield msg
+                    lastMessageTime = time.time()
+            except Exception as ex:
+                self.logger.error(ex)
+                break
+            time.sleep(0.01)
+            if self.timeout > 0 and time.time() - lastMessageTime > self.timeout:
+                timedOut = True
+
+    def acknowledge(self):
+        self.logger.info('Acknowledgement is not supported for LREDIS (Redis List)')
+
+    def close(self):
+        self.redis.close()
+
+
+class RedisListDestination(DestinationTap):
+    """ RedisListDestination writes to Redis Stream
+
+    >>> from unittest.mock import patch
+    >>> from argparse import ArgumentParser
+    >>> parser = ArgumentParser(conflict_handler='resolve')
+    >>> RedisListDestination.add_arguments(parser)
+    >>> config = parser.parse_args([])
+    >>> with patch('redis.Redis') as c:
+    ...     RedisListDestination(config)
+    RedisListDestination(host="localhost:6379",name="out-topic")
+    """
+    kind = 'LREDIS'
+
+    def __init__(self, config, logger=logger):
+        super().__init__(config, logger)
+        self.config = config
+        self.client = redis.Redis(config.redis)
+        self.topic = config.out_topic
+        self.name = namespacedTopic(config.out_topic, config.namespace)
+        self.redisConfig = parse_connection_string(self.config.redis, no_username=True)
+        self.redis = redis.Redis(
+            host=self.redisConfig.host,
+            port=self.redisConfig.port,
+            password=self.redisConfig.password,
+        )
+
+    def __repr__(self):
+        return 'RedisListDestination(host="{}:{}",name="{}")'.format(
+            self.redisConfig.host,
+            self.redisConfig.port,
+            self.name,
+        )
+
+    @classmethod
+    def add_arguments(cls, parser):
+        super().add_arguments(parser)
+        parser.add_argument('--redis', type=str,
+                            default=os.environ.get('REDIS', 'localhost:6379'),
+                            help='redis host:port')
+
+    def write(self, message):
+        self.redis.rpush(self.name, message.serialize())
+
+    def close(self):
+        self.redis.close()
