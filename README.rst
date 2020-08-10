@@ -1,12 +1,20 @@
-pipeline
-========
+🔀pipeline🔀
+============
 .. image:: https://badge.fury.io/py/tanbih-pipeline.svg
     :target: https://badge.fury.io/py/tanbih-pipeline
 .. image:: https://readthedocs.org/projects/tanbih-pipeline/badge/?version=latest
     :target: https://tanbih-pipeline.readthedocs.io/en/latest/?badge=latest
     :alt: Documentation Status
 
-Pipeline is a data streaming framework supporting Pulsar/Kafka
+a flexible stream processing framework supporting RabbitMQ, Pulsar, Kafka and Redis.
+
+Features
+--------
+
+- at-least-once guaranteed with acknowledgement on every message
+- horizontally scalable through consumer groups
+- flow is controlled in deployment, develop it once, use it everywhere
+- testability provided with FILE and MEMORY input/output
 
 Generator
 ---------
