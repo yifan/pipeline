@@ -1,7 +1,7 @@
 import logging
 import time
 
-from prometheus_client import Counter, Enum, Info, start_http_server
+from prometheus_client import Counter, Enum, Histogram, Info, start_http_server
 
 FORMAT = '%(asctime)-15s %(levelname)s %(message)s'
 logging.basicConfig(format=FORMAT)
@@ -23,6 +23,7 @@ class Monitor(object):
         ['name'],
         states=['starting', 'running', 'stopped'],
     )
+    process_timer = Histogram('process_time_seconds', 'Process time (seconds)')
 
     def __init__(self, worker, port=8000):
         self.worker = worker

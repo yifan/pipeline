@@ -1,6 +1,7 @@
 import argparse
 import os
 import sys
+import time
 
 from .cache import KindsOfCache
 from .tap import KindsOfSource
@@ -18,3 +19,14 @@ def parse_kind(args):
     if known.kind is None:
         kindParser.print_help(sys.stderr)
     return known, extras
+
+
+class Timer:
+    def __init__(self):
+        self.startTime = time.perf_counter()
+
+    def elapsed_time(self):
+        return time.perf_counter() - self.startTime
+
+    def reset(self):
+        self.startTime = time.perf_counter()

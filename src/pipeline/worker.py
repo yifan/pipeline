@@ -359,7 +359,8 @@ class Processor(WorkerCore):
             self.monitor.record_read(self.source.topic)
             self.logger.info("Received %d-th message '%s'", i, str(msg))
 
-            self._step(msg)
+            with self.monitor.process_timer.time():
+                self._step(msg)
 
             self.source.acknowledge()
 
