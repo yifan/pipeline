@@ -402,6 +402,7 @@ class Processor(WorkerCore):
                 self.destination.close()
         except PipelineError as e:
             e.log(self.logger)
+            self.logger.error(traceback.format_exc())
         except Exception as e:
             self.logger.error(traceback.format_exc())
             self.monitor.record_error(str(e))
