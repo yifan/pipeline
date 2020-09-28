@@ -12,19 +12,19 @@ class Message(ABC):
     def __init__(self, other=None):
         self.updated = False
         self.terminated = False
-        self.info = {}
+        self.header = {}
         self.dct = {}
         try:
             if other is not None:
                 if isinstance(other, type(self)):
-                    self.info = other.info
+                    self.header = other.header
                     self.dct = other.dct
                 elif isinstance(other, dict):
                     self.dct = other
                 elif isinstance(other, bytes):
-                    [self.info, self.dct] = self.deserialize(other)
+                    [self.header, self.dct] = self.deserialize(other)
                 elif isinstance(other, str):
-                    [self.info, self.dct] = self.deserialize(other)
+                    [self.header, self.dct] = self.deserialize(other)
                 else:
                     raise PipelineError(
                         'Message needs to be initialized with a message, a dict or str/bytes, not "{}"'
@@ -48,11 +48,15 @@ class Message(ABC):
         return self.__str__()
 
     def log(self, logger):
-        logger.warning(self.log_info)
+        logger.warning(self.log_header)
         logger.warning(self.log_content)
 
     def log_info(self):
-        return json.dumps(self.info, indent=4)
+        """ for compatibility only """
+        return self.log_header()
+
+    def log_header(self):
+        return json.dumps(self.header, indent=4)
 
     def log_content(self):
         return json.dumps(self.dct, indent=4)
@@ -63,7 +67,7 @@ class Message(ABC):
 
     def serialize(self, indent=None):
         """serialize to binary."""
-        return json.dumps([self.info, self.dct], indent=indent).encode('utf-8')
+        return json.dumps([self.header, self.dct], indent=indent).encode('utf-8')
 
     @classmethod
     def deserialize(cls, raw):
@@ -73,10 +77,10 @@ class Message(ABC):
         return json.loads(raw)
 
     def get_version(self, name):
-        return self.info.setdefault(name, {'version': [], })
+        return self.header.setdefault(name, {'version': [], })
 
     def get_versions(self):
-        return self.info
+        return self.header
 
     # @abstractmethod
     # def publish_time(self):

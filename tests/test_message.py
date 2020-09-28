@@ -37,7 +37,7 @@ class TestMessage(TestCase):
                 if isinstance(other, dict):
                     self.dct = other
                 else:
-                    self.info, self.dct = other.info, other.dct
+                    self.header, self.dct = other.header, other.dct
 
         newMessage1 = NewMessage({'key': 'new1'})
         newMessage2 = NewMessage(newMessage1)
