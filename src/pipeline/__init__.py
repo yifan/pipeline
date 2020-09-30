@@ -6,7 +6,7 @@ from .worker import (
     ProcessorConfig, Processor,
     SplitterConfig, Splitter,
 )
-from .cache import CacheOf
+from .cache import CacheOf, CachedMessageClass
 from .utils import parse_kind
 
 
@@ -25,4 +25,5 @@ __all__ = [
     'Message',
     'parse_kind',
     'CacheOf',
+    'CachedMessageClass',
 ]

@@ -125,10 +125,7 @@ class TestWorkerCore(TestCase):
         class MyProcessor(Processor):
             def process(self, msg):
                 self.logger.info("%s, %s", msg.dct.get('key', None), msg.get('key'))
-                self.cache.write(
-                    msg.get('key'),
-                    {'key3': self.cache.read(msg.get('key'))}
-                )
+                msg.update({'key3': msg.get('key1')})
                 return None
         msgs = [{'key': 'm1'}, {'key': 'm2'}, {'key': 'm3'}]
         memory = {
@@ -148,8 +145,8 @@ class TestWorkerCore(TestCase):
         pro1.start()
         assert len(pro1.destination.results) == 3
         m = memory.get('m1')
-        assert m.get('key3')['key1'] == 'val11'
-        assert m.get('key3')['key2'] == 'val21'
+        assert m.get('key3') == 'val11'
+        assert m.get('key1') == 'val11'
 
     def test_file(self):
         processor = Processor('fileprocessor', '0.1.0')

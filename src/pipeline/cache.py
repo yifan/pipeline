@@ -114,6 +114,8 @@ class MemoryCache(Cache):
     >>> data = {'key1':{'text':'text1', 'title':'title1'}}
     >>> mem = MemoryCache(SimpleNamespace(in_fields='title', out_fields='text,title', mem=data))
     >>> mem.write('key3', {'text': 'text3', 'title': 'title3'})
+    >>> data
+    {'key1': {'text': 'text1', 'title': 'title1'}, 'key3': {'text': 'text3', 'title': 'title3'}}
     >>> mem.read('key3')
     {'title': 'title3'}
     """
@@ -129,7 +131,9 @@ class MemoryCache(Cache):
         return dct
 
     def write(self, key, kvs):
-        self.config.mem[key] = kvs
+        if key not in self.config.mem:
+            self.config.mem[key] = {}
+        self.config.mem[key].update(kvs)
 
 
 class MySqlCache(Cache):
@@ -367,3 +371,26 @@ class AzureTableCache(Cache):
             dct,
             timeout=5.0,
         )
+
+
+class CachedMessageMixin(object):
+    """
+    """
+    def get(self, key, default=None):
+        value = self.dct.get(key)
+        if value is None:
+            if not hasattr(self, 'fetched'):
+                self.fetched = self.cache.read(self.dct[self.keyname])
+            value = self.fetched.get(key, default)
+        return value
+
+    def update(self, other):
+        self.cache.write(self.dct[self.keyname], other)
+
+    def replace(self, other):
+        """ Not supported in cache mode """
+        raise NotImplementedError(".replace() is not supported in cache mode")
+
+
+def CachedMessageClass(messageClass, cache):
+    return type('CachedMessage', (CachedMessageMixin, messageClass), dict(cache=cache))

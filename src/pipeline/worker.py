@@ -6,7 +6,7 @@ import traceback
 from abc import ABC
 from copy import copy
 
-from .cache import CacheOf
+from .cache import CacheOf, CachedMessageClass
 from .exception import PipelineError
 from .message import Message
 from .monitor import Monitor
@@ -89,16 +89,20 @@ class WorkerCore(ABC):
         if self.cacheKind:
             self.cacheClass = CacheOf(self.cacheKind)
         self._add_arguments(self.parser)
+
         if config:
             self.parser.set_defaults(**config)
-        self.parser.set_defaults(message=self.messageClass)
         self.options = self.parser.parse_args(extras)
+
+        if self.cacheKind:
+            self.cache = self.cacheClass(self.options, logger=self.logger)
+            self.options.message = CachedMessageClass(self.messageClass, self.cache)
+        else:
+            self.options.message = self.messageClass
         if self.flag != WorkerConfig.NO_INPUT:
             self.source = self.sourceClass(self.options, logger=self.logger)
         if self.flag != WorkerConfig.NO_OUTPUT:
             self.destination = self.destinationClass(self.options, logger=self.logger)
-        if self.cacheKind:
-            self.cache = self.cacheClass(self.options, logger=self.logger)
         # report worker info to monitor
         self.monitor.record_worker_info()
 

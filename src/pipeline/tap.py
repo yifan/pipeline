@@ -18,6 +18,7 @@ import redis
 from .message import Message
 from .cache import parse_connection_string
 
+
 FORMAT = '%(asctime)-15s %(levelname)s %(message)s'
 logging.basicConfig(format=FORMAT)
 logger = logging.getLogger('worker')
@@ -26,7 +27,7 @@ logger.setLevel(logging.DEBUG)
 
 class SourceTap(ABC):
     """ Tap defines the interface for connecting components in pipeline.
-    A source will emit Message.
+        A source will emit Message.
     """
     kind = 'NONE'
 
@@ -40,11 +41,10 @@ class SourceTap(ABC):
 
     @abstractmethod
     def read(self):
-        """receive message."""
+        """ receive message. """
 
     def rewind(self):
-        """rewind to earliest message."""
-        pass
+        """ rewind to earliest message. """
 
     @classmethod
     def add_arguments(cls, parser):
@@ -84,7 +84,7 @@ class DestinationTap(ABC):
 
     @abstractmethod
     def write(self, message):
-        """send message."""
+        """ send message. """
 
     @classmethod
     def is_cls_of(cls, kind):
