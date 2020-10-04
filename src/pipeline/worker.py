@@ -140,13 +140,16 @@ class Generator(WorkerCore):
         if not self.generator:
             self.generator = self.generate()
         dct = next(self.generator)
-        msg = self.messageClass(dct)
+        msg = self.messageClass({})
+        msg.update(dct)
         msg.update_version(self.name, self.version)
         self.logger.info('Generated %s', msg)
         if msg.is_valid():
             self.logger.info('Writing %s', msg)
             self.destination.write(msg)
             self.monitor.record_write(self.destination.topic)
+        elif msg.terminated:
+            self.logger.info('Message terminates here')
         else:
             self.logger.error('Generated message is invalid, skipping')
             self.logger.error(msg.log_info())
