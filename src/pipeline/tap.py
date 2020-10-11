@@ -110,12 +110,14 @@ def SourceOf(typename):
     for cls in SourceTap.__subclasses__():
         if cls.is_cls_of(typename):
             return cls
+    raise TypeError(f"Source type '{typename}' is invalid")
 
 
 def DestinationOf(typename):
     for cls in DestinationTap.__subclasses__():
         if cls.is_cls_of(typename):
             return cls
+    raise TypeError(f"Destination type '{typename}' is invalid")
 
 
 class MemorySource(SourceTap):
