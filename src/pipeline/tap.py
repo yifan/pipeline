@@ -865,9 +865,8 @@ class RedisListSource(SourceTap):
         super().__init__(config, logger)
         self.config = config
         self.client = redis.Redis(config.redis)
-        self.topic = config.in_topic
         self.group = config.group
-        self.name = namespacedTopic(config.in_topic, config.namespace)
+        self.topic = namespacedTopic(config.in_topic, config.namespace)
         self.timeout = config.timeout
         self.redisConfig = parse_connection_string(self.config.redis, no_username=True)
         self.redis = redis.Redis(
@@ -881,7 +880,7 @@ class RedisListSource(SourceTap):
         return 'RedisListSource(host="{}:{}",name="{}")'.format(
             self.redisConfig.host,
             self.redisConfig.port,
-            self.name,
+            self.topic,
         )
 
     @classmethod
@@ -937,8 +936,7 @@ class RedisListDestination(DestinationTap):
         super().__init__(config, logger)
         self.config = config
         self.client = redis.Redis(config.redis)
-        self.topic = config.out_topic
-        self.name = namespacedTopic(config.out_topic, config.namespace)
+        self.topic = namespacedTopic(config.out_topic, config.namespace)
         self.redisConfig = parse_connection_string(self.config.redis, no_username=True)
         self.redis = redis.Redis(
             host=self.redisConfig.host,
@@ -950,7 +948,7 @@ class RedisListDestination(DestinationTap):
         return 'RedisListDestination(host="{}:{}",name="{}")'.format(
             self.redisConfig.host,
             self.redisConfig.port,
-            self.name,
+            self.topic,
         )
 
     @classmethod
@@ -961,7 +959,7 @@ class RedisListDestination(DestinationTap):
                             help='redis host:port')
 
     def write(self, message):
-        self.redis.rpush(self.name, message.serialize())
+        self.redis.rpush(self.topic, message.serialize())
 
     def close(self):
         self.redis.close()
