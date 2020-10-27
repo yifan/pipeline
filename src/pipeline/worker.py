@@ -11,7 +11,7 @@ from .exception import PipelineError
 from .message import Message
 from .monitor import Monitor
 from .tap import DestinationOf, SourceOf
-from .utils import parse_kind
+from .utils import parse_kind, Timer
 
 logger = logging.getLogger('pipeline')
 logger.setLevel(logging.INFO)
@@ -54,6 +54,7 @@ class WorkerCore(ABC):
         self.flag = config.flag
         self.messageClass = config.messageClass
         self.cacheKind = config.cacheKind
+        self.timer = Timer()
 
         self.parser = argparse.ArgumentParser(
             prog=name,
@@ -136,7 +137,7 @@ class Generator(WorkerCore):
         """a generator to generate dict."""
         yield self.messageClass()
 
-    def step(self):
+    def _step(self):
         if not self.generator:
             self.generator = self.generate()
         dct = next(self.generator)
@@ -178,7 +179,9 @@ class Generator(WorkerCore):
 
         try:
             while True:
-                self.step()
+                self.timer.start()
+                self._step()
+                self.timer.log(self.logger)
         except StopIteration:
             pass
         except PipelineError as e:
@@ -366,8 +369,10 @@ class Processor(WorkerCore):
             self.monitor.record_read(self.source.topic)
             self.logger.info("Received %d-th message '%s'", i, str(msg))
 
+            self.timer.start()
             with self.monitor.process_timer.time():
                 self._step(msg)
+            self.timer.log(self.logger)
 
             self.source.acknowledge()
 
