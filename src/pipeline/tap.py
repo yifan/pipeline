@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import csv
 import json
 import logging
 import os
@@ -264,6 +265,111 @@ class FileDestination(DestinationTap):
         if self.filename != '-':
             self.outFile.close()
             self.logger.info('File Destination closed')
+
+
+class CsvSource(SourceTap):
+    """ CsvSource iterates over csv file.
+
+    >>> import tempfile, csv
+    >>> from argparse import ArgumentParser
+    >>> parser = ArgumentParser()
+    >>> FileSource.add_arguments(parser)
+    >>> with tempfile.NamedTemporaryFile(mode="w") as tmpfile:
+    ...     fieldnames = ['id', 'field1', 'field2']
+    ...     writer = csv.DictWriter(tmpfile, fieldnames=fieldnames)
+    ...     writer.writeheader() #doctest:+SKIP
+    ...     writer.writerow({'id': 0, 'field1': 'value1', 'field2': 'value2'}) #doctest:+SKIP
+    ...     tmpfile.flush()
+    ...     config = parser.parse_args("--infile {}".format(tmpfile.name).split())
+    ...     csvSource = CsvSource(config)
+    ...     [m.dct["id"] for m in csvSource.read()]
+    ['0']
+    """
+    kind = 'CSV'
+
+    def __init__(self, config, logger=logger):
+        super().__init__(config, logger)
+        if config.infile == '-':
+            self.infile = sys.stdin
+        else:
+            self.infile = open(config.infile, 'r')
+        self.reader = csv.DictReader(self.infile)
+        self.logger.info('CSV Source: %s', config.infile)
+
+    def __repr__(self):
+        return 'CsvSource("{}")'.format(self.infile.name)
+
+    @classmethod
+    def add_arguments(cls, parser):
+        super().add_arguments(parser)
+        parser.add_argument('--infile', type=str, required=True,
+                            help='input csv file')
+
+    def read(self):
+        for row in self.reader:
+            yield self.messageClass(row)
+
+
+class CsvDestination(DestinationTap):
+    """ CsvDestination writes items to a csv file.
+
+    >>> import os, tempfile, csv
+    >>> from argparse import ArgumentParser
+    >>> parser = ArgumentParser()
+    >>> FileDestination.add_arguments(parser)
+    >>> tmpdir = tempfile.mkdtemp()
+    >>> outFilename = os.path.join(tmpdir, 'outfile.csv')
+    >>> config = parser.parse_args(args=[])
+    >>> CsvDestination(config)
+    CsvDestination("out-topic.csv")
+    >>> config = parser.parse_args("--outfile {}".format(outFilename).split())
+    >>> CsvDestination(config)
+    CsvDestination("...outfile.csv")
+    """
+    kind = 'CSV'
+
+    def __init__(self, config, logger=logger):
+        super().__init__(config, logger)
+        if config.outfile is None:
+            if config.out_topic.find('.') >= 0:
+                self.filename = config.out_topic
+            else:
+                self.filename = config.out_topic + '.csv'
+        else:
+            self.filename = config.outfile
+
+        if config.outfile == '-':
+            self.outFile = sys.stdout
+        else:
+            if config.overwrite:
+                self.outFile = open(self.filename, 'w')
+            else:
+                self.outFile = open(self.filename, 'a')
+        self.writer = None
+        self.logger.info('CsvDestination: %s', self.filename)
+
+    def __repr__(self):
+        return 'CsvDestination("{}")'.format(self.filename)
+
+    @classmethod
+    def add_arguments(cls, parser):
+        super().add_arguments(parser)
+        parser.add_argument('--outfile', type=str,
+                            help='output json file')
+        parser.add_argument('--overwrite', action='store_true', default=False,
+                            help='overwrite output file instead of append')
+
+    def write(self, message):
+        if self.writer is None:
+            self.writer = csv.DictWriter(self.outFile, fieldnames=message.dct.keys())
+            self.writer.writeheader()
+        self.writer.writerow(message.dct)
+        self.outFile.flush()
+
+    def close(self):
+        if self.filename != '-':
+            self.outFile.close()
+            self.logger.info('CsvDestination closed')
 
 
 class KafkaSource(SourceTap):
