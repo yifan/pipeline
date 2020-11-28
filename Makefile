@@ -1,4 +1,4 @@
-venv:
+venv: requirements.txt requirements.dev.txt
 	rm -rf venv && \
 	python3 -m venv venv && \
 	. venv/bin/activate && \
@@ -10,7 +10,7 @@ pytest:
 pylint:
 	. venv/bin/activate; \
 	python3 -m pylint src
-test: requirements.txt requirements.dev.txt
+test:venv
 	. venv/bin/activate; \
 	tox
 upload:
