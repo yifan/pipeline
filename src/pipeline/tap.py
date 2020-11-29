@@ -293,7 +293,7 @@ class CsvSource(SourceTap):
             self.infile = sys.stdin
         else:
             self.infile = open(config.infile, 'r')
-        self.reader = csv.DictReader(self.infile)
+        self.reader = csv.DictReader(self.infile, config.csv_dialect)
         self.logger.info('CSV Source: %s', config.infile)
 
     def __repr__(self):
@@ -304,6 +304,9 @@ class CsvSource(SourceTap):
         super().add_arguments(parser)
         parser.add_argument('--infile', type=str, required=True,
                             help='input csv file')
+        parser.add_argument('--csv-dialect', type=str, default='excel',
+                            choices=['excel', 'excel-tab', 'unix'],
+                            help='csv format: excel or excel-tab')
 
     def read(self):
         for row in self.reader:
@@ -358,10 +361,13 @@ class CsvDestination(DestinationTap):
                             help='output json file')
         parser.add_argument('--overwrite', action='store_true', default=False,
                             help='overwrite output file instead of append')
+        parser.add_argument('--csv-dialect', type=str, default='excel',
+                            choices=['excel', 'excel-tab', 'unix'],
+                            help='csv format: excel or excel-tab')
 
     def write(self, message):
         if self.writer is None:
-            self.writer = csv.DictWriter(self.outFile, fieldnames=message.dct.keys())
+            self.writer = csv.DictWriter(self.outFile, fieldnames=message.dct.keys(), dialect=self.config.csv_dialect)
             self.writer.writeheader()
         self.writer.writerow(message.dct)
         self.outFile.flush()
