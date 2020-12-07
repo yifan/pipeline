@@ -1,61 +1,42 @@
 import argparse
-import os
-import sys
-import time
 
-from .cache import KindsOfCache
-from .tap import KindsOfSource
+from .tap import SourceOf, DestinationOf
+from .helpers import parse_kind
 
 
-def parse_kind(args):
-    kindParser = argparse.ArgumentParser(add_help=False)
-    kindParser.add_argument('--kind', type=str, default=os.environ.get('PIPELINE', None),
-                            choices=KindsOfSource(),
-                            help='pipeline kind, can be {}'.format(','.join(KindsOfSource())))
-    kindParser.add_argument('--cacheKind', type=str, default=os.environ.get('CACHEKIND', None),
-                            choices=KindsOfCache(),
-                            help='cache kind, can be {}'.format(','.join(KindsOfCache())))
-    known, extras = kindParser.parse_known_args(args)
-    if known.kind is None:
-        kindParser.print_help(sys.stderr)
-    return known, extras
+class TapManager(object):
+    """ use TapManager to construct pipelines without worker logic
 
+    >>> tapManager = TapManager('MEM')
+    """
+    def __init__(self, kind=None, noInput=False, noOutput=False):
+        assert not (noInput and noOutput)
 
-class Timer:
-    def __init__(self):
-        self.startTime = time.perf_counter()
-        self.startProcessTime = time.process_time()
-        self.totalTime = 0.0
-        self.totalProcessTime = 0.0
-        self.timeCount = 0
-        self.processTimeCount = 0
+        parser = argparse.ArgumentParser('pipeline', conflict_handler='resolve')
+        known, extras = parse_kind(["--kind", kind])
 
-    def elapsed_time(self):
-        t = time.perf_counter() - self.startTime
-        self.totalTime += t
-        self.timeCount += 1
-        return t
+        if not noInput:
+            self.sources = {}
+            self.sourceClass = SourceOf(known.kind)
+            self.sourceClass.add_arguments(parser)
 
-    def average_time(self):
-        return self.totalTime / self.timeCount
+        if not noOutput:
+            self.destinations = {}
+            self.destinationClass = DestinationOf(known.kind)
+            self.destinationClass.add_arguments(parser)
 
-    def process_time(self):
-        t = time.process_time() - self.startProcessTime
-        self.totalProcessTime += t
-        self.processTimeCount += 1
-        return t
+        self.options = parser.parse_args(extras)
 
-    def average_process_time(self):
-        return self.totalProcessTime / self.processTimeCount
+    def addSourceTopic(self, name):
+        self.options.in_topic = name
+        self.sources[name] = self.sourceClass(self.options)
 
-    def start(self):
-        self.startTime = time.perf_counter()
-        self.startProcessTime = time.process_time()
+    def addDestinationTopic(self, name):
+        self.options.out_topic = name
+        self.destinations[name] = self.destinationClass(self.options)
 
-    def log(self, logger):
-        elapsedTime = self.elapsed_time()
-        averageTime = self.average_time()
-        logger.info('Elapsed Time: %.2f, Average Time: %.2f', elapsedTime, averageTime)
-        processTime = self.process_time()
-        averageProcessTime = self.average_process_time()
-        logger.info('Process Time: %.2f, Average Process Time: %.2f', processTime, averageProcessTime)
+    def sourceOf(self, name):
+        return self.sources[name]
+
+    def destinationOf(self, name):
+        return self.destinations[name]

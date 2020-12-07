@@ -11,7 +11,7 @@ from .exception import PipelineError
 from .message import Message
 from .monitor import Monitor
 from .tap import DestinationOf, SourceOf
-from .utils import parse_kind, Timer
+from .helpers import parse_kind, Timer
 
 logger = logging.getLogger('pipeline')
 logger.setLevel(logging.INFO)

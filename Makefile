@@ -2,8 +2,7 @@ venv: requirements.txt requirements.dev.txt
 	rm -rf venv && \
 	python3 -m venv venv && \
 	. venv/bin/activate && \
-	python3 -m pip install -r requirements.dev.txt &&\
-	pyenv local 3.7.7 3.8.2
+	python3 -m pip install -r requirements.dev.txt
 pytest:
 	. venv/bin/activate; \
 	python3 -m pytest

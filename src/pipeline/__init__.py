@@ -7,7 +7,7 @@ from .worker import (
     SplitterConfig, Splitter,
 )
 from .cache import CacheOf, CachedMessageClass
-from .utils import parse_kind
+from .utils import TapManager
 
 
 __all__ = [
@@ -23,7 +23,7 @@ __all__ = [
     'SplitterConfig',
     'Splitter',
     'Message',
-    'parse_kind',
     'CacheOf',
     'CachedMessageClass',
+    'TapManager',
 ]
