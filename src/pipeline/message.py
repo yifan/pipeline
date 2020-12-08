@@ -7,7 +7,7 @@ from .exception import PipelineError
 
 
 class Message(ABC):
-    keyname = 'key'
+    keyname = "key"
 
     def __init__(self, other=None):
         self.updated = False
@@ -27,9 +27,10 @@ class Message(ABC):
                     [self.header, self.dct] = self.deserialize(other)
                 else:
                     raise PipelineError(
-                        'Message needs to be initialized with a message, a dict or str/bytes, not "{}"'
-                        .format(type(other)),
-                        data=other
+                        'Message needs to be initialized with a message, a dict or str/bytes, not "{}"'.format(
+                            type(other)
+                        ),
+                        data=other,
                     )
         except PipelineError as error:
             raise error
@@ -39,7 +40,9 @@ class Message(ABC):
             )
 
     def __str__(self):
-        return '{}<{}:{}>'.format(type(self).__name__, self.keyname, self.dct.get(self.keyname, None))
+        return "{}<{}:{}>".format(
+            type(self).__name__, self.keyname, self.dct.get(self.keyname, None)
+        )
 
     def __repr__(self):
         return self.__str__()
@@ -67,17 +70,24 @@ class Message(ABC):
 
     def serialize(self, indent=None):
         """serialize to binary."""
-        return json.dumps([self.header, self.dct], indent=indent).encode('utf-8')
+        return json.dumps([self.header, self.dct], indent=indent).encode(
+            "utf-8"
+        )
 
     @classmethod
     def deserialize(cls, raw):
         """deserialize to json."""
         if isinstance(raw, bytes):
-            raw = raw.decode('utf-8')
+            raw = raw.decode("utf-8")
         return json.loads(raw)
 
     def get_version(self, name):
-        return self.header.setdefault(name, {'version': [], })
+        return self.header.setdefault(
+            name,
+            {
+                "version": [],
+            },
+        )
 
     def get_versions(self):
         return self.header
@@ -91,15 +101,15 @@ class Message(ABC):
 
     def should_update(self, name, version):
         versionDct = self.get_version(name)
-        return version > versionDct['version']
+        return version > versionDct["version"]
 
     def update_version(self, name, version):
         versionDct = self.get_version(name)
-        if version > versionDct['version']:
-            versionDct['version'] = version
-            versionDct['timestamp'] = time.time()
-            if 'order' not in versionDct:
-                versionDct['order'] = len(self.get_versions())
+        if version > versionDct["version"]:
+            versionDct["version"] = version
+            versionDct["timestamp"] = time.time()
+            if "order" not in versionDct:
+                versionDct["order"] = len(self.get_versions())
             self.updated = True
 
     def terminates(self):

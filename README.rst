@@ -128,6 +128,12 @@ The value `None` above is error you should return if `dct` or `dcts` is empty.
 Error will be sent to topic `errors` with worker information.
 
 
+Contribute
+----------
+
+Use `pre-commit` to run `black` and `flake8`
+
+
 Credits
 -------
 

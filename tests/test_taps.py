@@ -2,11 +2,11 @@ from unittest import TestCase
 
 from pipeline import DestinationTap, SourceTap
 
-BASE_DIR = './'
+BASE_DIR = "./"
 
 
 class DummySourceTap(SourceTap):
-    kind = 'DUMMY'
+    kind = "DUMMY"
 
     def __next__(self):
         pass
@@ -16,7 +16,7 @@ class DummySourceTap(SourceTap):
 
 
 class DummyDestinationTap(DestinationTap):
-    kind = 'DUMMY'
+    kind = "DUMMY"
 
     def send(self, msg):
         pass
@@ -24,5 +24,5 @@ class DummyDestinationTap(DestinationTap):
 
 class TestTaps(TestCase):
     def test_is_cls_of(self):
-        self.assertTrue(DummySourceTap.is_cls_of('DUMMY'))
-        self.assertTrue(DummyDestinationTap.is_cls_of('DUMMY'))
+        self.assertTrue(DummySourceTap.is_cls_of("DUMMY"))
+        self.assertTrue(DummyDestinationTap.is_cls_of("DUMMY"))

@@ -5,14 +5,17 @@ from .helpers import parse_kind
 
 
 class TapManager(object):
-    """ use TapManager to construct pipelines without worker logic
+    """use TapManager to construct pipelines without worker logic
 
     >>> tapManager = TapManager('MEM')
     """
+
     def __init__(self, kind=None, noInput=False, noOutput=False):
         assert not (noInput and noOutput)
 
-        parser = argparse.ArgumentParser('pipeline', conflict_handler='resolve')
+        parser = argparse.ArgumentParser(
+            "pipeline", conflict_handler="resolve"
+        )
         known, extras = parse_kind(["--kind", kind])
 
         if not noInput:

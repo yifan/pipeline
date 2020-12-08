@@ -3,3 +3,4 @@ tox-pyenv
 wheel
 twine
 pylint
+pre-commit

@@ -9,4 +9,4 @@ class TestException(TestCase):
         try:
             raise PipelineError("Test")
         except PipelineError as e:
-            e.log(logging.getLogger('test'))
+            e.log(logging.getLogger("test"))

@@ -11,8 +11,11 @@ from abc import ABC, abstractmethod
 import pika
 import pulsar
 from confluent_kafka import (
-    OFFSET_BEGINNING, Consumer, KafkaError,
-    KafkaException, Producer
+    OFFSET_BEGINNING,
+    Consumer,
+    KafkaError,
+    KafkaException,
+    Producer,
 )
 import redis
 
@@ -20,17 +23,18 @@ from .message import Message
 from .cache import parse_connection_string
 
 
-FORMAT = '%(asctime)-15s %(levelname)s %(message)s'
+FORMAT = "%(asctime)-15s %(levelname)s %(message)s"
 logging.basicConfig(format=FORMAT)
-logger = logging.getLogger('worker')
+logger = logging.getLogger("worker")
 logger.setLevel(logging.DEBUG)
 
 
 class SourceTap(ABC):
-    """ Tap defines the interface for connecting components in pipeline.
-        A source will emit Message.
+    """Tap defines the interface for connecting components in pipeline.
+    A source will emit Message.
     """
-    kind = 'NONE'
+
+    kind = "NONE"
 
     def __init__(self, config, logger=logger):
         self.config = config
@@ -38,7 +42,9 @@ class SourceTap(ABC):
         self.topic = config.in_topic
         self.timeout = config.timeout
         self.logger = logger
-        self.messageClass = config.message if hasattr(config, 'message') else Message
+        self.messageClass = (
+            config.message if hasattr(config, "message") else Message
+        )
 
     @abstractmethod
     def read(self):
@@ -49,17 +55,30 @@ class SourceTap(ABC):
 
     @classmethod
     def add_arguments(cls, parser):
-        parser.add_argument('--namespace', type=str,
-                            default=os.environ.get('NAMESPACE'),
-                            help='namespace (default: None)')
-        parser.add_argument('--in-topic', type=str,
-                            default=os.environ.get('INTOPIC', 'in-topic'),
-                            help='topic to read from')
-        parser.add_argument('--rewind', action='store_true', default=False,
-                            help='read from earliest message')
-        parser.add_argument('--timeout', type=int,
-                            default=os.environ.get('TIMEOUT', 0),
-                            help='request timeout')
+        parser.add_argument(
+            "--namespace",
+            type=str,
+            default=os.environ.get("NAMESPACE"),
+            help="namespace (default: None)",
+        )
+        parser.add_argument(
+            "--in-topic",
+            type=str,
+            default=os.environ.get("INTOPIC", "in-topic"),
+            help="topic to read from",
+        )
+        parser.add_argument(
+            "--rewind",
+            action="store_true",
+            default=False,
+            help="read from earliest message",
+        )
+        parser.add_argument(
+            "--timeout",
+            type=int,
+            default=os.environ.get("TIMEOUT", 0),
+            help="request timeout",
+        )
 
     @classmethod
     def is_cls_of(cls, kind):
@@ -73,15 +92,17 @@ class SourceTap(ABC):
 
 
 class DestinationTap(ABC):
-    """ Tap defines the interface for connecting components in pipeline.
-    """
-    kind = 'NONE'
+    """Tap defines the interface for connecting components in pipeline."""
+
+    kind = "NONE"
 
     def __init__(self, config, logger=logger):
         self.config = config
         self.topic = config.out_topic
         self.logger = logger
-        self.messageClass = config.message if hasattr(config, 'message') else Message
+        self.messageClass = (
+            config.message if hasattr(config, "message") else Message
+        )
 
     @abstractmethod
     def write(self, message):
@@ -93,11 +114,18 @@ class DestinationTap(ABC):
 
     @classmethod
     def add_arguments(cls, parser):
-        parser.add_argument('--namespace', type=str,
-                            default=os.environ.get('NAMESPACE'),
-                            help='namespace (default: None)')
-        parser.add_argument('--out-topic', type=str, default=os.environ.get('OUTTOPIC', 'out-topic'),
-                            help='topic to write')
+        parser.add_argument(
+            "--namespace",
+            type=str,
+            default=os.environ.get("NAMESPACE"),
+            help="namespace (default: None)",
+        )
+        parser.add_argument(
+            "--out-topic",
+            type=str,
+            default=os.environ.get("OUTTOPIC", "out-topic"),
+            help="topic to write",
+        )
 
     def close(self):
         pass
@@ -122,7 +150,7 @@ def DestinationOf(typename):
 
 
 class MemorySource(SourceTap):
-    """ MemorySource iterates over a list of dict from 'data' in config.
+    """MemorySource iterates over a list of dict from 'data' in config.
     It is for testing only.
 
     >>> from types import SimpleNamespace
@@ -131,7 +159,8 @@ class MemorySource(SourceTap):
     >>> [ m.dct for m in MemorySource(config).read() ]
     [{'id': 1}, {'id': 2}]
     """
-    kind = 'MEM'
+
+    kind = "MEM"
 
     def read(self):
         for i in self.config.data:
@@ -142,7 +171,7 @@ class MemorySource(SourceTap):
 
 
 class MemoryDestination(DestinationTap):
-    """ MemoryDestination stores dicts written in results.
+    """MemoryDestination stores dicts written in results.
     It is for testing only.
 
     >>> from types import SimpleNamespace
@@ -152,7 +181,8 @@ class MemoryDestination(DestinationTap):
     >>> [r.dct for r in d.results]
     [{'id': 1}, {'id': 2}]
     """
-    kind = 'MEM'
+
+    kind = "MEM"
 
     def __init__(self, config, logger=logger):
         super().__init__(config, logger)
@@ -163,7 +193,7 @@ class MemoryDestination(DestinationTap):
 
 
 class FileSource(SourceTap):
-    """ FileSource iterates over lines from a input
+    """FileSource iterates over lines from a input
     text file (utf-8), each line should be a json string for a dict.
     It can be used for integration test for workers.
 
@@ -180,16 +210,19 @@ class FileSource(SourceTap):
     True
     [0]
     """
-    kind = 'FILE'
+
+    kind = "FILE"
 
     def __init__(self, config, logger=logger):
         super().__init__(config, logger)
-        if config.infile == '-':
+        if config.infile == "-":
             self.infile = sys.stdin
         else:
-            self.infile = open(config.infile, 'r')
+            self.infile = open(config.infile, "r")
         self.repeat = config.repeat
-        self.logger.info('File Source: %s (repeat %d)', config.infile, config.repeat)
+        self.logger.info(
+            "File Source: %s (repeat %d)", config.infile, config.repeat
+        )
 
     def __repr__(self):
         return 'FileSource("{}")'.format(self.infile.name)
@@ -197,10 +230,15 @@ class FileSource(SourceTap):
     @classmethod
     def add_arguments(cls, parser):
         super().add_arguments(parser)
-        parser.add_argument('--infile', type=str, required=True,
-                            help='input file containing one message in JSON format per line')
-        parser.add_argument('--repeat', type=int, default=1,
-                            help='repeat input N times')
+        parser.add_argument(
+            "--infile",
+            type=str,
+            required=True,
+            help="input file containing one message in JSON format per line",
+        )
+        parser.add_argument(
+            "--repeat", type=int, default=1, help="repeat input N times"
+        )
 
     def read(self):
         for i in range(0, self.repeat):
@@ -211,7 +249,7 @@ class FileSource(SourceTap):
 
 
 class FileDestination(DestinationTap):
-    """ FileDestination writes items to an output file, one item per line in json format.
+    """FileDestination writes items to an output file, one item per line in json format.
 
     >>> import os, tempfile
     >>> from argparse import ArgumentParser
@@ -226,26 +264,27 @@ class FileDestination(DestinationTap):
     >>> FileDestination(config)
     FileDestination("...outfile.txt")
     """
-    kind = 'FILE'
+
+    kind = "FILE"
 
     def __init__(self, config, logger=logger):
         super().__init__(config, logger)
         if config.outfile is None:
-            if config.out_topic.find('.') >= 0:
+            if config.out_topic.find(".") >= 0:
                 self.filename = config.out_topic
             else:
-                self.filename = config.out_topic + '.json'
+                self.filename = config.out_topic + ".json"
         else:
             self.filename = config.outfile
 
-        if config.outfile == '-':
+        if config.outfile == "-":
             self.outFile = sys.stdout
         else:
             if config.overwrite:
-                self.outFile = open(self.filename, 'w')
+                self.outFile = open(self.filename, "w")
             else:
-                self.outFile = open(self.filename, 'a')
-        self.logger.info('File Destination: %s', self.filename)
+                self.outFile = open(self.filename, "a")
+        self.logger.info("File Destination: %s", self.filename)
 
     def __repr__(self):
         return 'FileDestination("{}")'.format(self.filename)
@@ -253,22 +292,27 @@ class FileDestination(DestinationTap):
     @classmethod
     def add_arguments(cls, parser):
         super().add_arguments(parser)
-        parser.add_argument('--outfile', type=str,
-                            help='output json file')
-        parser.add_argument('--overwrite', action='store_true', default=False,
-                            help='overwrite output file instead of append')
+        parser.add_argument("--outfile", type=str, help="output json file")
+        parser.add_argument(
+            "--overwrite",
+            action="store_true",
+            default=False,
+            help="overwrite output file instead of append",
+        )
 
     def write(self, message):
-        print(message.serialize().decode('utf-8'), file=self.outFile, flush=True)
+        print(
+            message.serialize().decode("utf-8"), file=self.outFile, flush=True
+        )
 
     def close(self):
-        if self.filename != '-':
+        if self.filename != "-":
             self.outFile.close()
-            self.logger.info('File Destination closed')
+            self.logger.info("File Destination closed")
 
 
 class CsvSource(SourceTap):
-    """ CsvSource iterates over csv file.
+    """CsvSource iterates over csv file.
 
     >>> import tempfile, csv
     >>> from argparse import ArgumentParser
@@ -285,16 +329,17 @@ class CsvSource(SourceTap):
     ...     [m.dct["id"] for m in csvSource.read()]
     ['0']
     """
-    kind = 'CSV'
+
+    kind = "CSV"
 
     def __init__(self, config, logger=logger):
         super().__init__(config, logger)
-        if config.infile == '-':
+        if config.infile == "-":
             self.infile = sys.stdin
         else:
-            self.infile = open(config.infile, 'r')
+            self.infile = open(config.infile, "r")
         self.reader = csv.DictReader(self.infile, config.csv_dialect)
-        self.logger.info('CSV Source: %s', config.infile)
+        self.logger.info("CSV Source: %s", config.infile)
 
     def __repr__(self):
         return 'CsvSource("{}")'.format(self.infile.name)
@@ -302,11 +347,16 @@ class CsvSource(SourceTap):
     @classmethod
     def add_arguments(cls, parser):
         super().add_arguments(parser)
-        parser.add_argument('--infile', type=str, required=True,
-                            help='input csv file')
-        parser.add_argument('--csv-dialect', type=str, default='excel',
-                            choices=['excel', 'excel-tab', 'unix'],
-                            help='csv format: excel or excel-tab')
+        parser.add_argument(
+            "--infile", type=str, required=True, help="input csv file"
+        )
+        parser.add_argument(
+            "--csv-dialect",
+            type=str,
+            default="excel",
+            choices=["excel", "excel-tab", "unix"],
+            help="csv format: excel or excel-tab",
+        )
 
     def read(self):
         for row in self.reader:
@@ -314,7 +364,7 @@ class CsvSource(SourceTap):
 
 
 class CsvDestination(DestinationTap):
-    """ CsvDestination writes items to a csv file.
+    """CsvDestination writes items to a csv file.
 
     >>> import os, tempfile, csv
     >>> from argparse import ArgumentParser
@@ -329,27 +379,28 @@ class CsvDestination(DestinationTap):
     >>> CsvDestination(config)
     CsvDestination("...outfile.csv")
     """
-    kind = 'CSV'
+
+    kind = "CSV"
 
     def __init__(self, config, logger=logger):
         super().__init__(config, logger)
         if config.outfile is None:
-            if config.out_topic.find('.') >= 0:
+            if config.out_topic.find(".") >= 0:
                 self.filename = config.out_topic
             else:
-                self.filename = config.out_topic + '.csv'
+                self.filename = config.out_topic + ".csv"
         else:
             self.filename = config.outfile
 
-        if config.outfile == '-':
+        if config.outfile == "-":
             self.outFile = sys.stdout
         else:
             if config.overwrite:
-                self.outFile = open(self.filename, 'w')
+                self.outFile = open(self.filename, "w")
             else:
-                self.outFile = open(self.filename, 'a')
+                self.outFile = open(self.filename, "a")
         self.writer = None
-        self.logger.info('CsvDestination: %s', self.filename)
+        self.logger.info("CsvDestination: %s", self.filename)
 
     def __repr__(self):
         return 'CsvDestination("{}")'.format(self.filename)
@@ -357,29 +408,40 @@ class CsvDestination(DestinationTap):
     @classmethod
     def add_arguments(cls, parser):
         super().add_arguments(parser)
-        parser.add_argument('--outfile', type=str,
-                            help='output json file')
-        parser.add_argument('--overwrite', action='store_true', default=False,
-                            help='overwrite output file instead of append')
-        parser.add_argument('--csv-dialect', type=str, default='excel',
-                            choices=['excel', 'excel-tab', 'unix'],
-                            help='csv format: excel or excel-tab')
+        parser.add_argument("--outfile", type=str, help="output json file")
+        parser.add_argument(
+            "--overwrite",
+            action="store_true",
+            default=False,
+            help="overwrite output file instead of append",
+        )
+        parser.add_argument(
+            "--csv-dialect",
+            type=str,
+            default="excel",
+            choices=["excel", "excel-tab", "unix"],
+            help="csv format: excel or excel-tab",
+        )
 
     def write(self, message):
         if self.writer is None:
-            self.writer = csv.DictWriter(self.outFile, fieldnames=message.dct.keys(), dialect=self.config.csv_dialect)
+            self.writer = csv.DictWriter(
+                self.outFile,
+                fieldnames=message.dct.keys(),
+                dialect=self.config.csv_dialect,
+            )
             self.writer.writeheader()
         self.writer.writerow(message.dct)
         self.outFile.flush()
 
     def close(self):
-        if self.filename != '-':
+        if self.filename != "-":
             self.outFile.close()
-            self.logger.info('CsvDestination closed')
+            self.logger.info("CsvDestination closed")
 
 
 class KafkaSource(SourceTap):
-    """ KafkaSource reads from KAFKA
+    """KafkaSource reads from KAFKA
 
     >>> from argparse import ArgumentParser
     >>> parser = ArgumentParser(conflict_handler='resolve')
@@ -388,19 +450,20 @@ class KafkaSource(SourceTap):
     >>> KafkaSource(config)
     KafkaSource(host="kafka.kafka.svc.cluster.local",groupid="group-id",topic="in-topic")
     """
-    kind = 'KAFKA'
+
+    kind = "KAFKA"
 
     def __init__(self, config, logger=logger):
         super().__init__(config, logger)
 
         kafkaConfig = {
-            'bootstrap.servers': config.kafka,
-            'broker.address.family': 'v4',
-            'group.id': config.group_id,
-            'auto.offset.reset': 'earliest',
+            "bootstrap.servers": config.kafka,
+            "broker.address.family": "v4",
+            "group.id": config.group_id,
+            "auto.offset.reset": "earliest",
             # 'log_level': 0,
             # 'debug': 'consumer',
-            'enable.auto.commit': 'false',
+            "enable.auto.commit": "false",
         }
 
         if config.config:
@@ -412,37 +475,48 @@ class KafkaSource(SourceTap):
         self.last_msg = None
 
         def maybe_rewind(c, partitions):
-            self.logger.info('Assignment: %s', str(partitions))
+            self.logger.info("Assignment: %s", str(partitions))
             if config.rewind:
                 for partition in partitions:
                     partition.offset = OFFSET_BEGINNING
-                self.logger.info('Rewind, new assignment: %s', str(partitions))
+                self.logger.info("Rewind, new assignment: %s", str(partitions))
                 c.assign(partitions)
 
         self.consumer.subscribe([self.topic], on_assign=maybe_rewind)
-        self.logger.info('KAFKA consumer subscribed to topic %s', self.topic)
+        self.logger.info("KAFKA consumer subscribed to topic %s", self.topic)
 
     def __repr__(self):
         return 'KafkaSource(host="{}",groupid="{}",topic="{}")'.format(
-            self.config.kafka,
-            self.config.group_id,
-            self.topic
+            self.config.kafka, self.config.group_id, self.topic
         )
 
     @classmethod
     def add_arguments(cls, parser):
         super().add_arguments(parser)
-        parser.add_argument('--kafka', type=str,
-                            default=os.environ.get('KAFKA', 'kafka.kafka.svc.cluster.local'),
-                            help='kafka address')
-        parser.add_argument('--group-id', type=str,
-                            default=os.environ.get('GROUPID', 'group-id'),
-                            help='group id')
-        parser.add_argument('--config', type=str,
-                            default=os.environ.get('KAFKACONFIG', None),
-                            help='kafka configuration in JSON format')
-        parser.add_argument('--poll-timeout', type=int, default=30,
-                            help='poll new message timeout in seconds')
+        parser.add_argument(
+            "--kafka",
+            type=str,
+            default=os.environ.get("KAFKA", "kafka.kafka.svc.cluster.local"),
+            help="kafka address",
+        )
+        parser.add_argument(
+            "--group-id",
+            type=str,
+            default=os.environ.get("GROUPID", "group-id"),
+            help="group id",
+        )
+        parser.add_argument(
+            "--config",
+            type=str,
+            default=os.environ.get("KAFKACONFIG", None),
+            help="kafka configuration in JSON format",
+        )
+        parser.add_argument(
+            "--poll-timeout",
+            type=int,
+            default=30,
+            help="poll new message timeout in seconds",
+        )
 
     def read(self):
         timedOut = False
@@ -450,22 +524,27 @@ class KafkaSource(SourceTap):
         while not timedOut:
             msg = self.consumer.poll(timeout=self.config.poll_timeout)
             if msg is None:
-                self.logger.warning('No message to read, timed out')
+                self.logger.warning("No message to read, timed out")
                 break
 
             if msg.error():
                 if msg.error().code() == KafkaError._PARTITION_EOF:
-                    self.logger.warning('Reaching EOF')
+                    self.logger.warning("Reaching EOF")
                     break
                 else:
                     raise KafkaException(msg.error())
             else:
-                self.logger.info('Read {}, {}'.format(msg.topic(), msg.offset()))
+                self.logger.info(
+                    "Read {}, {}".format(msg.topic(), msg.offset())
+                )
                 self.last_msg = msg
                 yield self.messageClass(msg.value())
                 lastMessageTime = time.time()
             time.sleep(0.01)
-            if self.timeout > 0 and time.time() - lastMessageTime > self.timeout:
+            if (
+                self.timeout > 0
+                and time.time() - lastMessageTime > self.timeout
+            ):
                 timedOut = True
 
     def acknowledge(self):
@@ -477,7 +556,7 @@ class KafkaSource(SourceTap):
 
 
 class KafkaDestination(DestinationTap):
-    """ KafkaDestination writes to KAFKA
+    """KafkaDestination writes to KAFKA
 
     >>> from argparse import ArgumentParser
     >>> parser = ArgumentParser(conflict_handler='resolve')
@@ -486,16 +565,17 @@ class KafkaDestination(DestinationTap):
     >>> KafkaDestination(config)
     KafkaDestination(host="kafka.kafka.svc.cluster.local",topic="out-topic")
     """
-    kind = 'KAFKA'
+
+    kind = "KAFKA"
 
     def __init__(self, config, logger=logger):
         super().__init__(config, logger)
         kafkaConfig = {
-            'bootstrap.servers': config.kafka,
-            'queue.buffering.max.ms': 100,
-            'message.send.max.retries': 5,
-            'request.required.acks': 'all',
-            'broker.address.family': 'v4',
+            "bootstrap.servers": config.kafka,
+            "queue.buffering.max.ms": 100,
+            "message.send.max.retries": 5,
+            "request.required.acks": "all",
+            "broker.address.family": "v4",
         }
 
         if config.config:
@@ -507,35 +587,43 @@ class KafkaDestination(DestinationTap):
 
     def __repr__(self):
         return 'KafkaDestination(host="{}",topic="{}")'.format(
-            self.config.kafka,
-            self.topic
+            self.config.kafka, self.topic
         )
 
     @classmethod
     def add_arguments(cls, parser):
         super().add_arguments(parser)
-        parser.add_argument('--kafka', type=str,
-                            default=os.environ.get('KAFKA', 'kafka.kafka.svc.cluster.local'),
-                            help='kafka address')
-        parser.add_argument('--config', type=str,
-                            default=os.environ.get('KAFKACONFIG', None),
-                            help='kafka configuration in JSON format')
+        parser.add_argument(
+            "--kafka",
+            type=str,
+            default=os.environ.get("KAFKA", "kafka.kafka.svc.cluster.local"),
+            help="kafka address",
+        )
+        parser.add_argument(
+            "--config",
+            type=str,
+            default=os.environ.get("KAFKACONFIG", None),
+            help="kafka configuration in JSON format",
+        )
 
     def write(self, message):
         def delivery_report(err, msg):
             if err:
-                self.logger.error('Message delivery failed ({} [{}]: {}'.format(
-                    msg.topic(),
-                    str(msg.partition()),
-                    err
-                ))
+                self.logger.error(
+                    "Message delivery failed ({} [{}]: {}".format(
+                        msg.topic(), str(msg.partition()), err
+                    )
+                )
             else:
-                self.logger.info('Message delivered to {} [{}] {}'.format(
-                    msg.topic(),
-                    msg.partition(),
-                    msg.offset()
-                ))
-        self.producer.produce(self.topic, message.serialize(), callback=delivery_report)
+                self.logger.info(
+                    "Message delivered to {} [{}] {}".format(
+                        msg.topic(), msg.partition(), msg.offset()
+                    )
+                )
+
+        self.producer.produce(
+            self.topic, message.serialize(), callback=delivery_report
+        )
         self.producer.flush()
 
     def close(self):
@@ -543,7 +631,7 @@ class KafkaDestination(DestinationTap):
 
 
 class PulsarSource(SourceTap):
-    """ PulsarSource reads from Pulsar
+    """PulsarSource reads from Pulsar
 
     >>> from unittest.mock import patch
     >>> from argparse import ArgumentParser
@@ -554,7 +642,8 @@ class PulsarSource(SourceTap):
     ...     PulsarSource(config)
     PulsarSource(host="pulsar://pulsar.pulsar.svc.cluster.local:6650",name="persistent://meganews/test/in-topic",subscription="subscription")
     """
-    kind = 'PULSAR'
+
+    kind = "PULSAR"
 
     def __init__(self, config, logger=logger):
         super().__init__(config, logger)
@@ -564,10 +653,8 @@ class PulsarSource(SourceTap):
         self.namespace = config.namespace
         self.topic = config.in_topic
         self.subscription = config.subscription
-        self.name = 'persistent://{}/{}/{}'.format(
-            self.tenant,
-            self.namespace,
-            self.topic
+        self.name = "persistent://{}/{}/{}".format(
+            self.tenant, self.namespace, self.topic
         )
         self.consumer = self.client.subscribe(
             self.name,
@@ -587,18 +674,32 @@ class PulsarSource(SourceTap):
     @classmethod
     def add_arguments(cls, parser):
         super().add_arguments(parser)
-        parser.add_argument('--pulsar', type=str,
-                            default=os.environ.get('PULSAR', 'pulsar://pulsar.pulsar.svc.cluster.local:6650'),
-                            help='pulsar address')
-        parser.add_argument('--tenant', type=str,
-                            default=os.environ.get('TENANT', 'meganews'),
-                            help='pulsar tenant, always is meganews')
-        parser.add_argument('--namespace', type=str,
-                            default=os.environ.get('NAMESPACE', 'test'),
-                            help='pulsar namespace (default: test')
-        parser.add_argument('--subscription', type=str,
-                            default=os.environ.get('SUBSCRIPTION', 'subscription'),
-                            help='subscription to read')
+        parser.add_argument(
+            "--pulsar",
+            type=str,
+            default=os.environ.get(
+                "PULSAR", "pulsar://pulsar.pulsar.svc.cluster.local:6650"
+            ),
+            help="pulsar address",
+        )
+        parser.add_argument(
+            "--tenant",
+            type=str,
+            default=os.environ.get("TENANT", "meganews"),
+            help="pulsar tenant, always is meganews",
+        )
+        parser.add_argument(
+            "--namespace",
+            type=str,
+            default=os.environ.get("NAMESPACE", "test"),
+            help="pulsar namespace (default: test",
+        )
+        parser.add_argument(
+            "--subscription",
+            type=str,
+            default=os.environ.get("SUBSCRIPTION", "subscription"),
+            help="subscription to read",
+        )
 
     def read(self):
         timedOut = False
@@ -613,7 +714,10 @@ class PulsarSource(SourceTap):
                 self.logger.error(ex)
                 break
             time.sleep(0.01)
-            if self.timeout > 0 and time.time() - lastMessageTime > self.timeout:
+            if (
+                self.timeout > 0
+                and time.time() - lastMessageTime > self.timeout
+            ):
                 timedOut = True
 
     def acknowledge(self):
@@ -624,7 +728,7 @@ class PulsarSource(SourceTap):
 
 
 class PulsarDestination(DestinationTap):
-    """ PulsarDestination writes to Pulsar
+    """PulsarDestination writes to Pulsar
 
     >>> from unittest.mock import patch
     >>> from argparse import ArgumentParser
@@ -635,7 +739,8 @@ class PulsarDestination(DestinationTap):
     ...     PulsarDestination(config)
     PulsarDestination(host="pulsar://pulsar.pulsar.svc.cluster.local:6650",name="persistent://meganews/test/out-topic")
     """
-    kind = 'PULSAR'
+
+    kind = "PULSAR"
 
     def __init__(self, config, logger=logger):
         super().__init__(config, logger)
@@ -644,8 +749,9 @@ class PulsarDestination(DestinationTap):
         self.tenant = config.tenant
         self.namespace = config.namespace
         self.topic = config.out_topic
-        self.name = 'persistent://{}/{}/{}'.format(
-            self.tenant, self.namespace, self.topic)
+        self.name = "persistent://{}/{}/{}".format(
+            self.tenant, self.namespace, self.topic
+        )
         self.producer = self.client.create_producer(self.name)
 
     def __repr__(self):
@@ -657,15 +763,26 @@ class PulsarDestination(DestinationTap):
     @classmethod
     def add_arguments(cls, parser):
         super().add_arguments(parser)
-        parser.add_argument('--pulsar', type=str,
-                            default=os.environ.get('PULSAR', 'pulsar://pulsar.pulsar.svc.cluster.local:6650'),
-                            help='pulsar address')
-        parser.add_argument('--tenant', type=str,
-                            default=os.environ.get('TENANT', 'meganews'),
-                            help='pulsar tenant, always is meganews')
-        parser.add_argument('--namespace', type=str,
-                            default=os.environ.get('NAMESPACE', 'test'),
-                            help='pulsar namespace (default: test)')
+        parser.add_argument(
+            "--pulsar",
+            type=str,
+            default=os.environ.get(
+                "PULSAR", "pulsar://pulsar.pulsar.svc.cluster.local:6650"
+            ),
+            help="pulsar address",
+        )
+        parser.add_argument(
+            "--tenant",
+            type=str,
+            default=os.environ.get("TENANT", "meganews"),
+            help="pulsar tenant, always is meganews",
+        )
+        parser.add_argument(
+            "--namespace",
+            type=str,
+            default=os.environ.get("NAMESPACE", "test"),
+            help="pulsar namespace (default: test)",
+        )
 
     def write(self, message):
         self.producer.send(message.serialize())
@@ -682,7 +799,7 @@ def namespacedTopic(topic, namespace=None):
 
 
 class RedisStreamSource(SourceTap):
-    """ RedisStreamSource reads from Redis Stream
+    """RedisStreamSource reads from Redis Stream
 
     >>> from unittest.mock import patch
     >>> from argparse import ArgumentParser
@@ -693,7 +810,8 @@ class RedisStreamSource(SourceTap):
     ...     RedisStreamSource(config)
     RedisStreamSource(host="localhost:6379",name="in-topic")
     """
-    kind = 'XREDIS'
+
+    kind = "XREDIS"
 
     def __init__(self, config, logger=logger):
         super().__init__(config, logger)
@@ -703,14 +821,18 @@ class RedisStreamSource(SourceTap):
         self.group = config.group
         self.name = namespacedTopic(config.in_topic, config.namespace)
         self.timeout = config.timeout
-        self.redisConfig = parse_connection_string(self.config.redis, no_username=True)
+        self.redisConfig = parse_connection_string(
+            self.config.redis, no_username=True
+        )
         self.redis = redis.Redis(
             host=self.redisConfig.host,
             port=self.redisConfig.port,
             password=self.redisConfig.password,
         )
         try:
-            self.redis.xgroup_create(self.name, self.group, id=u'0', mkstream=True)
+            self.redis.xgroup_create(
+                self.name, self.group, id="0", mkstream=True
+            )
         except redis.exceptions.ResponseError as e:
             logger.error(str(e))
 
@@ -727,34 +849,45 @@ class RedisStreamSource(SourceTap):
     @classmethod
     def add_arguments(cls, parser):
         super().add_arguments(parser)
-        parser.add_argument('--redis', type=str,
-                            default=os.environ.get('REDIS', 'localhost:6379'),
-                            help='redis host:port')
-        parser.add_argument('--group', type=str,
-                            default=os.environ.get('GROUP', 'group'),
-                            help='consumer group name')
+        parser.add_argument(
+            "--redis",
+            type=str,
+            default=os.environ.get("REDIS", "localhost:6379"),
+            help="redis host:port",
+        )
+        parser.add_argument(
+            "--group",
+            type=str,
+            default=os.environ.get("GROUP", "group"),
+            help="consumer group name",
+        )
 
     def read(self):
         timedOut = False
         lastMessageTime = time.time()
         while not timedOut:
             try:
-                msg = self.redis.xreadgroup(self.group, self.consumer, {self.topic: '>'}, count=1)
+                msg = self.redis.xreadgroup(
+                    self.group, self.consumer, {self.topic: ">"}, count=1
+                )
                 if msg:
                     (msgId, data) = msg[0][1][0]
                     self.last_msg = msgId
-                    self.logger.info('Read message %s', msgId)
-                    yield self.messageClass(data[b'data'])
+                    self.logger.info("Read message %s", msgId)
+                    yield self.messageClass(data[b"data"])
                     lastMessageTime = time.time()
             except Exception as ex:
                 self.logger.error(ex)
                 break
             time.sleep(0.01)
-            if self.timeout > 0 and time.time() - lastMessageTime > self.timeout:
+            if (
+                self.timeout > 0
+                and time.time() - lastMessageTime > self.timeout
+            ):
                 timedOut = True
 
     def acknowledge(self):
-        self.logger.info('acknowledged message %s', self.last_msg)
+        self.logger.info("acknowledged message %s", self.last_msg)
         self.redis.xack(self.topic, self.group, self.last_msg)
 
     def close(self):
@@ -763,7 +896,7 @@ class RedisStreamSource(SourceTap):
 
 
 class RedisStreamDestination(DestinationTap):
-    """ RedisDestination writes to Redis Stream
+    """RedisDestination writes to Redis Stream
 
     >>> from unittest.mock import patch
     >>> from argparse import ArgumentParser
@@ -774,7 +907,8 @@ class RedisStreamDestination(DestinationTap):
     ...     RedisStreamDestination(config)
     RedisStreamDestination(host="localhost:6379",name="out-topic")
     """
-    kind = 'XREDIS'
+
+    kind = "XREDIS"
 
     def __init__(self, config, logger=logger):
         super().__init__(config, logger)
@@ -782,7 +916,9 @@ class RedisStreamDestination(DestinationTap):
         self.client = redis.Redis(config.redis)
         self.topic = config.out_topic
         self.name = namespacedTopic(config.out_topic, config.namespace)
-        self.redisConfig = parse_connection_string(self.config.redis, no_username=True)
+        self.redisConfig = parse_connection_string(
+            self.config.redis, no_username=True
+        )
         self.redis = redis.Redis(
             host=self.redisConfig.host,
             port=self.redisConfig.port,
@@ -799,19 +935,22 @@ class RedisStreamDestination(DestinationTap):
     @classmethod
     def add_arguments(cls, parser):
         super().add_arguments(parser)
-        parser.add_argument('--redis', type=str,
-                            default=os.environ.get('REDIS', 'localhost:6379'),
-                            help='redis host:port')
+        parser.add_argument(
+            "--redis",
+            type=str,
+            default=os.environ.get("REDIS", "localhost:6379"),
+            help="redis host:port",
+        )
 
     def write(self, message):
-        self.redis.xadd(self.name, fields={'data': message.serialize()})
+        self.redis.xadd(self.name, fields={"data": message.serialize()})
 
     def close(self):
         self.redis.close()
 
 
 class RabbitMQSource(SourceTap):
-    """ RabbitMQSource reads from RabbitMQ
+    """RabbitMQSource reads from RabbitMQ
 
     RabbitMQ options:
         --rabbitmq (env: RABBITMQ): RabbitMQ host
@@ -830,7 +969,8 @@ class RabbitMQSource(SourceTap):
     ...         RabbitMQSource(config)
     RabbitMQSource(queue="in-topic")
     """
-    kind = 'RABBITMQ'
+
+    kind = "RABBITMQ"
 
     def __init__(self, config, logger=logger):
         super().__init__(config, logger)
@@ -844,7 +984,7 @@ class RabbitMQSource(SourceTap):
         self.channel.queue_declare(queue=self.name)
         self.delivery_tag = None
         self.msg = None
-        self.logger.info('RabbitMQSource initialized.')
+        self.logger.info("RabbitMQSource initialized.")
 
     def __repr__(self):
         return 'RabbitMQSource(queue="{}")'.format(
@@ -854,9 +994,12 @@ class RabbitMQSource(SourceTap):
     @classmethod
     def add_arguments(cls, parser):
         super().add_arguments(parser)
-        parser.add_argument('--rabbitmq', type=str,
-                            default=os.environ.get('RABBITMQ', 'localhost'),
-                            help='RabbitMQ host')
+        parser.add_argument(
+            "--rabbitmq",
+            type=str,
+            default=os.environ.get("RABBITMQ", "localhost"),
+            help="RabbitMQ host",
+        )
 
     def read(self):
         timedOut = False
@@ -866,11 +1009,13 @@ class RabbitMQSource(SourceTap):
             try:
                 method, header, body = self.channel.basic_get(self.name)
             except pika.exceptions.AMQPConnectionError:
-                self.logger.warning('Trying to restore connection to RabbitMQ...')
+                self.logger.warning(
+                    "Trying to restore connection to RabbitMQ..."
+                )
                 parameters = pika.ConnectionParameters(self.config.rabbitmq)
                 self.rabbit = pika.BlockingConnection(parameters)
                 self.channel = self.rabbit.channel()
-                self.logger.warning('Connection to RabbitMQ restored.')
+                self.logger.warning("Connection to RabbitMQ restored.")
                 method, header, body = self.channel.basic_get(self.name)
             except Exception as ex:
                 self.logger.error(ex)
@@ -878,26 +1023,29 @@ class RabbitMQSource(SourceTap):
 
             if method:
                 self.delivery_tag = method.delivery_tag
-                self.logger.info('Read message %s', self.delivery_tag)
+                self.logger.info("Read message %s", self.delivery_tag)
                 yield self.messageClass(body)
                 lastMessageTime = time.time()
             time.sleep(0.01)
-            if self.timeout > 0 and time.time() - lastMessageTime > self.timeout:
-                self.logger.info('RabbitMQSource timed out.')
+            if (
+                self.timeout > 0
+                and time.time() - lastMessageTime > self.timeout
+            ):
+                self.logger.info("RabbitMQSource timed out.")
                 timedOut = True
 
     def acknowledge(self):
-        self.logger.info('acknowledged message %s', self.delivery_tag)
+        self.logger.info("acknowledged message %s", self.delivery_tag)
         self.channel.basic_ack(self.delivery_tag)
 
     def close(self):
-        self.logger.info('RabbitMQSource closed.')
+        self.logger.info("RabbitMQSource closed.")
         self.channel.close()
         self.rabbit.close()
 
 
 class RabbitMQDestination(DestinationTap):
-    """ RabbitMQDestination writes to RabbitMQ
+    """RabbitMQDestination writes to RabbitMQ
 
     options:
         --rabbitmq (env: RABBITMQ): RabbitMQ host
@@ -915,7 +1063,8 @@ class RabbitMQDestination(DestinationTap):
     ...         RabbitMQDestination(config)
     RabbitMQDestination(queue="out-topic")
     """
-    kind = 'RABBITMQ'
+
+    kind = "RABBITMQ"
 
     def __init__(self, config, logger=logger):
         super().__init__(config, logger)
@@ -926,7 +1075,7 @@ class RabbitMQDestination(DestinationTap):
         self.rabbit = pika.BlockingConnection(parameters)
         self.channel = self.rabbit.channel()
         self.channel.queue_declare(queue=self.name)
-        self.logger.info('RabbitMQDestination initialized.')
+        self.logger.info("RabbitMQDestination initialized.")
 
     def __repr__(self):
         return 'RabbitMQDestination(queue="{}")'.format(
@@ -936,29 +1085,38 @@ class RabbitMQDestination(DestinationTap):
     @classmethod
     def add_arguments(cls, parser):
         super().add_arguments(parser)
-        parser.add_argument('--rabbitmq', type=str,
-                            default=os.environ.get('RABBITMQ', 'localhost'),
-                            help='RabbitMQ host')
+        parser.add_argument(
+            "--rabbitmq",
+            type=str,
+            default=os.environ.get("RABBITMQ", "localhost"),
+            help="RabbitMQ host",
+        )
 
     def write(self, message):
         try:
-            self.channel.basic_publish(exchange='', routing_key=self.name, body=message.serialize())
+            self.channel.basic_publish(
+                exchange="", routing_key=self.name, body=message.serialize()
+            )
             return
         except pika.exceptions.StreamLostError:
-            self.logger.warning('Trying to restore connection to RabbitMQ...')
-            self.rabbit = pika.BlockingConnection(pika.ConnectionParameters(self.config.rabbitmq))
+            self.logger.warning("Trying to restore connection to RabbitMQ...")
+            self.rabbit = pika.BlockingConnection(
+                pika.ConnectionParameters(self.config.rabbitmq)
+            )
             self.channel = self.rabbit.channel()
-            self.logger.warning('Connection to RabbitMQ restored.')
-            self.channel.basic_publish(exchange='', routing_key=self.name, body=message.serialize())
+            self.logger.warning("Connection to RabbitMQ restored.")
+            self.channel.basic_publish(
+                exchange="", routing_key=self.name, body=message.serialize()
+            )
 
     def close(self):
-        self.logger.info('RabbitMQDestination closed.')
+        self.logger.info("RabbitMQDestination closed.")
         self.channel.close()
         self.rabbit.close()
 
 
 class RedisListSource(SourceTap):
-    """ RedisListSource reads from Redis Stream
+    """RedisListSource reads from Redis Stream
 
     NOTE: Redis List does not support acknowledgement
 
@@ -971,7 +1129,8 @@ class RedisListSource(SourceTap):
     ...     RedisListSource(config)
     RedisListSource(host="localhost:6379",name="in-topic")
     """
-    kind = 'LREDIS'
+
+    kind = "LREDIS"
 
     def __init__(self, config, logger=logger):
         super().__init__(config, logger)
@@ -980,7 +1139,9 @@ class RedisListSource(SourceTap):
         self.group = config.group
         self.topic = namespacedTopic(config.in_topic, config.namespace)
         self.timeout = config.timeout
-        self.redisConfig = parse_connection_string(self.config.redis, no_username=True)
+        self.redisConfig = parse_connection_string(
+            self.config.redis, no_username=True
+        )
         self.redis = redis.Redis(
             host=self.redisConfig.host,
             port=self.redisConfig.port,
@@ -998,12 +1159,18 @@ class RedisListSource(SourceTap):
     @classmethod
     def add_arguments(cls, parser):
         super().add_arguments(parser)
-        parser.add_argument('--redis', type=str,
-                            default=os.environ.get('REDIS', 'localhost:6379'),
-                            help='redis host:port')
-        parser.add_argument('--group', type=str,
-                            default=os.environ.get('GROUP', 'group'),
-                            help='consumer group name')
+        parser.add_argument(
+            "--redis",
+            type=str,
+            default=os.environ.get("REDIS", "localhost:6379"),
+            help="redis host:port",
+        )
+        parser.add_argument(
+            "--group",
+            type=str,
+            default=os.environ.get("GROUP", "group"),
+            help="consumer group name",
+        )
 
     def read(self):
         timedOut = False
@@ -1013,25 +1180,30 @@ class RedisListSource(SourceTap):
                 value = self.redis.lpop(self.topic)
                 if value:
                     msg = self.messageClass(value)
-                    self.logger.info('Read message %s', str(msg))
+                    self.logger.info("Read message %s", str(msg))
                     yield msg
                     lastMessageTime = time.time()
             except Exception as ex:
                 self.logger.error(ex)
                 break
             time.sleep(0.01)
-            if self.timeout > 0 and time.time() - lastMessageTime > self.timeout:
+            if (
+                self.timeout > 0
+                and time.time() - lastMessageTime > self.timeout
+            ):
                 timedOut = True
 
     def acknowledge(self):
-        self.logger.info('Acknowledgement is not supported for LREDIS (Redis List)')
+        self.logger.info(
+            "Acknowledgement is not supported for LREDIS (Redis List)"
+        )
 
     def close(self):
         self.redis.close()
 
 
 class RedisListDestination(DestinationTap):
-    """ RedisListDestination writes to Redis Stream
+    """RedisListDestination writes to Redis Stream
 
     >>> from unittest.mock import patch
     >>> from argparse import ArgumentParser
@@ -1042,14 +1214,17 @@ class RedisListDestination(DestinationTap):
     ...     RedisListDestination(config)
     RedisListDestination(host="localhost:6379",name="out-topic")
     """
-    kind = 'LREDIS'
+
+    kind = "LREDIS"
 
     def __init__(self, config, logger=logger):
         super().__init__(config, logger)
         self.config = config
         self.client = redis.Redis(config.redis)
         self.topic = namespacedTopic(config.out_topic, config.namespace)
-        self.redisConfig = parse_connection_string(self.config.redis, no_username=True)
+        self.redisConfig = parse_connection_string(
+            self.config.redis, no_username=True
+        )
         self.redis = redis.Redis(
             host=self.redisConfig.host,
             port=self.redisConfig.port,
@@ -1066,9 +1241,12 @@ class RedisListDestination(DestinationTap):
     @classmethod
     def add_arguments(cls, parser):
         super().add_arguments(parser)
-        parser.add_argument('--redis', type=str,
-                            default=os.environ.get('REDIS', 'localhost:6379'),
-                            help='redis host:port')
+        parser.add_argument(
+            "--redis",
+            type=str,
+            default=os.environ.get("REDIS", "localhost:6379"),
+            help="redis host:port",
+        )
 
     def write(self, message):
         self.redis.rpush(self.topic, message.serialize())

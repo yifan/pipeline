@@ -6,7 +6,7 @@ class PipelineError(Exception):
 
     def log(self, logger):
         if self.data:
-            if hasattr(self.data, 'log'):
+            if hasattr(self.data, "log"):
                 self.data(logger)
             else:
                 logger.warning(self.data)

@@ -9,12 +9,20 @@ from .tap import KindsOfSource
 
 def parse_kind(args):
     kindParser = argparse.ArgumentParser(add_help=False)
-    kindParser.add_argument('--kind', type=str, default=os.environ.get('PIPELINE', None),
-                            choices=KindsOfSource(),
-                            help='pipeline kind, can be {}'.format(','.join(KindsOfSource())))
-    kindParser.add_argument('--cacheKind', type=str, default=os.environ.get('CACHEKIND', None),
-                            choices=KindsOfCache(),
-                            help='cache kind, can be {}'.format(','.join(KindsOfCache())))
+    kindParser.add_argument(
+        "--kind",
+        type=str,
+        default=os.environ.get("PIPELINE", None),
+        choices=KindsOfSource(),
+        help="pipeline kind, can be {}".format(",".join(KindsOfSource())),
+    )
+    kindParser.add_argument(
+        "--cacheKind",
+        type=str,
+        default=os.environ.get("CACHEKIND", None),
+        choices=KindsOfCache(),
+        help="cache kind, can be {}".format(",".join(KindsOfCache())),
+    )
     known, extras = kindParser.parse_known_args(args)
     if known.kind is None:
         kindParser.print_help(sys.stderr)
@@ -55,7 +63,13 @@ class Timer:
     def log(self, logger):
         elapsedTime = self.elapsed_time()
         averageTime = self.average_time()
-        logger.info('Elapsed Time: %.2f, Average Time: %.2f', elapsedTime, averageTime)
+        logger.info(
+            "Elapsed Time: %.2f, Average Time: %.2f", elapsedTime, averageTime
+        )
         processTime = self.process_time()
         averageProcessTime = self.average_process_time()
-        logger.info('Process Time: %.2f, Average Process Time: %.2f', processTime, averageProcessTime)
+        logger.info(
+            "Process Time: %.2f, Average Process Time: %.2f",
+            processTime,
+            averageProcessTime,
+        )
