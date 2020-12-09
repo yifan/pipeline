@@ -1,6 +1,13 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
+import sys
+import os
+
+
+# Insert pipeline's path into the system
+sys.path.insert(0, os.path.abspath("../src"))
+
 
 extensions = [
     "sphinx.ext.autodoc",

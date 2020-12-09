@@ -10,7 +10,7 @@ from .worker import (
     Splitter,
 )
 from .cache import CacheOf, CachedMessageClass
-from .utils import TapManager
+from .utils import Pipeline
 
 
 __all__ = [
@@ -28,5 +28,5 @@ __all__ = [
     "Message",
     "CacheOf",
     "CachedMessageClass",
-    "TapManager",
+    "Pipeline",
 ]

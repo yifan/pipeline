@@ -7,6 +7,14 @@ from .exception import PipelineError
 
 
 class Message(ABC):
+    """Message is a container for data flowing in pipeline. To construct a message,
+    you need to pass a dict in Message constructor. Message is expected to have a
+    key (the name is defined in Message.keyname) in this dict
+
+    Usage:
+    >>> message = Message({'key': 'unique-id-1', 'data': 'data'})
+    """
+
     keyname = "key"
 
     def __init__(self, other=None):
@@ -51,8 +59,8 @@ class Message(ABC):
         return self.__str__()
 
     def log(self, logger):
-        logger.warning(self.log_header)
-        logger.warning(self.log_content)
+        logger.info(self.log_header())
+        logger.info(self.log_content())
 
     def log_info(self):
         """ for compatibility only """

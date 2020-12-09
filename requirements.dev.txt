@@ -4,3 +4,4 @@ wheel
 twine
 pylint
 pre-commit
+sphinx

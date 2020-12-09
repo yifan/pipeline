@@ -14,3 +14,4 @@ htmlcov
 html
 .eggs/
 **.swp
+.python-version
