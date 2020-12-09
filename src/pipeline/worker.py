@@ -338,7 +338,12 @@ class Processor(WorkerCore):
         and return an error or a list of errors (for batch processing).
         Message has been terminated though .terminates() will be skipped
         in output.
+
         A typical process definition will be:
+
+        .. code-block:: python
+            :linenos:
+
             value = msg.get('preExistingKey')
             updates = {
                 'newKey': 'newValue',
@@ -400,11 +405,14 @@ class Processor(WorkerCore):
     def _run_streaming(self):
         """streaming processing messages from source and write resulted messages to destination
 
-        error handling:
-        1) error indicated by .process returning non-None value
+
+        1. error indicated by .process returning non-None value
+
             message will be written to retry topic if retry topic is enabled.
             WARNING: The message may have been modified during process().
-        2) the result message is invalid
+
+        2. the result message is invalid
+
             the result message will be written to retry topic if retry topic is enabled.
             The message is processed, and invalid.
             WARNING: Processor will not re-process message unless the version of processor
