@@ -101,37 +101,56 @@ generate output topic based on the processing message, and use it when writing o
 Usage
 -----
 
-## Writing a Worker
+Writing a Worker
+################
+
 
 Choose Generator, Processor or Splitter to subclass from.
 
-## Environment Variables
+Environment Variables
+*********************
 
 Application accepts following environment variables:
 
-    environment     command line
-    variable        argument        options
-    PIPELINE        --kind          KAFKA, PULSAR, FILE
-    PULSAR          --pulsar        pulsar url
-    TENANT          --tenant        pulsar tenant
-    NAMESPACE       --namespace     pulsar namespace
-    SUBSCRIPTION    --subscription  pulsar subscription
-    KAFKA           --kafka         kafka url
-    GROUPID         --group-id      kafka group id
-    INTOPIC         --in-topic      topic to read
-    OUTTOPIC        --out-topic     topic to write to
++----------------+-----------------+---------------------+
+|   environment  |  command line   |                     |
+|   variable     |  argument       | options             |
++================+=================+=====================+
+|   PIPELINE     |  --kind         | KAFKA, PULSAR, FILE |
++----------------+-----------------+---------------------+
+|   PULSAR       |  --pulsar       | pulsar url          |
++----------------+-----------------+---------------------+
+|   TENANT       |  --tenant       | pulsar tenant       |
++----------------+-----------------+---------------------+
+|   NAMESPACE    |  --namespace    | pulsar namespace    |
++----------------+-----------------+---------------------+
+|   SUBSCRIPTION |  --subscription | pulsar subscription |
++----------------+-----------------+---------------------+
+|   KAFKA        |  --kafka        | kafka url           |
++----------------+-----------------+---------------------+
+|   GROUPID      |  --group-id     | kafka group id      |
++----------------+-----------------+---------------------+
+|   INTOPIC      |  --in-topic     | topic to read       |
++----------------+-----------------+---------------------+
+|   OUTTOPIC     |  --out-topic    | topic to write to   |
++----------------+-----------------+---------------------+
 
-## Custom Code
+
+Custom Code
+***********
 
 Define add_arguments to add new arguments to worker.
 
 Define setup to run initialization code before worker starts processing messages. setup is called after
 command line arguments have been parsed. Logic based on options (parsed arguments) goes here.
 
-## Options
+
+Options
+*******
 
 
-## Errors
+Errors
+******
 
 The value `None` above is error you should return if `dct` or `dcts` is empty.
 Error will be sent to topic `errors` with worker information.
