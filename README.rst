@@ -19,10 +19,9 @@ Features
 Parameters
 ----------
 
-  kind - specify the underlining technology for pipeline, for example, KAFKA or RabbitMQ
-
-  MEM - Memory based queue (good for unittests)
-  FILE - File based queue (good for development and integration tests)
+- kind - specify the underlining technology for pipeline, for example, KAFKA or RabbitMQ
+- MEM - Memory based queue (good for unittests)
+- FILE - File based queue (good for development and integration tests)
 
 
 Generator
