@@ -14,7 +14,7 @@ with codecs.open(
 
 setup(
     name="tanbih-pipeline",
-    version="0.7.5",
+    version="0.7.6",
     description="a pipeline framework for streaming processing",
     long_description=readme,
     long_description_content_type="text/x-rst",
