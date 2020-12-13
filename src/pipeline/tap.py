@@ -164,7 +164,7 @@ class MemorySource(SourceTap):
 
     def read(self):
         for i in self.config.data:
-            yield self.messageClass(i)
+            yield self.messageClass(i, config=self.config)
 
     def rewind(self):
         pass
@@ -218,7 +218,7 @@ class FileSource(SourceTap):
         if config.infile == "-":
             self.infile = sys.stdin
         else:
-            self.infile = open(config.infile, "r")
+            self.infile = open(config.infile, "rb")
         self.repeat = config.repeat
         self.logger.info(
             "File Source: %s (repeat %d)", config.infile, config.repeat
@@ -243,7 +243,7 @@ class FileSource(SourceTap):
     def read(self):
         for i in range(0, self.repeat):
             for line in self.infile:
-                yield self.messageClass(line)
+                yield self.messageClass.deserialize(line, config=self.config)
             if self.repeat > 1:
                 self.infile.seek(0, 0)
 
@@ -301,9 +301,7 @@ class FileDestination(DestinationTap):
         )
 
     def write(self, message):
-        print(
-            message.serialize().decode("utf-8"), file=self.outFile, flush=True
-        )
+        print(message.serialize(), file=self.outFile, flush=True)
 
     def close(self):
         if self.filename != "-":
@@ -360,7 +358,7 @@ class CsvSource(SourceTap):
 
     def read(self):
         for row in self.reader:
-            yield self.messageClass(row)
+            yield self.messageClass(row, config=self.config)
 
 
 class CsvDestination(DestinationTap):
@@ -538,7 +536,9 @@ class KafkaSource(SourceTap):
                     "Read {}, {}".format(msg.topic(), msg.offset())
                 )
                 self.last_msg = msg
-                yield self.messageClass(msg.value())
+                yield self.messageClass.deserialize(
+                    msg.value(), config=self.config
+                )
                 lastMessageTime = time.time()
             time.sleep(0.01)
             if (
@@ -708,7 +708,9 @@ class PulsarSource(SourceTap):
             try:
                 msg = self.consumer.receive()
                 self.last_msg = msg
-                yield self.messageClass(msg.data())
+                yield self.messageClass.deserialize(
+                    msg.data(), config=self.config
+                )
                 lastMessageTime = time.time()
             except Exception as ex:
                 self.logger.error(ex)
@@ -874,7 +876,9 @@ class RedisStreamSource(SourceTap):
                     (msgId, data) = msg[0][1][0]
                     self.last_msg = msgId
                     self.logger.info("Read message %s", msgId)
-                    yield self.messageClass(data[b"data"])
+                    yield self.messageClass.deserialize(
+                        data[b"data"], config=self.config
+                    )
                     lastMessageTime = time.time()
             except Exception as ex:
                 self.logger.error(ex)
@@ -1024,7 +1028,7 @@ class RabbitMQSource(SourceTap):
             if method:
                 self.delivery_tag = method.delivery_tag
                 self.logger.info("Read message %s", self.delivery_tag)
-                yield self.messageClass(body)
+                yield self.messageClass.deserialize(body, config=self.config)
                 lastMessageTime = time.time()
             time.sleep(0.01)
             if (
@@ -1179,7 +1183,9 @@ class RedisListSource(SourceTap):
             try:
                 value = self.redis.lpop(self.topic)
                 if value:
-                    msg = self.messageClass(value)
+                    msg = self.messageClass.deserialize(
+                        value, config=self.config
+                    )
                     self.logger.info("Read message %s", str(msg))
                     yield msg
                     lastMessageTime = time.time()

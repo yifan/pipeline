@@ -132,6 +132,7 @@ class WorkerCore(ABC):
             self.destinationClass.add_arguments(parser)
         if self.cacheKind:
             self.cacheClass.add_arguments(parser)
+        self.messageClass.add_arguments(parser)
         self.add_arguments(parser)
 
     def add_arguments(self, parser):
@@ -152,13 +153,13 @@ class Generator(WorkerCore):
 
     def generate(self):
         """a generator to generate dict."""
-        yield self.messageClass()
+        yield self.options.message(config=self.options)
 
     def _step(self):
         if not self.generator:
             self.generator = self.generate()
         dct = next(self.generator)
-        msg = self.messageClass({})
+        msg = self.messageClass({}, config=self.options)
         msg.update(dct)
         msg.update_version(self.name, self.version)
         self.logger.info("Generated %s", msg)

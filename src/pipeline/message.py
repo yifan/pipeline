@@ -1,9 +1,7 @@
 import json
+import zlib
 from abc import ABC
 import time
-import traceback
-
-from .exception import PipelineError
 
 
 class Message(ABC):
@@ -17,35 +15,15 @@ class Message(ABC):
 
     keyname = "key"
 
-    def __init__(self, other=None):
+    def __init__(self, dct, header=None, config=None):
+        self.config = config
         self.updated = False
         self.terminated = False
-        self.header = {}
-        self.dct = {}
-        try:
-            if other is not None:
-                if isinstance(other, type(self)):
-                    self.header = other.header
-                    self.dct = other.dct
-                elif isinstance(other, dict):
-                    self.dct = other
-                elif isinstance(other, bytes):
-                    [self.header, self.dct] = self.deserialize(other)
-                elif isinstance(other, str):
-                    [self.header, self.dct] = self.deserialize(other)
-                else:
-                    raise PipelineError(
-                        'Message needs to be initialized with a message, a dict or str/bytes, not "{}"'.format(
-                            type(other)
-                        ),
-                        data=other,
-                    )
-        except PipelineError as error:
-            raise error
-        except Exception as error:
-            raise PipelineError(
-                str(error), data=other, traceback=traceback.print_exception()
-            )
+        if header is None:
+            self.header = {}
+        else:
+            self.header = header
+        self.dct = dct
 
     def __str__(self):
         return "{}<{}:{}>".format(
@@ -57,6 +35,14 @@ class Message(ABC):
 
     def __unicode__(self):
         return self.__str__()
+
+    @classmethod
+    def _compress(cls, data):
+        return zlib.compress(json.dumps(data).encode("utf-8"))
+
+    @classmethod
+    def _decompress(cls, data):
+        return json.loads(zlib.decompress(data))
 
     def log(self, logger):
         logger.info(self.log_header())
@@ -74,20 +60,37 @@ class Message(ABC):
 
     @classmethod
     def add_arguments(cls, parser):
+        parser.add_argument(
+            "--compress",
+            default=False,
+            action="store_true",
+            help="zlib compress content",
+        )
         return parser
 
     def serialize(self, indent=None):
         """serialize to binary."""
-        return json.dumps([self.header, self.dct], indent=indent).encode(
+        data = json.dumps([self.header, self.dct], indent=indent).encode(
             "utf-8"
         )
+        if getattr(self.config, "compress", False) is True:
+            return zlib.compress(data)
+        else:
+            return data
 
     @classmethod
-    def deserialize(cls, raw):
+    def deserialize(cls, raw, config=None):
         """deserialize to json."""
-        if isinstance(raw, bytes):
-            raw = raw.decode("utf-8")
-        return json.loads(raw)
+        if raw[0] == ord("{"):
+            header = {}
+            content = json.loads(raw)
+        elif raw[0] == ord("["):
+            data = raw
+            header, content = json.loads(data)
+        else:
+            data = zlib.decompress(raw)
+            header, content = json.loads(data)
+        return cls(content, header=header, config=config)
 
     def get_version(self, name):
         return self.header.setdefault(

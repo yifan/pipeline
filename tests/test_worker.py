@@ -18,9 +18,11 @@ class TestWorkerCore(TestCase):
         self.testDir = tempfile.TemporaryDirectory()
         self.infile = open(os.path.join(self.testDir.name, "infile.txt"), "w")
         self.infile.write(
-            """[{},{"key":1, "language":"en"}]
-                             [{},{"key":2, "language":"it"}]
-                             [{},{"key":3, "language":"ar"}]"""
+            (
+                '[{},{"key":1, "language":"en"}]\n'
+                '[{},{"key":2, "language":"it"}]\n'
+                '[{},{"key":3, "language":"ar"}]\n'
+            )
         )
         self.infile.close()
 

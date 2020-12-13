@@ -5,3 +5,4 @@ twine
 pylint
 pre-commit
 sphinx
+pytest
