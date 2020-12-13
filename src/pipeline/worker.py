@@ -165,7 +165,8 @@ class Generator(WorkerCore):
         self.logger.info("Generated %s", msg)
         if msg.is_valid():
             self.logger.info("Writing %s", msg)
-            self.destination.write(msg)
+            msgSize = self.destination.write(msg)
+            self.logger.info(f"Message size: {msgSize}")
             self.monitor.record_write(self.destination.topic)
         elif msg.terminated:
             self.logger.info("Message terminates here")
@@ -250,7 +251,8 @@ class Splitter(WorkerCore):
                 self.logger.info(
                     "Writing message %s to topic <%s>", str(msg), topic
                 )
-                destination.write(msg)
+                msgSize = destination.write(msg)
+                self.logger.info(f"Message size: {msgSize}")
             else:
                 self.logger.error("Produced message is invalid, skipping")
                 self.logger.error(msg.log_info())
@@ -386,7 +388,8 @@ class Processor(WorkerCore):
         elif not any((failedOnError, self.has_no_output())):
             if msg.is_valid():
                 self.logger.info("Writing message '%s'", str(msg))
-                self.destination.write(msg)
+                msgSize = self.destination.write(msg)
+                self.logger.info(f"Message size: {msgSize}")
                 self.monitor.record_write(self.destination.topic)
             else:
                 failedOnError = True

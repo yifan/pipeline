@@ -301,7 +301,9 @@ class FileDestination(DestinationTap):
         )
 
     def write(self, message):
-        print(message.serialize(), file=self.outFile, flush=True)
+        serialized = message.serialize()
+        print(serialized, file=self.outFile, flush=True)
+        return len(serialized)
 
     def close(self):
         if self.filename != "-":
@@ -621,10 +623,10 @@ class KafkaDestination(DestinationTap):
                     )
                 )
 
-        self.producer.produce(
-            self.topic, message.serialize(), callback=delivery_report
-        )
+        serialized = message.serialize()
+        self.producer.produce(self.topic, serialized, callback=delivery_report)
         self.producer.flush()
+        return len(serialized)
 
     def close(self):
         self.producer.flush()
@@ -787,7 +789,9 @@ class PulsarDestination(DestinationTap):
         )
 
     def write(self, message):
-        self.producer.send(message.serialize())
+        serialized = message.serialize()
+        self.producer.send(serialized)
+        return len(serialized)
 
     def close(self):
         self.client.close()
@@ -947,7 +951,9 @@ class RedisStreamDestination(DestinationTap):
         )
 
     def write(self, message):
-        self.redis.xadd(self.name, fields={"data": message.serialize()})
+        serialized = message.serialize()
+        self.redis.xadd(self.name, fields={"data": serialized})
+        return len(serialized)
 
     def close(self):
         self.redis.close()
@@ -1098,10 +1104,11 @@ class RabbitMQDestination(DestinationTap):
 
     def write(self, message):
         try:
+            serialized = message.serialize()
             self.channel.basic_publish(
-                exchange="", routing_key=self.name, body=message.serialize()
+                exchange="", routing_key=self.name, body=serialized
             )
-            return
+            return len(serialized)
         except pika.exceptions.StreamLostError:
             self.logger.warning("Trying to restore connection to RabbitMQ...")
             self.rabbit = pika.BlockingConnection(
@@ -1255,7 +1262,9 @@ class RedisListDestination(DestinationTap):
         )
 
     def write(self, message):
-        self.redis.rpush(self.topic, message.serialize())
+        serialized = message.serialize()
+        self.redis.rpush(self.topic, serialized)
+        return len(serialized)
 
     def close(self):
         self.redis.close()
