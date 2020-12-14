@@ -1,4 +1,5 @@
 import json
+import os
 import zlib
 from abc import ABC
 import time
@@ -62,7 +63,7 @@ class Message(ABC):
     def add_arguments(cls, parser):
         parser.add_argument(
             "--compress",
-            default=False,
+            default=os.environ.get('COMPRESS', 'FALSE') == 'TRUE',
             action="store_true",
             help="zlib compress content",
         )
