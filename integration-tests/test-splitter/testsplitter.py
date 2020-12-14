@@ -20,7 +20,7 @@ class TestSplitter(Splitter):
         )
 
     def get_topic(self, msg):
-        return random.choice(["a", "b"])
+        return random.choice(["test-q-processor-a", "test-q-processor-b"])
 
 
 if __name__ == "__main__":

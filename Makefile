@@ -18,6 +18,10 @@ upload:
 	python3 setup.py sdist bdist_wheel; \
 	python3 -m twine check dist/*; \
 	python3 -m twine upload dist/*
+integration:
+	. venv/bin/activate; \
+	rm -rf integration-tests/dist; \
+	python3 setup.py bdist_wheel -d integration-tests/dist;
 clean:
 	rm -rf venv
 	rm -rf dist

@@ -10,6 +10,7 @@ RUN apt-get update \
             libxslt-dev \
             libwebp-dev \
             libmariadb-dev  \
+            gcc \
     && rm -rf /var/cache/apk/*
 
 RUN python3 -m ensurepip \
@@ -20,8 +21,9 @@ RUN python3 -m ensurepip \
 ENV LC_ALL=C.UTF-8 LANG=C.UTF-8 PIPENV_HIDE_EMOJIS=1
 
 WORKDIR /code
-COPY . /code
+COPY test-generator/* /code/
+COPY dist /code
 
-RUN python3 -m pip install -r requirements.txt
+RUN python3 -m pip install /code/tanbih_pipeline-*.whl
 ENV PYTHONPATH=/code
 CMD ["python", "testgenerator.py"]

@@ -2,7 +2,7 @@ version: '3'
 services:
   generator:
     build:  
-      context: test-generator/.
+      context: .
       dockerfile: test-generator/Dockerfile
     links:
      - redis
@@ -10,45 +10,49 @@ services:
      - PIPELINE=LREDIS
      - REDIS=redis:6379
      - OUTTOPIC=test-q-splitter
+     - COMPRESS=TRUE
      - DEBUG=TRUE
     depends_on:
      - splitter
   splitter:
     build:  
-      context: test-splitter/.
+      context: .
       dockerfile: test-splitter/Dockerfile
     links:
      - redis
     environment:
      - PIPELINE=LREDIS
      - REDIS=redis:6379
-     - DEBUG=TRUE
      - INTOPIC=test-q-splitter
      - OUTTOPIC=test-q-processor
+     - COMPRESS=TRUE
+     - DEBUG=TRUE
     depends_on:
      - processor1
      - processor2
   processor1:
     build:  
-      context: test-processor/.
+      context: .
       dockerfile: test-processor/Dockerfile
     links:
      - redis
     environment:
      - PIPELINE=LREDIS
      - REDIS=redis:6379
-     - DEBUG=TRUE
      - INTOPIC=test-q-processor-a
+     - COMPRESS=TRUE
+     - DEBUG=TRUE
   processor2:
     build:  
-      context: test-processor/.
+      context: .
       dockerfile: test-processor/Dockerfile
     links:
      - redis
     environment:
      - PIPELINE=LREDIS
      - REDIS=redis:6379
-     - DEBUG=TRUE
      - INTOPIC=test-q-processor-b
+     - COMPRESS=TRUE
+     - DEBUG=TRUE
   redis:
     image: redis
