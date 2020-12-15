@@ -15,7 +15,7 @@ RUN apt-get update \
 
 RUN python3 -m ensurepip \
     && rm -rf /usr/lib/python*/ensurepip \
-    && pip3 install -U --no-cache-dir pipenv \
+    && python3 -m pip install -U pip \
     && ln -sf $(which python) /bin/python
 
 ENV LC_ALL=C.UTF-8 LANG=C.UTF-8 PIPENV_HIDE_EMOJIS=1
@@ -24,6 +24,6 @@ WORKDIR /code
 COPY test-splitter/* /code/
 COPY dist /code
 
-RUN python3 -m pip install /code/tanbih_pipeline-*.whl
+RUN python3 -m pip install "tanbih-pipeline[redis]@file:///code/tanbih_pipeline-0.8.1-py3-none-any.whl"
 ENV PYTHONPATH=/code
 CMD ["python", "testsplitter.py"]

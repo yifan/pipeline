@@ -35,4 +35,19 @@ setup(
     include_package_data=True,
     zip_safe=False,
     install_requires=required,
+    extras_require={
+        "full": [
+            "redis",
+            "confluent-kakfa==1.3.*",
+            "pulsar-client==2.5.*",
+            "azure-cosmosdb-table",
+            "pika",
+        ],
+        "redis": ["redis"],
+        "kafka": ["confluent-kafka==1.3.*"],
+        "pulsar": ["pulsar-client==2.5.*"],
+        "mysql": ["mysql-connector-python"],
+        "rabbitmq": ["pika"],
+        "azure": ["azure-cosmosdb-table"],
+    },
 )
