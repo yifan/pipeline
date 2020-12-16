@@ -11,8 +11,8 @@ from .importor import import_class
 
 FORMAT = "%(asctime)-15s %(levelname)s %(message)s"
 logging.basicConfig(format=FORMAT)
-logger = logging.getLogger("worker")
-logger.setLevel(logging.DEBUG)
+pipelineLogger = logging.getLogger("pipeline")
+pipelineLogger.setLevel(logging.DEBUG)
 
 
 def supportedTapKinds():
@@ -78,7 +78,7 @@ class SourceTap(ABC):
 
     kind = "NONE"
 
-    def __init__(self, config, logger=logger):
+    def __init__(self, config, logger=pipelineLogger):
         self.config = config
         self.rewind = config.rewind
         self.topic = config.in_topic
@@ -138,7 +138,7 @@ class DestinationTap(ABC):
 
     kind = "NONE"
 
-    def __init__(self, config, logger=logger):
+    def __init__(self, config, logger=pipelineLogger):
         self.config = config
         self.topic = config.out_topic
         self.logger = logger
@@ -207,7 +207,7 @@ class MemoryDestination(DestinationTap):
 
     kind = "MEM"
 
-    def __init__(self, config, logger=logger):
+    def __init__(self, config, logger=pipelineLogger):
         super().__init__(config, logger)
         self.results = []
 
@@ -236,7 +236,7 @@ class FileSource(SourceTap):
 
     kind = "FILE"
 
-    def __init__(self, config, logger=logger):
+    def __init__(self, config, logger=pipelineLogger):
         super().__init__(config, logger)
         if config.infile == "-":
             self.infile = sys.stdin
@@ -288,7 +288,7 @@ class FileDestination(DestinationTap):
 
     kind = "FILE"
 
-    def __init__(self, config, logger=logger):
+    def __init__(self, config, logger=pipelineLogger):
         super().__init__(config, logger)
         if config.outfile is None:
             if config.out_topic.find(".") >= 0:
@@ -353,7 +353,7 @@ class CsvSource(SourceTap):
 
     kind = "CSV"
 
-    def __init__(self, config, logger=logger):
+    def __init__(self, config, logger=pipelineLogger):
         super().__init__(config, logger)
         if config.infile == "-":
             self.infile = sys.stdin
@@ -401,7 +401,7 @@ class CsvDestination(DestinationTap):
 
     kind = "CSV"
 
-    def __init__(self, config, logger=logger):
+    def __init__(self, config, logger=pipelineLogger):
         super().__init__(config, logger)
         if config.outfile is None:
             if config.out_topic.find(".") >= 0:

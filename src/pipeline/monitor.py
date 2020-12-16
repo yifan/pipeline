@@ -1,12 +1,6 @@
-import logging
 import time
 
 from prometheus_client import Counter, Enum, Histogram, Info, start_http_server
-
-FORMAT = "%(asctime)-15s %(levelname)s %(message)s"
-logging.basicConfig(format=FORMAT)
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
 
 
 class Monitor(object):
@@ -77,16 +71,10 @@ class Monitor(object):
                 "details": msg,
             }
         )
-        self.counter.labels(
-            name=self.worker.name, operation="error", topic=None
-        ).inc()
+        self.counter.labels(name=self.worker.name, operation="error", topic=None).inc()
 
     def record_write(self, topic=None):
-        self.counter.labels(
-            name=self.worker.name, operation="write", topic=topic
-        ).inc()
+        self.counter.labels(name=self.worker.name, operation="write", topic=topic).inc()
 
     def record_read(self, topic=None):
-        self.counter.labels(
-            name=self.worker.name, operation="read", topic=topic
-        ).inc()
+        self.counter.labels(name=self.worker.name, operation="read", topic=topic).inc()

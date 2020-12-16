@@ -1,4 +1,3 @@
-import logging
 import os
 
 import azure.cosmosdb.table
@@ -6,28 +5,23 @@ import azure.cosmosdb.table
 from ..cache import Cache
 
 
-FORMAT = "%(asctime)-15s %(levelname)s %(message)s"
-logging.basicConfig(format=FORMAT)
-logger = logging.getLogger("worker")
-logger.setLevel(logging.DEBUG)
-
-
 class AzureTableCache(Cache):
     """AzureTableCache reads/writes data from/to Azure Table
 
+    >>> import logging
     >>> from unittest.mock import patch
     >>> from argparse import ArgumentParser
     >>> parser = ArgumentParser()
     >>> AzureTableCache.add_arguments(parser)
     >>> config = parser.parse_args(["--in-fields", "text,title"])
     >>> with patch('azure.cosmosdb.table.TableService') as c:
-    ...     AzureTableCache(config)
+    ...     AzureTableCache(config, logger=logging)
     AzureTableCache:['text', 'title']:[]
     """
 
     kind = "AZURE"
 
-    def __init__(self, config, logger=logger):
+    def __init__(self, config, logger):
         super().__init__(config, logger)
         self.setup()
 

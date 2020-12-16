@@ -1,4 +1,3 @@
-import logging
 import os
 
 import mysql.connector as mysql
@@ -7,28 +6,23 @@ from ..cache import parse_connection_string, Cache
 from ..exception import PipelineError
 
 
-FORMAT = "%(asctime)-15s %(levelname)s %(message)s"
-logging.basicConfig(format=FORMAT)
-logger = logging.getLogger("worker")
-logger.setLevel(logging.DEBUG)
-
-
 class MySqlCache(Cache):
     """MySQLCache reads/writes data from/to MySQL
 
+    >>> import logging
     >>> from unittest.mock import patch
     >>> from argparse import ArgumentParser
     >>> parser = ArgumentParser()
     >>> MySqlCache.add_arguments(parser)
     >>> config = parser.parse_args(["--in-fields", "text"])
     >>> with patch('mysql.connector.connect') as c:
-    ...     MySqlCache(config, "text")
+    ...     MySqlCache(config, logger=logging)
     MySqlCache(localhost:3306/database/table):['text']:[]
     """
 
     kind = "MYSQL"
 
-    def __init__(self, config, logger=logger):
+    def __init__(self, config, logger):
         super().__init__(config, logger)
         self.setup()
 

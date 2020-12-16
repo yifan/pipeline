@@ -1,4 +1,4 @@
-from unittest import TestCase
+from unittest import TestCase, mock
 from types import SimpleNamespace
 
 from pipeline import Message, CacheOf, CachedMessageClass
@@ -6,9 +6,11 @@ from pipeline import Message, CacheOf, CachedMessageClass
 
 class CachedMessageTestCase(TestCase):
     def test_read(self):
+        logger = mock.MagicMock()
         data = {"abcdefg": {"k1": "v2", "k2": "v2"}}
         cache = CacheOf("MEM")(
-            SimpleNamespace(in_fields="k1,k2", out_fields="k1,k2", mem=data)
+            SimpleNamespace(in_fields="k1,k2", out_fields="k1,k2", mem=data),
+            logger=logger,
         )
         cls = CachedMessageClass(Message, cache)
         cached_message = cls({"key": "abcdefg", "k1": "v1"})
@@ -16,9 +18,11 @@ class CachedMessageTestCase(TestCase):
         self.assertEqual(cached_message.get("k2"), "v2")
 
     def test_write(self):
+        logger = mock.MagicMock()
         data = {}
         cache = CacheOf("MEM")(
-            SimpleNamespace(in_fields="k1,k2", out_fields="k1,k2", mem=data)
+            SimpleNamespace(in_fields="k1,k2", out_fields="k1,k2", mem=data),
+            logger=logger,
         )
         cls = CachedMessageClass(Message, cache)
         cached_message = cls({"key": "abcdefg", "k1": "v1"})

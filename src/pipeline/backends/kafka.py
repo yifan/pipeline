@@ -1,4 +1,3 @@
-import logging
 import json
 import os
 import time
@@ -14,26 +13,21 @@ from confluent_kafka import (
 from ..tap import SourceTap, DestinationTap
 
 
-FORMAT = "%(asctime)-15s %(levelname)s %(message)s"
-logging.basicConfig(format=FORMAT)
-logger = logging.getLogger("worker")
-logger.setLevel(logging.DEBUG)
-
-
 class KafkaSource(SourceTap):
     """KafkaSource reads from KAFKA
 
+    >>> import logging
     >>> from argparse import ArgumentParser
     >>> parser = ArgumentParser(conflict_handler='resolve')
     >>> KafkaSource.add_arguments(parser)
     >>> config = parser.parse_args(["--config", '{"sasl.mechanisms": "PLAIN"}'])
-    >>> KafkaSource(config)
+    >>> KafkaSource(config, logger=logging)
     KafkaSource(host="kafka.kafka.svc.cluster.local",groupid="group-id",topic="in-topic")
     """
 
     kind = "KAFKA"
 
-    def __init__(self, config, logger=logger):
+    def __init__(self, config, logger):
         super().__init__(config, logger)
 
         kafkaConfig = {
@@ -133,17 +127,18 @@ class KafkaSource(SourceTap):
 class KafkaDestination(DestinationTap):
     """KafkaDestination writes to KAFKA
 
+    >>> import logging
     >>> from argparse import ArgumentParser
     >>> parser = ArgumentParser(conflict_handler='resolve')
     >>> KafkaDestination.add_arguments(parser)
     >>> config = parser.parse_args(["--config", '{"sasl.mechanisms": "PLAIN"}'])
-    >>> KafkaDestination(config)
+    >>> KafkaDestination(config, logger=logging)
     KafkaDestination(host="kafka.kafka.svc.cluster.local",topic="out-topic")
     """
 
     kind = "KAFKA"
 
-    def __init__(self, config, logger=logger):
+    def __init__(self, config, logger):
         super().__init__(config, logger)
         kafkaConfig = {
             "bootstrap.servers": config.kafka,

@@ -1,6 +1,6 @@
 import os
 import tempfile
-from unittest import TestCase
+from unittest import TestCase, mock
 
 from pipeline import (
     Message,
@@ -47,9 +47,7 @@ class TestWorkerCore(TestCase):
                 for i in range(3):
                     self.cache.write(
                         i,
-                        dict(
-                            [(field, field) for field in self.cache.out_fields]
-                        ),
+                        dict([(field, field) for field in self.cache.out_fields]),
                     )
                     yield {"key": i}
 
@@ -160,9 +158,7 @@ class TestWorkerCore(TestCase):
     def test_processor_with_cache(self):
         class MyProcessor(Processor):
             def process(self, msg):
-                self.logger.info(
-                    "%s, %s", msg.dct.get("key", None), msg.get("key")
-                )
+                self.logger.info("%s, %s", msg.dct.get("key", None), msg.get("key"))
                 msg.update({"key3": msg.get("key1")})
                 return None
 
@@ -284,13 +280,9 @@ class TestWorkerCore(TestCase):
         )
         splitter.start()
         assert len(splitter.destinations["test-en"].results) == 1
-        assert (
-            splitter.destinations["test-en"].results[0].dct["language"] == "en"
-        )
+        assert splitter.destinations["test-en"].results[0].dct["language"] == "en"
         assert len(splitter.destinations["test-it"].results) == 1
-        assert (
-            splitter.destinations["test-it"].results[0].dct["language"] == "it"
-        )
+        assert splitter.destinations["test-it"].results[0].dct["language"] == "it"
 
     def test_splitter_invalid_message(self):
         class InvalidMessage(Message):
@@ -330,9 +322,7 @@ class TestWorkerCore(TestCase):
     def test_custom_message(self):
         class CustomMessage(Message):
             def __str__(self):
-                return "Message({}: {})".format(
-                    self.dct["key"], self.dct["value"]
-                )
+                return "Message({}: {})".format(self.dct["key"], self.dct["value"])
 
         config = ProcessorConfig(messageClass=CustomMessage)
         pro1 = Processor("tester3", "0.1.0", config=config)
@@ -342,3 +332,20 @@ class TestWorkerCore(TestCase):
         )
         pro1.start()
         assert pro1.destination.results[0].get("key") == "key1"
+
+    def test_logging(self):
+        class MyProcessor(Processor):
+            def process(self, msg):
+                self.logger.info("logging")
+                return None
+
+        logger = mock.MagicMock()
+        msgs = [{"key": "1"}, {"key": "2"}, {"key": "3"}]
+        pro1 = MyProcessor("tester1", "0.1.0", logger=logger)
+        pro1.parse_args(
+            args=["--kind", "MEM", "--out-topic", "test"],
+            config={"data": msgs},
+        )
+        pro1.start()
+        assert len(pro1.destination.results) == 3
+        logger.info.assert_any_call("logging")

@@ -1,15 +1,8 @@
-import logging
 import os
 from abc import ABC, abstractmethod
 from types import SimpleNamespace
 
 from .importor import import_class
-
-
-FORMAT = "%(asctime)-15s %(levelname)s %(message)s"
-logging.basicConfig(format=FORMAT)
-logger = logging.getLogger("worker")
-logger.setLevel(logging.DEBUG)
 
 
 def supportedCacheKinds():
@@ -86,7 +79,7 @@ def parse_connection_string(
 class Cache(ABC):
     kind = "NONE"
 
-    def __init__(self, config, logger=logger):
+    def __init__(self, config, logger):
         self.config = config
         self.in_fields = (
             self.config.in_fields.split(",") if self.config.in_fields else []
@@ -134,9 +127,10 @@ class MemoryCache(Cache):
     """MemoryReader read data from memory.
     It is for testing only.
 
+    >>> import logging
     >>> from types import SimpleNamespace
     >>> data = {'key1':{'text':'text1', 'title':'title1'}}
-    >>> mem = MemoryCache(SimpleNamespace(in_fields='title', out_fields='text,title', mem=data))
+    >>> mem = MemoryCache(SimpleNamespace(in_fields='title', out_fields='text,title', mem=data), logging)
     >>> mem.write('key3', {'text': 'text3', 'title': 'title3'})
     >>> data
     {'key1': {'text': 'text1', 'title': 'title1'}, 'key3': {'text': 'text3', 'title': 'title3'}}

@@ -1,16 +1,9 @@
-import logging
 import os
 import time
 
 import pika
 
 from ..tap import SourceTap, DestinationTap
-
-
-FORMAT = "%(asctime)-15s %(levelname)s %(message)s"
-logging.basicConfig(format=FORMAT)
-logger = logging.getLogger("worker")
-logger.setLevel(logging.DEBUG)
 
 
 def namespacedTopic(topic, namespace=None):
@@ -30,6 +23,7 @@ class RabbitMQSource(SourceTap):
         --in-topic (env: INTOPIC): queue to read from
         --timeout (env: TIMEOUT): seconds to exit if no new messages
 
+    >>> import logging
     >>> from unittest.mock import patch
     >>> from argparse import ArgumentParser
     >>> parser = ArgumentParser(conflict_handler='resolve')
@@ -37,13 +31,13 @@ class RabbitMQSource(SourceTap):
     >>> config = parser.parse_args([])
     >>> with patch('pika.ConnectionParameters') as c1:
     ...     with patch('pika.BlockingConnection') as c2:
-    ...         RabbitMQSource(config)
+    ...         RabbitMQSource(config, logger=logging)
     RabbitMQSource(queue="in-topic")
     """
 
     kind = "RABBITMQ"
 
-    def __init__(self, config, logger=logger):
+    def __init__(self, config, logger):
         super().__init__(config, logger)
         self.config = config
         self.topic = config.in_topic
@@ -119,6 +113,7 @@ class RabbitMQDestination(DestinationTap):
     standard options:
         --out-topic (env: OUTTOPIC): queue to write to
 
+    >>> import logging
     >>> from unittest.mock import patch
     >>> from argparse import ArgumentParser
     >>> parser = ArgumentParser(conflict_handler='resolve')
@@ -126,13 +121,13 @@ class RabbitMQDestination(DestinationTap):
     >>> config = parser.parse_args([])
     >>> with patch('pika.ConnectionParameters') as c1:
     ...     with patch('pika.BlockingConnection') as c2:
-    ...         RabbitMQDestination(config)
+    ...        RabbitMQDestination(config, logger=logging)
     RabbitMQDestination(queue="out-topic")
     """
 
     kind = "RABBITMQ"
 
-    def __init__(self, config, logger=logger):
+    def __init__(self, config, logger):
         super().__init__(config, logger)
         self.config = config
         self.topic = config.out_topic

@@ -13,8 +13,9 @@ from .monitor import Monitor
 from .tap import DestinationOf, SourceOf
 from .helpers import parse_kind, Timer
 
-logger = logging.getLogger("pipeline")
-logger.setLevel(logging.INFO)
+
+pipelineLogger = logging.getLogger("pipeline")
+pipelineLogger.setLevel(logging.INFO)
 
 
 class WorkerConfig:
@@ -49,7 +50,7 @@ class WorkerConfig:
 class WorkerCore(ABC):
     """Internal base class for pulsar-worker, DO NOT use it in your program!"""
 
-    def __init__(self, name, version, description, config):
+    def __init__(self, name, version, description, config, logger):
         self.name = name
         self.version = [int(x) for x in version.split(".")]
         if len(self.version) != 3:
@@ -86,7 +87,7 @@ class WorkerCore(ABC):
         known, extras = parse_kind(args)
         self.kind = known.kind
         if self.kind is None:
-            logger.critical(
+            self.logger.critical(
                 "Please specify pipeline kind with '--kind' or environment 'PIPELINE'!"
             )
             return
@@ -105,17 +106,13 @@ class WorkerCore(ABC):
 
         if self.cacheKind:
             self.cache = self.cacheClass(self.options, logger=self.logger)
-            self.options.message = CachedMessageClass(
-                self.messageClass, self.cache
-            )
+            self.options.message = CachedMessageClass(self.messageClass, self.cache)
         else:
             self.options.message = self.messageClass
         if self.flag != WorkerConfig.NO_INPUT:
             self.source = self.sourceClass(self.options, logger=self.logger)
         if self.flag != WorkerConfig.NO_OUTPUT:
-            self.destination = self.destinationClass(
-                self.options, logger=self.logger
-            )
+            self.destination = self.destinationClass(self.options, logger=self.logger)
         # report worker info to monitor
         self.monitor.record_worker_info()
 
@@ -145,10 +142,15 @@ class GeneratorConfig(WorkerConfig):
 
 class Generator(WorkerCore):
     def __init__(
-        self, name, version, description=None, config=GeneratorConfig()
+        self,
+        name,
+        version,
+        description=None,
+        config=GeneratorConfig(),
+        logger=pipelineLogger,
     ):
         config.disable_input()
-        super().__init__(name, version, description, config)
+        super().__init__(name, version, description, config, logger)
         self.generator = None
 
     def generate(self):
@@ -180,7 +182,7 @@ class Generator(WorkerCore):
         try:
             options = self.options
         except AttributeError:
-            logger.critical("Did you forget to run .parse_args before start?")
+            self.logger.critical("Did you forget to run .parse_args before start?")
             return
 
         self.logger.setLevel(level=logging.INFO)
@@ -221,9 +223,14 @@ class Splitter(WorkerCore):
     """Splitter will write to a topic whose name is based on a function"""
 
     def __init__(
-        self, name, version, description=None, config=SplitterConfig()
+        self,
+        name,
+        version,
+        description=None,
+        config=SplitterConfig(),
+        logger=pipelineLogger,
     ):
-        super().__init__(name, version, description, config)
+        super().__init__(name, version, description, config, logger)
         # keep a dictionary for 'topic': 'destination', self.destination is only used to parse
         # command line arguments
         self.destinations = {}
@@ -248,9 +255,7 @@ class Splitter(WorkerCore):
             destination = self.destinations[topic]
 
             if msg.is_valid():
-                self.logger.info(
-                    "Writing message %s to topic <%s>", str(msg), topic
-                )
+                self.logger.info("Writing message %s to topic <%s>", str(msg), topic)
                 msgSize = destination.write(msg)
                 self.logger.info(f"Message size: {msgSize}")
             else:
@@ -264,9 +269,7 @@ class Splitter(WorkerCore):
         try:
             options = self.options
         except AttributeError:
-            self.logger.critical(
-                "Did you forget to run .parse_args before start?"
-            )
+            self.logger.critical("Did you forget to run .parse_args before start?")
             raise
 
         self.logger.setLevel(level=logging.INFO)
@@ -275,9 +278,7 @@ class Splitter(WorkerCore):
 
         if options.rewind:
             # consumer.seek(pulsar.MessageId.earliest)
-            self.logger.info(
-                "seeked to earliest message available as requested"
-            )
+            self.logger.info("seeked to earliest message available as requested")
 
         self.setup()
 
@@ -317,9 +318,14 @@ class ProcessorConfig(WorkerConfig):
 
 class Processor(WorkerCore):
     def __init__(
-        self, name, version, description=None, config=ProcessorConfig()
+        self,
+        name,
+        version,
+        description=None,
+        config=ProcessorConfig(),
+        logger=pipelineLogger,
     ):
-        super().__init__(name, version, description, config)
+        super().__init__(name, version, description, config, logger)
         self.retryEnabled = False
         self.limit = config.limit - 1 if config.limit else config.limit
 
@@ -330,9 +336,7 @@ class Processor(WorkerCore):
         """
         config = copy(self.source.config)
         config.out_topic = name if name else self.name + "-retry"
-        self.retryDestination = self.destinationClass(
-            config, logger=self.logger
-        )
+        self.retryDestination = self.destinationClass(config, logger=self.logger)
         self.retryEnabled = True
 
     def process(self, msg):
@@ -441,9 +445,7 @@ class Processor(WorkerCore):
         try:
             options = self.options
         except AttributeError:
-            self.logger.critical(
-                "Did you forget to run .parse_args before start?"
-            )
+            self.logger.critical("Did you forget to run .parse_args before start?")
             return
 
         self.logger.setLevel(level=logging.INFO)
@@ -452,9 +454,7 @@ class Processor(WorkerCore):
 
         if options.rewind:
             # consumer.seek(pulsar.MessageId.earliest)
-            self.logger.info(
-                "seeked to earliest message available as requested"
-            )
+            self.logger.info("seeked to earliest message available as requested")
 
         self.setup()
 

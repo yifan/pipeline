@@ -1,4 +1,3 @@
-import logging
 import os
 import time
 
@@ -7,28 +6,23 @@ import pulsar
 from ..tap import SourceTap, DestinationTap
 
 
-FORMAT = "%(asctime)-15s %(levelname)s %(message)s"
-logging.basicConfig(format=FORMAT)
-logger = logging.getLogger("worker")
-logger.setLevel(logging.DEBUG)
-
-
 class PulsarSource(SourceTap):
     """PulsarSource reads from Pulsar
 
+    >>> import logging
     >>> from unittest.mock import patch
     >>> from argparse import ArgumentParser
     >>> parser = ArgumentParser(conflict_handler='resolve')
     >>> PulsarSource.add_arguments(parser)
     >>> config = parser.parse_args([])
     >>> with patch('pulsar.Client') as c:
-    ...     PulsarSource(config)
+    ...     PulsarSource(config, logger=logging)
     PulsarSource(host="pulsar://pulsar.pulsar.svc.cluster.local:6650",name="persistent://meganews/test/in-topic",subscription="subscription")
     """
 
     kind = "PULSAR"
 
-    def __init__(self, config, logger=logger):
+    def __init__(self, config, logger):
         super().__init__(config, logger)
         self.config = config
         self.client = pulsar.Client(config.pulsar)
@@ -110,19 +104,20 @@ class PulsarSource(SourceTap):
 class PulsarDestination(DestinationTap):
     """PulsarDestination writes to Pulsar
 
+    >>> import logging
     >>> from unittest.mock import patch
     >>> from argparse import ArgumentParser
     >>> parser = ArgumentParser(conflict_handler='resolve')
     >>> PulsarDestination.add_arguments(parser)
     >>> config = parser.parse_args([])
     >>> with patch('pulsar.Client') as c:
-    ...     PulsarDestination(config)
+    ...     PulsarDestination(config, logger=logging)
     PulsarDestination(host="pulsar://pulsar.pulsar.svc.cluster.local:6650",name="persistent://meganews/test/out-topic")
     """
 
     kind = "PULSAR"
 
-    def __init__(self, config, logger=logger):
+    def __init__(self, config, logger):
         super().__init__(config, logger)
         self.config = config
         self.client = pulsar.Client(config.pulsar)

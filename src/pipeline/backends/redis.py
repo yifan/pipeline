@@ -1,5 +1,4 @@
 import os
-import logging
 import time
 import uuid
 
@@ -7,12 +6,6 @@ import redis
 
 from ..cache import parse_connection_string, Cache
 from ..tap import SourceTap, DestinationTap
-
-
-FORMAT = "%(asctime)-15s %(levelname)s %(message)s"
-logging.basicConfig(format=FORMAT)
-logger = logging.getLogger("worker")
-logger.setLevel(logging.DEBUG)
 
 
 def namespacedTopic(topic, namespace=None):
@@ -25,19 +18,20 @@ def namespacedTopic(topic, namespace=None):
 class RedisStreamSource(SourceTap):
     """RedisStreamSource reads from Redis Stream
 
+    >>> import logging
     >>> from unittest.mock import patch
     >>> from argparse import ArgumentParser
     >>> parser = ArgumentParser(conflict_handler='resolve')
     >>> RedisStreamSource.add_arguments(parser)
     >>> config = parser.parse_args([])
     >>> with patch('redis.Redis') as c:
-    ...     RedisStreamSource(config)
+    ...     RedisStreamSource(config, logger=logging)
     RedisStreamSource(host="localhost:6379",name="in-topic")
     """
 
     kind = "XREDIS"
 
-    def __init__(self, config, logger=logger):
+    def __init__(self, config, logger):
         super().__init__(config, logger)
         self.config = config
         self.client = redis.Redis(config.redis)
@@ -117,19 +111,20 @@ class RedisStreamSource(SourceTap):
 class RedisStreamDestination(DestinationTap):
     """RedisDestination writes to Redis Stream
 
+    >>> import logging
     >>> from unittest.mock import patch
     >>> from argparse import ArgumentParser
     >>> parser = ArgumentParser(conflict_handler='resolve')
     >>> RedisStreamDestination.add_arguments(parser)
     >>> config = parser.parse_args([])
     >>> with patch('redis.Redis') as c:
-    ...     RedisStreamDestination(config)
+    ...     RedisStreamDestination(config, logger=logging)
     RedisStreamDestination(host="localhost:6379",name="out-topic")
     """
 
     kind = "XREDIS"
 
-    def __init__(self, config, logger=logger):
+    def __init__(self, config, logger):
         super().__init__(config, logger)
         self.config = config
         self.client = redis.Redis(config.redis)
@@ -173,19 +168,20 @@ class RedisListSource(SourceTap):
 
     NOTE: Redis List does not support acknowledgement
 
+    >>> import logging
     >>> from unittest.mock import patch
     >>> from argparse import ArgumentParser
     >>> parser = ArgumentParser(conflict_handler='resolve')
     >>> RedisListSource.add_arguments(parser)
     >>> config = parser.parse_args([])
     >>> with patch('redis.Redis') as c:
-    ...     RedisListSource(config)
+    ...     RedisListSource(config, logger=logging)
     RedisListSource(host="localhost:6379",name="in-topic")
     """
 
     kind = "LREDIS"
 
-    def __init__(self, config, logger=logger):
+    def __init__(self, config, logger):
         super().__init__(config, logger)
         self.config = config
         self.client = redis.Redis(config.redis)
@@ -251,19 +247,20 @@ class RedisListSource(SourceTap):
 class RedisListDestination(DestinationTap):
     """RedisListDestination writes to Redis Stream
 
+    >>> import logging
     >>> from unittest.mock import patch
     >>> from argparse import ArgumentParser
     >>> parser = ArgumentParser(conflict_handler='resolve')
     >>> RedisListDestination.add_arguments(parser)
     >>> config = parser.parse_args([])
     >>> with patch('redis.Redis') as c:
-    ...     RedisListDestination(config)
+    ...     RedisListDestination(config, logger=logging)
     RedisListDestination(host="localhost:6379",name="out-topic")
     """
 
     kind = "LREDIS"
 
-    def __init__(self, config, logger=logger):
+    def __init__(self, config, logger):
         super().__init__(config, logger)
         self.config = config
         self.client = redis.Redis(config.redis)
@@ -304,19 +301,20 @@ class RedisListDestination(DestinationTap):
 class RedisCache(Cache):
     """RedisCache reads/writes data from/to Redis
 
+    >>> import logging
     >>> from unittest.mock import patch
     >>> from argparse import ArgumentParser
     >>> parser = ArgumentParser()
     >>> RedisCache.add_arguments(parser)
     >>> config = parser.parse_args(["--in-fields", "text,title"])
     >>> with patch('redis.Redis') as c:
-    ...     RedisCache(config)
+    ...     RedisCache(config, logger=logging)
     RedisCache(localhost:6379):['text', 'title']:[]
     """
 
     kind = "REDIS"
 
-    def __init__(self, config, logger=logger):
+    def __init__(self, config, logger):
         super().__init__(config, logger)
         self.setup()
 
