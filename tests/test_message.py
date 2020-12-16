@@ -78,3 +78,7 @@ class TestMessage(TestCase):
         message = Message(content)
         original = message.serialize()
         assert len(compressed) < len(original)
+
+    def test_logging(self):
+        message = Message({"key": "m", "value": "*" * 2048})
+        assert len(message.log_content()) == 1024

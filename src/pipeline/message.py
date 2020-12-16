@@ -57,7 +57,7 @@ class Message(ABC):
         return json.dumps(self.header, indent=4)
 
     def log_content(self):
-        return json.dumps(self.dct, indent=4)
+        return json.dumps(self.dct, indent=4)[:1024]
 
     @classmethod
     def add_arguments(cls, parser):
