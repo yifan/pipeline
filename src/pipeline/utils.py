@@ -1,7 +1,9 @@
 import argparse
+import sys
 
-from .tap import SourceOf, DestinationOf
+from .exception import PipelineError
 from .helpers import parse_kind
+from .tap import SourceOf, DestinationOf
 
 
 class Pipeline(object):
@@ -14,7 +16,7 @@ class Pipeline(object):
     >>> Pipeline = Pipeline(kind='MEM')
     """
 
-    def __init__(self, kind, noInput=False, noOutput=False):
+    def __init__(self, kind=None, noInput=False, noOutput=False):
         """Initialize Pipeline with kind and options to turn off input/output
 
         :param kind: underlining queuing system [MEM, FILE, KAFKA, PULSAR, LREDIS, RABBITMQ]
@@ -29,10 +31,17 @@ class Pipeline(object):
         """
         assert not (noInput and noOutput)
 
-        parser = argparse.ArgumentParser(
-            "pipeline", conflict_handler="resolve"
-        )
-        known, extras = parse_kind(["--kind", kind])
+        parser = argparse.ArgumentParser("pipeline", conflict_handler="resolve")
+        if kind is None:
+            known, extras = parse_kind(sys.argv[1:])
+        else:
+            known, extras = parse_kind(["--kind", kind])
+
+        if known.kind is None:
+            raise PipelineError(
+                "Either set PIPELINE in environment, pass --kind on command line, or "
+                "specify it with kind= in constructor"
+            )
 
         if not noInput:
             self.sources = {}
