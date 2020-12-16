@@ -16,12 +16,28 @@ Features
 - flow is controlled in deployment, develop it once, use it everywhere
 - testability provided with FILE and MEMORY input/output
 
-Parameters
-----------
+Installation
+------------
 
-- kind - specify the underlining technology for pipeline, for example, KAFKA or RabbitMQ
-- MEM - Memory based queue (good for unittests)
-- FILE - File based queue (good for development and integration tests)
+.. code-block:: bash
+
+    $ pip install tanbih-pipeline
+
+You can install the required backend dependencies with:
+
+.. code-block:: bash
+
+    $ pip install tanbih-pipeline[redis]
+    $ pip install tanbih-pipeline[kafka]
+    $ pip install tanbih-pipeline[pulsar]
+    $ pip install tanbih-pipeline[rabbitmq]
+    $ pip install tanbih-pipeline[azure]
+
+If you want to support all backends, you can:
+
+.. code-block:: bash
+
+    $ pip install tanbih-pipeline[full]
 
 
 Generator
