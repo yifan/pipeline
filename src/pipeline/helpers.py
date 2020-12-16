@@ -63,9 +63,7 @@ class Timer:
     def log(self, logger):
         elapsedTime = self.elapsed_time()
         averageTime = self.average_time()
-        logger.info(
-            "Elapsed Time: %.2f, Average Time: %.2f", elapsedTime, averageTime
-        )
+        logger.info("Elapsed Time: %.2f, Average Time: %.2f", elapsedTime, averageTime)
         processTime = self.process_time()
         averageProcessTime = self.average_process_time()
         logger.info(

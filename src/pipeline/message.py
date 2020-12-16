@@ -46,8 +46,8 @@ class Message(ABC):
         return json.loads(zlib.decompress(data))
 
     def log(self, logger):
-        logger.info(self.log_header())
-        logger.info(self.log_content())
+        logger.debug(self.log_header())
+        logger.debug(self.log_content())
 
     def log_info(self):
         """ for compatibility only """
@@ -63,7 +63,7 @@ class Message(ABC):
     def add_arguments(cls, parser):
         parser.add_argument(
             "--compress",
-            default=os.environ.get('COMPRESS', 'FALSE') == 'TRUE',
+            default=os.environ.get("COMPRESS", "FALSE") == "TRUE",
             action="store_true",
             help="zlib compress content",
         )
@@ -71,9 +71,7 @@ class Message(ABC):
 
     def serialize(self, indent=None):
         """serialize to binary."""
-        data = json.dumps([self.header, self.dct], indent=indent).encode(
-            "utf-8"
-        )
+        data = json.dumps([self.header, self.dct], indent=indent).encode("utf-8")
         if getattr(self.config, "compress", False) is True:
             return zlib.compress(data)
         else:

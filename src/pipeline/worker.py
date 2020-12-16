@@ -174,8 +174,8 @@ class Generator(WorkerCore):
             self.logger.info("Message terminates here")
         else:
             self.logger.error("Generated message is invalid, skipping")
-            self.logger.error(msg.log_info())
-            self.logger.error(msg.log_content())
+            self.logger.debug(msg.log_info())
+            self.logger.debug(msg.log_content())
             raise PipelineError("Invalid message")
 
     def start(self, monitoring=False):
@@ -260,8 +260,8 @@ class Splitter(WorkerCore):
                 self.logger.info(f"Message size: {msgSize}")
             else:
                 self.logger.error("Produced message is invalid, skipping")
-                self.logger.error(msg.log_info())
-                self.logger.error(msg.log_content())
+                self.logger.debug(msg.log_info())
+                self.logger.debug(msg.log_content())
             self.monitor.record_write(topic)
             self.source.acknowledge()
 
@@ -371,7 +371,8 @@ class Processor(WorkerCore):
                 err = self.process(msg)
             except Exception:
                 self.logger.error(traceback.format_exc())
-                self.logger.error(msg.log_content())
+                self.logger.debug(msg.log_info())
+                self.logger.debug(msg.log_content())
                 raise
 
             if err:
@@ -398,8 +399,8 @@ class Processor(WorkerCore):
             else:
                 failedOnError = True
                 self.logger.error("result message is invalid, skipping")
-                self.logger.warning(msg.log_info())
-                self.logger.warning(msg.log_content())
+                self.logger.debug(msg.log_info())
+                self.logger.debug(msg.log_content())
 
         # retry if necessary
         if failedOnError and self.retryEnabled:
