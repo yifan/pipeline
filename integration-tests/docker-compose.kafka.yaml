@@ -1,0 +1,81 @@
+version: '3'
+services:
+  generator:
+    build:  
+      context: .
+      dockerfile: test-generator/Dockerfile
+    links:
+     - kafka
+    environment:
+     - PIPELINE=KAFKA
+     - KAFKA=kafka
+     - NAMESPACE=test
+     - OUTTOPIC=test-q-splitter
+     - COMPRESS=TRUE
+     - DEBUG=TRUE
+    depends_on:
+     - splitter
+  splitter:
+    build:  
+      context: .
+      dockerfile: test-splitter/Dockerfile
+    links:
+     - kafka
+    environment:
+     - PIPELINE=KAFKA
+     - KAFKA=kafka
+     - TENANT=test
+     - NAMESPACE=test
+     - INTOPIC=test-q-splitter
+     - OUTTOPIC=test-q-processor
+     - COMPRESS=TRUE
+     - DEBUG=TRUE
+    depends_on:
+     - processor1
+     - processor2
+  processor1:
+    build:  
+      context: .
+      dockerfile: test-processor/Dockerfile
+    links:
+     - kafka
+    environment:
+     - PIPELINE=KAFKA
+     - KAFKA=kafka
+     - NAMESPACE=test
+     - INTOPIC=test-q-processor-a
+     - COMPRESS=TRUE
+     - DEBUG=TRUE
+  processor2:
+    build:  
+      context: .
+      dockerfile: test-processor/Dockerfile
+    links:
+     - kafka
+    environment:
+     - PIPELINE=KAFKA
+     - KAFKA=kakfa
+     - NAMESPACE=test
+     - INTOPIC=test-q-processor-b
+     - COMPRESS=TRUE
+     - DEBUG=TRUE
+  zookeeper:
+    image: wurstmeister/zookeeper
+    ports:
+      - "2181:2181"
+  kafka:
+    image: wurstmeister/kafka
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENERS:
+        "INTERNAL://kafka:9090,\
+         EXTERNAL://:9092"
+      KAFKA_ADVERTISED_LISTENERS:
+        "INTERNAL://kafka:9090,\
+         EXTERNAL://dockervm:9092"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP:
+        "INTERNAL:PLAINTEXT,\
+         EXTERNAL:PLAINTEXT"
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL

@@ -19,9 +19,10 @@ class TestProcessor(Processor):
         )
 
     def process(self, msg):
+        i = msg.get("value")
         msg.update(
             {
-                "existingKey": 1,
+                "existingKey": i,
                 "newKey": True,
             }
         )
