@@ -38,7 +38,7 @@ setup(
     extras_require={
         "full": [
             "redis",
-            "confluent-kakfa==1.3.*",
+            "confluent-kafka==1.3.*",
             "pulsar-client==2.5.*",
             "azure-cosmosdb-table",
             "pika",
