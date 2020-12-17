@@ -29,12 +29,12 @@ def supportedTapKinds():
             "pipeline.backends.redis:RedisListDestination",
         ),
         "KAFKA": (
-            "pipeine.backends.kafka:KafkaSource",
-            "pipeine.backends.kafka:KafkaDestination",
+            "pipeline.backends.kafka:KafkaSource",
+            "pipeline.backends.kafka:KafkaDestination",
         ),
         "PULSAR": (
-            "pipeine.backends.pulsar:PulsarSource",
-            "pipeine.backends.pulsar:PulsarDestination",
+            "pipeline.backends.pulsar:PulsarSource",
+            "pipeline.backends.pulsar:PulsarDestination",
         ),
         "RABBITMQ": (
             "pipeline.backends.rabbitmq:RabbitMQSource",
