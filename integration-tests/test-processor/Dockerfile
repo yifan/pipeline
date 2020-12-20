@@ -20,10 +20,13 @@ RUN python3 -m ensurepip \
 
 ENV LC_ALL=C.UTF-8 LANG=C.UTF-8 PIPENV_HIDE_EMOJIS=1
 
+ADD https://github.com/ufoscout/docker-compose-wait/releases/download/2.7.3/wait /wait
+RUN chmod +x /wait
+
 WORKDIR /code
 COPY test-processor/* /code/
 COPY dist/*.whl /code/
 
 RUN python3 -m pip install "tanbih-pipeline[full]@file:///code/tanbih_pipeline-0.8.4-py3-none-any.whl"
 ENV PYTHONPATH=/code
-CMD ["python", "testprocessor.py"]
+CMD /wait && python testprocessor.py

@@ -5,13 +5,16 @@ services:
       context: .
       dockerfile: test-generator/Dockerfile
     links:
-     - redis
+     - pulsar
     environment:
-     - PIPELINE=LREDIS
-     - REDIS=redis:6379
+     - PIPELINE=PULSAR
+     - PULSAR=pulsar://pulsar:6650
+     - TENANT=public
+     - NAMESPACE=default
      - OUTTOPIC=test-q-splitter
      - COMPRESS=TRUE
      - DEBUG=TRUE
+     - WAIT_HOSTS=pulsar:6650
     depends_on:
      - splitter
   splitter:
@@ -19,14 +22,17 @@ services:
       context: .
       dockerfile: test-splitter/Dockerfile
     links:
-     - redis
+     - pulsar
     environment:
-     - PIPELINE=LREDIS
-     - REDIS=redis:6379
+     - PIPELINE=PULSAR
+     - PULSAR=pulsar://pulsar:6650
+     - TENANT=public
+     - NAMESPACE=default
      - INTOPIC=test-q-splitter
      - OUTTOPIC=test-q-processor
      - COMPRESS=TRUE
      - DEBUG=TRUE
+     - WAIT_HOSTS=pulsar:6650
     depends_on:
      - processor1
      - processor2
@@ -35,24 +41,40 @@ services:
       context: .
       dockerfile: test-processor/Dockerfile
     links:
-     - redis
+     - pulsar
     environment:
-     - PIPELINE=LREDIS
-     - REDIS=redis:6379
+     - PIPELINE=PULSAR
+     - PULSAR=pulsar://pulsar:6650
+     - TENANT=public
+     - NAMESPACE=default
      - INTOPIC=test-q-processor-a
      - COMPRESS=TRUE
      - DEBUG=TRUE
+     - WAIT_HOSTS=pulsar:6650
+    depends_on:
+     - pulsar
   processor2:
     build:  
       context: .
       dockerfile: test-processor/Dockerfile
     links:
-     - redis
+     - pulsar
     environment:
-     - PIPELINE=LREDIS
-     - REDIS=redis:6379
+     - PIPELINE=PULSAR
+     - PULSAR=pulsar://pulsar:6650
+     - TENANT=public
+     - NAMESPACE=default
      - INTOPIC=test-q-processor-b
      - COMPRESS=TRUE
      - DEBUG=TRUE
-  redis:
-    image: redis
+     - WAIT_HOSTS=pulsar:6650
+    depends_on:
+     - pulsar
+  pulsar:
+    image: apachepulsar/pulsar:2.6.0
+    ports:
+      - 8080:8080
+      - 6650:6650
+    environment:
+      PULSAR_MEM: " -Xms512m -Xmx512m -XX:MaxDirectMemorySize=1g"    
+    command: bin/pulsar standalone
