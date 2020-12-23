@@ -1,9 +1,13 @@
 import argparse
+import logging
 import sys
 
 from .exception import PipelineError
 from .helpers import parse_kind
 from .tap import SourceOf, DestinationOf
+
+pipelineLogger = logging.getLogger("pipeline")
+pipelineLogger.setLevel(logging.INFO)
 
 
 class Pipeline(object):
@@ -16,7 +20,7 @@ class Pipeline(object):
     >>> Pipeline = Pipeline(kind='MEM')
     """
 
-    def __init__(self, kind=None, noInput=False, noOutput=False):
+    def __init__(self, kind=None, noInput=False, noOutput=False, logger=pipelineLogger):
         """Initialize Pipeline with kind and options to turn off input/output
 
         :param kind: underlining queuing system [MEM, FILE, KAFKA, PULSAR, LREDIS, RABBITMQ]
@@ -54,6 +58,7 @@ class Pipeline(object):
             self.destinationClass.add_arguments(parser)
 
         self.options = parser.parse_args(extras)
+        self.logger = logger
 
     def addSourceTopic(self, name):
         """Add a new :class:`SourceTap` with a defined topic(queue) name
@@ -61,7 +66,7 @@ class Pipeline(object):
         :param name: a name given for the source topic
         """
         self.options.in_topic = name
-        self.sources[name] = self.sourceClass(self.options)
+        self.sources[name] = self.sourceClass(self.options, logger=self.logger)
 
     def addDestinationTopic(self, name):
         """Add a new :class:`DestinationTap` with a defined topic(queue) name
@@ -69,7 +74,9 @@ class Pipeline(object):
         :param name: a name given for the destination topic
         """
         self.options.out_topic = name
-        self.destinations[name] = self.destinationClass(self.options)
+        self.destinations[name] = self.destinationClass(
+            self.options, logger=self.logger
+        )
 
     def sourceOf(self, name):
         """Return the :class:`SourceTap` of specified topic(queue) name"""
