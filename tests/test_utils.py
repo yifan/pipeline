@@ -33,6 +33,12 @@ class TestPipeline(TestCase):
         destination = pipeline.destinationOf("test")
         destination.write(Message({"key": "dummy", "test": "value"}))
 
+    def test_pipeline_unknown(self):
+        os.environ["PIPELINE"] = "MEM"
+        pipeline = Pipeline(args=["unknown"])
+        del os.environ["PIPELINE"]
+        assert pipeline is not None
+
     def test_pipeline_notset(self):
         with self.assertRaises(PipelineError):
             Pipeline()

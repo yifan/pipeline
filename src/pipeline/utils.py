@@ -1,6 +1,5 @@
 import argparse
 import logging
-import sys
 
 from .exception import PipelineError
 from .helpers import parse_kind
@@ -20,7 +19,9 @@ class Pipeline(object):
     >>> Pipeline = Pipeline(kind='MEM')
     """
 
-    def __init__(self, kind=None, noInput=False, noOutput=False, logger=pipelineLogger):
+    def __init__(
+        self, args=None, kind=None, noInput=False, noOutput=False, logger=pipelineLogger
+    ):
         """Initialize Pipeline with kind and options to turn off input/output
 
         :param kind: underlining queuing system [MEM, FILE, KAFKA, PULSAR, LREDIS, RABBITMQ]
@@ -37,7 +38,7 @@ class Pipeline(object):
 
         parser = argparse.ArgumentParser("pipeline", conflict_handler="resolve")
         if kind is None:
-            known, extras = parse_kind(sys.argv[1:])
+            known, extras = parse_kind(args if args else [])
         else:
             known, extras = parse_kind(["--kind", kind])
 
@@ -57,7 +58,7 @@ class Pipeline(object):
             self.destinationClass = DestinationOf(known.kind)
             self.destinationClass.add_arguments(parser)
 
-        self.options = parser.parse_args(extras)
+        self.options, _ = parser.parse_known_args(extras)
         self.logger = logger
 
     def addSourceTopic(self, name):
