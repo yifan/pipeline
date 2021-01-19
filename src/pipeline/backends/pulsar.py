@@ -79,20 +79,14 @@ class PulsarSource(SourceTap):
         )
 
     def read(self):
-        timedOut = False
-        lastMessageTime = time.time()
-        while not timedOut:
-            try:
-                msg = self.consumer.receive()
-                self.last_msg = msg
+        timeout_ms = self.timeout * 1000 if self.timeout else None
+        msg = self.consumer.receive(timeout_millis=timeout_ms)
+        while msg:
+            msg = self.consumer.receive(timeout_millis=timeout_ms)
+            self.last_msg = msg
+            if msg:
                 yield self.messageClass.deserialize(msg.data(), config=self.config)
-                lastMessageTime = time.time()
-            except Exception as ex:
-                self.logger.error(ex)
-                break
             time.sleep(0.01)
-            if self.timeout > 0 and time.time() - lastMessageTime > self.timeout:
-                timedOut = True
 
     def acknowledge(self):
         self.consumer.acknowledge(self.last_msg)
