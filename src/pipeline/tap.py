@@ -276,14 +276,12 @@ class FileDestination(DestinationTap):
     >>> from argparse import ArgumentParser
     >>> parser = ArgumentParser()
     >>> FileDestination.add_arguments(parser)
-    >>> tmpdir = tempfile.mkdtemp()
-    >>> outFilename = os.path.join(tmpdir, 'outfile.txt')
     >>> config = parser.parse_args(args=[])
     >>> FileDestination(config)
     FileDestination("out-topic.json")
-    >>> config = parser.parse_args("--outfile {}".format(outFilename).split())
-    >>> FileDestination(config)
-    FileDestination("...outfile.txt")
+    >>> with tempfile.NamedTemporaryFile() as tmpfile:
+    ...     config = parser.parse_args(f"--outfile {tmpfile.name}".split())
+    ...     assert repr(FileDestination(config)) == f'FileDestination("{tmpfile.name}")'
     """
 
     kind = "FILE"
@@ -322,8 +320,8 @@ class FileDestination(DestinationTap):
         )
 
     def write(self, message):
-        serialized = message.serialize()
-        print(serialized, file=self.outFile, flush=True)
+        serialized = message.serialize(no_compress=True)
+        print(serialized.decode("utf-8"), file=self.outFile, flush=True)
         return len(serialized)
 
     def close(self):

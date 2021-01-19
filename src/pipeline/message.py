@@ -69,10 +69,11 @@ class Message(ABC):
         )
         return parser
 
-    def serialize(self, indent=None):
+    def serialize(self, indent=None, no_compress=False):
         """serialize to binary."""
         data = json.dumps([self.header, self.dct], indent=indent).encode("utf-8")
-        if getattr(self.config, "compress", False) is True:
+
+        if getattr(self.config, "compress", False) is True and no_compress is False:
             return zlib.compress(data)
         else:
             return data
