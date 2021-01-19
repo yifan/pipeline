@@ -1,4 +1,3 @@
-import os
 import tempfile
 from unittest import TestCase, mock
 
@@ -13,19 +12,18 @@ from pipeline import (
 )
 
 
-class TestWorkerCore(TestCase):
-    def setUp(self):
-        self.testDir = tempfile.TemporaryDirectory()
-        self.infile = open(os.path.join(self.testDir.name, "infile.txt"), "w")
-        self.infile.write(
-            (
-                '[{},{"key":1, "language":"en"}]\n'
-                '[{},{"key":2, "language":"it"}]\n'
-                '[{},{"key":3, "language":"ar"}]\n'
-            )
-        )
-        self.infile.close()
+def make_output(filename):
+    class MyGenerator(Generator):
+        def generate(self):
+            for i, language in enumerate(["en", "it", "ar"]):
+                yield {"key": i, "language": language}
 
+    generator = MyGenerator("filegenerator", "0.1.0")
+    generator.parse_args(args=f"--kind FILE --outfile {filename}".split())
+    generator.start()
+
+
+class TestWorkerCore(TestCase):
     def test_mem_generator(self):
         class MyGenerator(Generator):
             def generate(self):
@@ -39,7 +37,6 @@ class TestWorkerCore(TestCase):
         m = generator.destination.results[0]
         dct = m.get_version("generator")
         assert dct["version"] == [0, 1, 0]
-        assert dct["order"] == 1
 
     def test_mem_generator_with_cache(self):
         class MyGenerator(Generator):
@@ -184,64 +181,63 @@ class TestWorkerCore(TestCase):
         assert m.get("key1") == "val11"
 
     def test_file(self):
-        processor = Processor("fileprocessor", "0.1.0")
-        processor.parse_args(
-            args=[
-                "--kind",
-                "FILE",
-                "--in-topic",
-                "test",
-                "--out-topic",
-                "test",
-                "--infile",
-                os.path.join(self.testDir.name, "infile.txt"),
-                "--outfile",
-                os.path.join(self.testDir.name, "outfile.txt"),
-            ]
-        )
-        processor.start()
-        with open(os.path.join(self.testDir.name, "outfile.txt"), "r") as f:
-            assert len(list(f)) == 3
+        with tempfile.NamedTemporaryFile() as tmpInFile:
+            make_output(tmpInFile.name)
+
+            with tempfile.NamedTemporaryFile() as tmpOutFile:
+                processor = Processor("fileprocessor", "0.1.0")
+                processor.parse_args(
+                    args=[
+                        "--kind",
+                        "FILE",
+                        "--infile",
+                        tmpInFile.name,
+                        "--outfile",
+                        tmpOutFile.name,
+                    ]
+                )
+                processor.start()
+                with open(tmpOutFile.name, "r") as f:
+                    assert len(list(f)) == 3
 
     def test_file_stdin_stdout(self):
-        processor = Processor("fileprocessor", "0.1.0")
-        processor.parse_args(
-            args=[
-                "--kind",
-                "FILE",
-                "--in-topic",
-                "test",
-                "--out-topic",
-                "test",
-                "--infile",
-                os.path.join(self.testDir.name, "infile.txt"),
-                "--outfile",
-                "-",
-            ]
-        )
-        processor.start()
+        with tempfile.NamedTemporaryFile() as tmpInFile:
+            make_output(tmpInFile.name)
+
+            processor = Processor("fileprocessor", "0.1.0")
+            processor.parse_args(
+                args=[
+                    "--kind",
+                    "FILE",
+                    "--infile",
+                    tmpInFile.name,
+                    "--outfile",
+                    "-",
+                ]
+            )
+            processor.start()
 
     def test_file_repeat(self):
-        processor = Processor("fileprocessor", "0.1.0")
-        processor.parse_args(
-            args=[
-                "--kind",
-                "FILE",
-                "--in-topic",
-                "test",
-                "--out-topic",
-                "test",
-                "--infile",
-                os.path.join(self.testDir.name, "infile.txt"),
-                "--repeat",
-                "2",
-                "--outfile",
-                os.path.join(self.testDir.name, "outfile.txt"),
-            ]
-        )
-        processor.start()
-        with open(os.path.join(self.testDir.name, "outfile.txt"), "r") as f:
-            assert len(list(f)) == 6
+        with tempfile.NamedTemporaryFile() as tmpInFile:
+            make_output(tmpInFile.name)
+
+            with tempfile.NamedTemporaryFile() as tmpOutFile:
+                processor = Processor("fileprocessor", "0.1.0")
+                processor.parse_args(
+                    args=[
+                        "--kind",
+                        "FILE",
+                        "--infile",
+                        tmpInFile.name,
+                        "--outfile",
+                        tmpOutFile.name,
+                        "--repeat",
+                        "2",
+                    ]
+                )
+                processor.start()
+                with open(tmpOutFile.name, "r") as f:
+                    assert len(list(f)) == 6
 
     def test_mem_processor(self):
         msgs = [{}, {}, {}]
@@ -301,23 +297,27 @@ class TestWorkerCore(TestCase):
         assert len(splitter.destinations["test-it"].results) == 0
 
     def test_splitter_file(self):
-        splitter = Splitter("spliter1", "0.1.0")
-        splitter.parse_args(
-            args=[
-                "--kind",
-                "FILE",
-                "--in-topic",
-                "test",
-                "--out-topic",
-                "test",
-                "--infile",
-                os.path.join(self.testDir.name, "infile.txt"),
-                "--outfile",
-                os.path.join(self.testDir.name, "outfile.txt"),
-            ]
-        )
-        splitter.start()
-        assert len(splitter.destinations) == 3
+        with tempfile.NamedTemporaryFile() as tmpInFile:
+            make_output(tmpInFile.name)
+
+            with tempfile.NamedTemporaryFile() as tmpOutFile:
+                splitter = Splitter("spliter1", "0.1.0")
+                splitter.parse_args(
+                    args=[
+                        "--kind",
+                        "FILE",
+                        "--in-topic",
+                        "test",
+                        "--out-topic",
+                        "test",
+                        "--infile",
+                        tmpInFile.name,
+                        "--outfile",
+                        tmpOutFile.name,
+                    ]
+                )
+                splitter.start()
+                assert len(splitter.destinations) == 3
 
     def test_custom_message(self):
         class CustomMessage(Message):

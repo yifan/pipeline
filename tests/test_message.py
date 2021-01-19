@@ -15,24 +15,21 @@ class TestMessage(TestCase):
 
     def test_get_version(self):
         m = Message({})
-        assert not m.get_version("tester")["version"]
+        assert m.get_version("tester") is None
 
     def test_versions(self):
         m = Message({})
         m.update_version("tester", [0, 1, 0])
         assert m.updated is True
         assert m.get_version("tester")["version"] == [0, 1, 0]
-        assert m.get_version("tester")["order"] == 1
         m.updated = False
         m.update_version("tester", [0, 1, 1])
         assert m.updated is True
         assert m.get_version("tester")["version"] == [0, 1, 1]
-        assert m.get_version("tester")["order"] == 1
         m.updated = False
         m.update_version("validator", [0, 0, 1])
         assert m.updated is True
         assert m.get_version("validator")["version"] == [0, 0, 1]
-        assert m.get_version("validator")["order"] == 2
 
     def test_subclass(self):
         class NewMessage(Message):
@@ -49,6 +46,12 @@ class TestMessage(TestCase):
         m.replace({"newkey": "value"})
         assert m.get("key") is None
         assert m.get("newkey") == "value"
+
+    def test_get_updates(self):
+        m = Message({})
+        updates = {"key": "value"}
+        m.update(updates)
+        assert m.get_updates() == updates
 
     def test_serialization(self):
         message = Message({"key": "message"})

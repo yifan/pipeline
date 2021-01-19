@@ -1,8 +1,8 @@
 import json
 import os
+import time
 import zlib
 from abc import ABC
-import time
 
 
 class Message(ABC):
@@ -21,7 +21,7 @@ class Message(ABC):
         self.updated = False
         self.terminated = False
         if header is None:
-            self.header = {}
+            self.header = {"created": time.time(), "history": []}
         else:
             self.header = header
         self.dct = dct
@@ -82,7 +82,7 @@ class Message(ABC):
     def deserialize(cls, raw, config=None):
         """deserialize to json."""
         if raw[0] == ord("{"):
-            header = {}
+            header = None
             content = json.loads(raw)
         elif raw[0] == ord("["):
             data = raw
@@ -93,12 +93,9 @@ class Message(ABC):
         return cls(content, header=header, config=config)
 
     def get_version(self, name):
-        return self.header.setdefault(
-            name,
-            {
-                "version": [],
-            },
-        )
+        for version in self.header["history"]:
+            if version["name"] == name:
+                return version
 
     def get_versions(self):
         return self.header
@@ -112,16 +109,21 @@ class Message(ABC):
 
     def should_update(self, name, version):
         versionDct = self.get_version(name)
-        return version > versionDct["version"]
+        return versionDct is None or version > versionDct["version"]
 
     def update_version(self, name, version):
-        versionDct = self.get_version(name)
-        if version > versionDct["version"]:
-            versionDct["version"] = version
-            versionDct["timestamp"] = time.time()
-            if "order" not in versionDct:
-                versionDct["order"] = len(self.get_versions())
-            self.updated = True
+        self.header["history"].insert(
+            0,
+            {
+                "name": name,
+                "version": version,
+                "receive": time.time(),
+            },
+        )
+        self.updated = True
+
+    def complete(self):
+        self.header["history"][0]["complete"] = time.time()
 
     def terminates(self):
         """ set terminated flag for this message """
@@ -134,6 +136,13 @@ class Message(ABC):
     def update(self, other):
         """ update message content """
         self.dct.update(other)
+        # keep track of updated fields
+        self.header["updated_fields"] = list(other.keys())
+
+    def get_updates(self):
+        """ return a dict containing last updated fields """
+        keys = self.header.get("updated_fields", [])
+        return {k: self.dct[k] for k in keys}
 
     def replace(self, other):
         """ replace message content """

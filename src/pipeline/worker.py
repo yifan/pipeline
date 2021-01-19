@@ -155,7 +155,7 @@ class Generator(WorkerCore):
 
     def generate(self):
         """a generator to generate dict."""
-        yield self.options.message(config=self.options)
+        yield {}
 
     def _step(self, i):
         if not self.generator:
@@ -167,6 +167,7 @@ class Generator(WorkerCore):
         self.logger.info("Generated %d-th message %s", i, msg)
         if msg.is_valid():
             self.logger.info("Writing %d-th message %s", i, msg)
+            msg.complete()
             msgSize = self.destination.write(msg)
             self.logger.info(f"Message size: {msgSize}")
             self.monitor.record_write(self.destination.topic)
@@ -245,6 +246,8 @@ class Splitter(WorkerCore):
             self.logger.info("Received message '%s'", str(msg))
             self.monitor.record_read(self.source.topic)
 
+            msg.update_version(self.name, self.version)
+
             topic = self.get_topic(msg)
 
             if topic not in self.destinations:
@@ -258,6 +261,7 @@ class Splitter(WorkerCore):
 
             if msg.is_valid():
                 self.logger.info("Writing message %s to topic <%s>", str(msg), topic)
+                msg.complete()
                 msgSize = destination.write(msg)
                 self.logger.info(f"Message size: {msgSize}")
             else:
@@ -395,6 +399,7 @@ class Processor(WorkerCore):
         elif not any((failedOnError, self.has_no_output())):
             if msg.is_valid():
                 self.logger.info("Writing message '%s'", str(msg))
+                msg.complete()
                 msgSize = self.destination.write(msg)
                 self.logger.info(f"Message size: {msgSize}")
                 self.monitor.record_write(self.destination.topic)
