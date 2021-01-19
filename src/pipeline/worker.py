@@ -157,16 +157,16 @@ class Generator(WorkerCore):
         """a generator to generate dict."""
         yield self.options.message(config=self.options)
 
-    def _step(self):
+    def _step(self, i):
         if not self.generator:
             self.generator = self.generate()
         dct = next(self.generator)
         msg = self.messageClass({}, config=self.options)
         msg.update(dct)
         msg.update_version(self.name, self.version)
-        self.logger.info("Generated %s", msg)
+        self.logger.info("Generated %d-th message %s", i, msg)
         if msg.is_valid():
-            self.logger.info("Writing %s", msg)
+            self.logger.info("Writing %d-th message %s", i, msg)
             msgSize = self.destination.write(msg)
             self.logger.info(f"Message size: {msgSize}")
             self.monitor.record_write(self.destination.topic)
@@ -199,9 +199,11 @@ class Generator(WorkerCore):
         self.monitor.record_start()
 
         try:
+            i = 0
             while True:
+                i += 1
                 self.timer.start()
-                self._step()
+                self._step(i)
                 self.timer.log(self.logger)
         except StopIteration:
             pass
