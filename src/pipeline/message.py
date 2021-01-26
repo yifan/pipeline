@@ -14,6 +14,7 @@ class Message(ABC):
     >>> message = Message({'key': 'unique-id-1', 'data': 'data'})
     """
 
+    version = 1
     keyname = "key"
 
     def __init__(self, dct, header=None, config=None):
@@ -21,7 +22,11 @@ class Message(ABC):
         self.updated = False
         self.terminated = False
         if header is None:
-            self.header = {"created": time.time(), "history": []}
+            self.header = {
+                "version": self.version,
+                "created": time.time(),
+                "history": [],
+            }
         else:
             self.header = header
         self.dct = dct
