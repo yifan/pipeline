@@ -16,6 +16,11 @@ Features
 - flow is controlled in deployment, develop it once, use it everywhere
 - testability provided with FILE and MEMORY input/output
 
+Requirements
+------------
+
+- Python 3.8
+
 Installation
 ------------
 
