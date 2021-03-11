@@ -26,6 +26,7 @@ def parse_kind(args):
     known, extras = kindParser.parse_known_args(args)
     if known.kind is None:
         kindParser.print_help(sys.stderr)
+        sys.exit(1)
     return known, extras
 
 
