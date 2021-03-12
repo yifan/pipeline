@@ -1,7 +1,6 @@
 import argparse
 import logging
 
-from .exception import PipelineError
 from .helpers import parse_kind
 from .tap import SourceOf, DestinationOf
 
@@ -41,12 +40,6 @@ class Pipeline(object):
             known, extras = parse_kind(args if args else [])
         else:
             known, extras = parse_kind(["--kind", kind])
-
-        if known.kind is None:
-            raise PipelineError(
-                "Either set PIPELINE in environment, pass --kind on command line, or "
-                "specify it with kind= in constructor"
-            )
 
         if not noInput:
             self.sources = {}

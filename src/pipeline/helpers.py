@@ -3,6 +3,7 @@ import os
 import sys
 import time
 
+from .exception import PipelineError
 from .cache import KindsOfCache
 from .tap import KindsOfSource
 
@@ -26,7 +27,10 @@ def parse_kind(args):
     known, extras = kindParser.parse_known_args(args)
     if known.kind is None:
         kindParser.print_help(sys.stderr)
-        sys.exit(1)
+        raise PipelineError(
+            "Either set PIPELINE in environment, pass --kind on command line, or "
+            "specify it with kind= in constructor"
+        )
     return known, extras
 
 
