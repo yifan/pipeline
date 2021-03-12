@@ -73,6 +73,14 @@ class TestMessage(TestCase):
         self.assertDictEqual(message.header, result.header)
         self.assertDictEqual(message.dct, result.dct)
 
+    def test_serialization_compression_unicode(self):
+        config = SimpleNamespace(compress=True)
+        message = Message({"key": u"message \u6D88\u606F"}, config=config)
+        self.assertTrue(message.config.compress)
+        result = Message.deserialize(message.serialize())
+        self.assertDictEqual(message.header, result.header)
+        self.assertDictEqual(message.dct, result.dct)
+
     def test_serialization_compression_verify(self):
         content = {"key": "message is a message", "text": "a dog ate a man"}
         config = SimpleNamespace(compress=True)

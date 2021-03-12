@@ -239,7 +239,7 @@ class FileSource(SourceTap):
     def __init__(self, config, logger=pipelineLogger):
         super().__init__(config, logger)
         if config.infile == "-":
-            self.infile = sys.stdin
+            self.infile = sys.stdin.buffer
         else:
             self.infile = open(config.infile, "rb")
         self.repeat = config.repeat
