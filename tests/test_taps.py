@@ -51,3 +51,26 @@ class TestTaps(TestCase):
             message_read = next(source.read())
 
         self.assertEqual(message_written.get("key"), message_read.get("key"))
+
+    def test_file_gz(self):
+        FileDestination = DestinationOf("FILE")
+        parser = ArgumentParser()
+        FileDestination.add_arguments(parser)
+        with tempfile.NamedTemporaryFile(suffix=".gz") as tmpfile:
+            outFilename = tmpfile.name
+            config = parser.parse_args(
+                "--outfile {} --overwrite".format(outFilename).split()
+            )
+            destination = FileDestination(config)
+            message_written = Message({"key": "written"})
+            destination.write(message_written)
+            destination.close()
+
+            FileSource = SourceOf("FILE")
+            parser = ArgumentParser()
+            FileSource.add_arguments(parser)
+            config = parser.parse_args("--infile {}".format(outFilename).split())
+            source = FileSource(config)
+            message_read = next(source.read())
+
+        self.assertEqual(message_written.get("key"), message_read.get("key"))
