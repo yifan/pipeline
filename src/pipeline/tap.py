@@ -3,6 +3,7 @@ import csv
 import logging
 import os
 import sys
+import gzip
 from abc import ABC, abstractmethod
 
 from .message import Message
@@ -240,6 +241,8 @@ class FileSource(SourceTap):
         super().__init__(config, logger)
         if config.infile == "-":
             self.infile = sys.stdin.buffer
+        elif config.infile.endswith(".gz"):
+            self.infile = gzip.open(config.infile)
         else:
             self.infile = open(config.infile, "rb")
         self.repeat = config.repeat
@@ -296,13 +299,18 @@ class FileDestination(DestinationTap):
         else:
             self.filename = config.outfile
 
-        if config.outfile == "-":
+        if self.filename == "-":
             self.outFile = sys.stdout
+        elif self.filename.endswith(".gz"):
+            if config.overwrite:
+                self.outFile = gzip.GzipFile(self.filename, "wb")
+            else:
+                self.outFile = gzip.GzipFile(self.filename, "ab")
         else:
             if config.overwrite:
-                self.outFile = open(self.filename, "w")
+                self.outFile = open(self.filename, "wb")
             else:
-                self.outFile = open(self.filename, "a")
+                self.outFile = open(self.filename, "ab")
         self.logger.info("File Destination: %s", self.filename)
 
     def __repr__(self):
@@ -321,7 +329,8 @@ class FileDestination(DestinationTap):
 
     def write(self, message):
         serialized = message.serialize(no_compress=True)
-        print(serialized.decode("utf-8"), file=self.outFile, flush=True)
+        self.outFile.write(serialized)
+        self.outFile.write("\n".encode("utf-8"))
         return len(serialized)
 
     def close(self):
