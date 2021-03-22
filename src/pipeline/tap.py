@@ -300,7 +300,7 @@ class FileDestination(DestinationTap):
             self.filename = config.outfile
 
         if self.filename == "-":
-            self.outFile = sys.stdout
+            self.outFile = sys.stdout.buffer
         elif self.filename.endswith(".gz"):
             if config.overwrite:
                 self.outFile = gzip.GzipFile(self.filename, "wb")
@@ -328,9 +328,8 @@ class FileDestination(DestinationTap):
         )
 
     def write(self, message):
-        serialized = message.serialize(no_compress=True)
+        serialized = message.serialize(no_compress=True) + "\n".encode("utf-8")
         self.outFile.write(serialized)
-        self.outFile.write("\n".encode("utf-8"))
         return len(serialized)
 
     def close(self):
