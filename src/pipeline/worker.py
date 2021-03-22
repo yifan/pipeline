@@ -77,6 +77,9 @@ class WorkerCore(ABC):
     def setup(self):
         """loading code goes here"""
 
+    def shutdown(self):
+        """clean up code goes here"""
+
     def has_no_input(self):
         return self.flag == WorkerConfig.NO_INPUT
 
@@ -213,6 +216,9 @@ class Generator(WorkerCore):
         except Exception as e:
             self.logger.error(traceback.format_exc())
             self.monitor.record_error(str(e))
+
+        self.shutdown()
+
         self.destination.close()
 
         self.monitor.record_finish()
@@ -299,13 +305,16 @@ class Splitter(WorkerCore):
         self.monitor.record_start()
         try:
             self._run_streaming()
-            self.source.close()
-            self.destination.close()
         except PipelineError as e:
             e.log(self.logger)
         except Exception as e:
             self.logger.error(traceback.format_exc())
             self.monitor.record_error(str(e))
+
+        self.shutdown()
+
+        self.source.close()
+        self.destination.close()
         self.monitor.record_finish()
 
 
@@ -478,9 +487,6 @@ class Processor(WorkerCore):
 
         try:
             self._run_streaming()
-            self.source.close()
-            if not self.has_no_output():
-                self.destination.close()
         except PipelineError as e:
             e.log(self.logger)
             self.logger.error(traceback.format_exc())
@@ -488,4 +494,8 @@ class Processor(WorkerCore):
             self.logger.error(traceback.format_exc())
             self.monitor.record_error(str(e))
 
+        self.shutdown()
+        self.source.close()
+        if not self.has_no_output():
+            self.destination.close()
         self.monitor.record_finish()
