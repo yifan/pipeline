@@ -93,3 +93,13 @@ class TestMessage(TestCase):
     def test_logging(self):
         message = Message({"key": "m", "value": "*" * 2048})
         assert len(message.log_content()) == 1024
+
+    def test_key(self):
+        message = Message({"key": "m", "value": "*" * 2048})
+        assert message.key() == "m"
+
+        class NewMessage(Message):
+            keyname = "newkey"
+
+        newMessage = NewMessage({"newkey": "m", "value": "*" * 2048})
+        assert newMessage.key() == "m"

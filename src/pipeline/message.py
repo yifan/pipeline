@@ -134,6 +134,13 @@ class Message(ABC):
         """ set terminated flag for this message """
         self.terminated = True
 
+    def key(self):
+        """ message id/key is defined by Message.keyname """
+        try:
+            return self.dct[self.keyname]
+        except KeyError:
+            raise KeyError(f"Key {self.keyname} is missing in message")
+
     def get(self, key, default=None):
         """ get value of key in content """
         return self.dct.get(key, default)
