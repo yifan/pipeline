@@ -33,12 +33,12 @@ class Monitor(object):
                 "name": self.worker.name,
                 "version": self.worker.version,
                 "description": self.worker.description,
-                "in-topic": None
-                if self.worker.has_no_input()
-                else self.worker.source.topic,
-                "out-topic": None
-                if self.worker.has_no_output()
-                else self.worker.destination.topic,
+                "in-topic": self.worker.source.topic
+                if self.worker.has_input()
+                else None,
+                "out-topic": self.worker.destination.topic
+                if self.worker.has_output()
+                else None,
             }
         )
 

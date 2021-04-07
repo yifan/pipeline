@@ -1,102 +1,79 @@
-import json
-import os
 import time
 
+from pydantic import Json, Field
 from confluent_kafka import (
-    OFFSET_BEGINNING,
     Consumer,
     KafkaError,
     KafkaException,
     Producer,
 )
 
-from ..tap import SourceTap, DestinationTap
+from ..tap import SourceTap, SourceSettings, DestinationTap, DestinationSettings
+from ..message import Message
+
+
+class KafkaSourceSettings(SourceSettings):
+    kafka: str = Field("localhost", title="kafka url")
+    group_id: str = Field(None, title="kafka consumer group id")
+    config: Json = Field(None, title="kafka config in json format")
+    poll_timeout: int = Field(
+        30, title="time out for polling new messages"
+    )  # TODO check if duplicate with timeout
 
 
 class KafkaSource(SourceTap):
     """KafkaSource reads from KAFKA
 
     >>> import logging
-    >>> from argparse import ArgumentParser
-    >>> parser = ArgumentParser(conflict_handler='resolve')
-    >>> KafkaSource.add_arguments(parser)
-    >>> config = parser.parse_args(["--config", '{"sasl.mechanisms": "PLAIN"}'])
-    >>> KafkaSource(config, logger=logging)
-    KafkaSource(host="kafka.kafka.svc.cluster.local",groupid="group-id",topic="in-topic")
+    >>> settings = KafkaSourceSettings(group_id="group-id", config='{"sasl.mechanisms": "PLAIN"}')
+    >>> KafkaSource(settings=settings, logger=logging)
+    KafkaSource(host="localhost",groupid="group-id",topic="in-topic")
     """
 
     kind = "KAFKA"
 
-    def __init__(self, config, logger):
-        super().__init__(config, logger)
+    def __init__(self, settings, logger):
+        super().__init__(settings, logger)
 
-        kafkaConfig = {
-            "bootstrap.servers": config.kafka,
+        config = {
+            "bootstrap.servers": settings.kafka,
             "broker.address.family": "v4",
-            "group.id": config.group_id,
+            "group.id": settings.group_id,
             "auto.offset.reset": "earliest",
             # 'log_level': 0,
             # 'debug': 'consumer',
             "enable.auto.commit": "false",
         }
 
-        if config.config:
-            extraConfig = json.loads(config.config)
-            kafkaConfig.update(extraConfig)
+        if settings.config:
+            config.update(settings.config)
 
-        self.consumer = Consumer(kafkaConfig, logger=self.logger)
-        self.topic = config.in_topic
+        self.consumer = Consumer(config, logger=self.logger)
+        self.topic = settings.topic
         self.last_msg = None
 
         def maybe_rewind(c, partitions):
             self.logger.info("Assignment: %s", str(partitions))
-            if config.rewind:
-                for partition in partitions:
-                    partition.offset = OFFSET_BEGINNING
-                self.logger.info("Rewind, new assignment: %s", str(partitions))
-                c.assign(partitions)
+            # disable rewind for now
+            # if settings.rewind:
+            #     for partition in partitions:
+            #         partition.offset = OFFSET_BEGINNING
+            #     self.logger.info("Rewind, new assignment: %s", str(partitions))
+            #     c.assign(partitions)
 
         self.consumer.subscribe([self.topic], on_assign=maybe_rewind)
         self.logger.info("KAFKA consumer subscribed to topic %s", self.topic)
 
     def __repr__(self):
         return 'KafkaSource(host="{}",groupid="{}",topic="{}")'.format(
-            self.config.kafka, self.config.group_id, self.topic
-        )
-
-    @classmethod
-    def add_arguments(cls, parser):
-        super().add_arguments(parser)
-        parser.add_argument(
-            "--kafka",
-            type=str,
-            default=os.environ.get("KAFKA", "kafka.kafka.svc.cluster.local"),
-            help="kafka address",
-        )
-        parser.add_argument(
-            "--group-id",
-            type=str,
-            default=os.environ.get("GROUPID", "group-id"),
-            help="group id",
-        )
-        parser.add_argument(
-            "--config",
-            type=str,
-            default=os.environ.get("KAFKACONFIG", None),
-            help="kafka configuration in JSON format",
-        )
-        parser.add_argument(
-            "--poll-timeout",
-            type=int,
-            default=30,
-            help="poll new message timeout in seconds",
+            self.settings.kafka, self.settings.group_id, self.topic
         )
 
     def read(self):
         timedOut = False
         lastMessageTime = time.time()
         while not timedOut:
-            msg = self.consumer.poll(timeout=self.config.poll_timeout)
+            msg = self.consumer.poll(timeout=self.settings.poll_timeout)
             if msg is None:
                 self.logger.warning("No message to read, timed out")
                 break
@@ -110,7 +87,7 @@ class KafkaSource(SourceTap):
             else:
                 self.logger.info("Read {}, {}".format(msg.topic(), msg.offset()))
                 self.last_msg = msg
-                yield self.messageClass.deserialize(msg.value(), config=self.config)
+                yield Message.deserialize(msg.value(), compress=self.settings.compress)
                 lastMessageTime = time.time()
             time.sleep(0.01)
             if self.timeout > 0 and time.time() - lastMessageTime > self.timeout:
@@ -124,56 +101,41 @@ class KafkaSource(SourceTap):
         self.consumer.close()
 
 
+class KafkaDestinationSettings(DestinationSettings):
+    kafka: str = Field("localhost", title="kafka url")
+    config: Json = Field(None, title="kafka config in json format")
+
+
 class KafkaDestination(DestinationTap):
     """KafkaDestination writes to KAFKA
 
     >>> import logging
-    >>> from argparse import ArgumentParser
-    >>> parser = ArgumentParser(conflict_handler='resolve')
-    >>> KafkaDestination.add_arguments(parser)
-    >>> config = parser.parse_args(["--config", '{"sasl.mechanisms": "PLAIN"}'])
-    >>> KafkaDestination(config, logger=logging)
-    KafkaDestination(host="kafka.kafka.svc.cluster.local",topic="out-topic")
+    >>> settings = KafkaDestinationSettings()
+    >>> KafkaDestination(settings=settings, logger=logging)
+    KafkaDestination(host="localhost",topic="out-topic")
     """
 
     kind = "KAFKA"
 
-    def __init__(self, config, logger):
-        super().__init__(config, logger)
-        kafkaConfig = {
-            "bootstrap.servers": config.kafka,
+    def __init__(self, settings, logger):
+        super().__init__(settings, logger)
+        config = {
+            "bootstrap.servers": settings.kafka,
             "queue.buffering.max.ms": 100,
             "message.send.max.retries": 5,
             "request.required.acks": "all",
             "broker.address.family": "v4",
         }
 
-        if config.config:
-            extraConfig = json.loads(config.config)
-            kafkaConfig.update(extraConfig)
+        if settings.config:
+            config.update(settings.config)
 
-        self.topic = config.out_topic
-        self.producer = Producer(kafkaConfig, logger=self.logger)
+        self.topic = settings.topic
+        self.producer = Producer(config, logger=self.logger)
 
     def __repr__(self):
         return 'KafkaDestination(host="{}",topic="{}")'.format(
-            self.config.kafka, self.topic
-        )
-
-    @classmethod
-    def add_arguments(cls, parser):
-        super().add_arguments(parser)
-        parser.add_argument(
-            "--kafka",
-            type=str,
-            default=os.environ.get("KAFKA", "kafka.kafka.svc.cluster.local"),
-            help="kafka address",
-        )
-        parser.add_argument(
-            "--config",
-            type=str,
-            default=os.environ.get("KAFKACONFIG", None),
-            help="kafka configuration in JSON format",
+            self.settings.kafka, self.topic
         )
 
     def write(self, message):
@@ -191,7 +153,7 @@ class KafkaDestination(DestinationTap):
                     )
                 )
 
-        serialized = message.serialize()
+        serialized = message.serialize(compress=self.settings.compress)
         self.producer.produce(self.topic, serialized, callback=delivery_report)
         self.producer.flush()
         return len(serialized)

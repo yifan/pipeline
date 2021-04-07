@@ -45,25 +45,31 @@ If you want to support all backends, you can:
     $ pip install tanbih-pipeline[full]
 
 
-Generator
+Producer
 ---------
 
-Generator is to be used when developing a data source in our pipeline. A source
-will produce output without input. A crawler can be seen as a generator.
+Producer is to be used when developing a data source in our pipeline. A source
+will produce output without input. A crawler can be seen as a producer.
 
 .. code-block:: python
 
-    >>> from pipeline import Generator, Message
+    >>> from typing import Generator
+    >>> from pydantic import BaseModel
+    >>> from pipeline import Producer as Worker, ProducerSettings as Settings
     >>>
-    >>> class MyGenerator(Generator):
-    ...     def generate(self):
+    >>> class Output(BaseModel):
+    ...     key: int
+    >>>
+    >>> class MyProducer(Worker):
+    ...     def generate(self) -> Generator[Output, None, None]:
     ...         for i in range(10):
-    ...             yield {'id': i}
+    ...             yield Output(key=i)
     >>>
-    >>> generator = MyGenerator('generator', '0.1.0', description='simple generator')
-    >>> generator.parse_args("--kind MEM --out-topic test".split())
-    >>> generator.start()
-    >>> [r.get('id') for r in generator.destination.results]
+    >>> settings = Settings(name='producer', version='0.0.0', description='')
+    >>> producer = MyProducer(settings, output=Output)
+    >>> producer.parse_args("--out-kind MEM --out-topic test".split())
+    >>> producer.start()
+    >>> [r.get('key') for r in producer.destination.results]
     [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 
 
@@ -75,19 +81,24 @@ can produce one output for each input, or no output.
 
 .. code-block:: python
 
-    >>> from pipeline import Processor, Message
+    >>> from pipeline import Processor as Worker, ProcessorSettings as Settings
     >>>
-    >>> class MyProcessor(Processor):
-    ...     def process(self, msg):
-    ...         msg.update({'processed': True})
-    ...         return None
+    >>> class Input(BaseModel):
+    ...     key: int
     >>>
-    >>> processor = MyProcessor('processor', '0.1.0', description='simple processor')
-    >>> config = {'data': [{'id': 1}]}
-    >>> processor.parse_args("--kind MEM --in-topic test --out-topic test".split(), config=config)
+    >>> class Output(BaseModel):
+    ...     key: int
+    ...     processed: bool
+    >>>
+    >>> class MyProcessor(Worker):
+    ...     def process(self, input):
+    ...         return Output(key=input.key, processed=True)
+    >>>
+    >>> settings = Settings(name='processor', version='0.1.0', description='')
+    >>> processor = MyProcessor(settings, input=Input, output=Output)
+    >>> args = "--in-kind MEM --in-topic test --out-kind MEM --out-topic test".split()
+    >>> processor.parse_args(args)
     >>> processor.start()
-    >>> [r.get('id') for r in processor.destination.results]
-    [1]
 
 
 Splitter
@@ -98,24 +109,17 @@ generate output topic based on the processing message, and use it when writing o
 
 .. code-block:: python
 
-    >>> from pipeline import Splitter, Message
+    >>> from pipeline import Splitter as Worker, SplitterSettings as Settings
     >>>
-    >>> class MySplitter(Splitter):
+    >>> class MySplitter(Worker):
     ...     def get_topic(self, msg):
     ...         return '{}-{}'.format(self.destination.topic, msg.get('id'))
-    ...
-    ...     def process(self, msg):
-    ...         msg.update({
-    ...             'processed': True,
-    ...         })
-    ...         return None
     >>>
-    >>> splitter = MySplitter('splitter', '0.1.0', description='simple splitter')
-    >>> config = {'data': [{'id': 1}]}
-    >>> splitter.parse_args("--kind MEM --in-topic test --out-topic test".split(), config=config)
+    >>> settings = Settings(name='splitter', version='0.1.0', description='')
+    >>> splitter = MySplitter(settings)
+    >>> args = "--in-kind MEM --in-topic test --out-kind MEM --out-topic test".split()
+    >>> splitter.parse_args(args)
     >>> splitter.start()
-    >>> [r.get('id') for r in splitter.destinations['test-1'].results]
-    [1]
 
 
 Usage
@@ -125,18 +129,21 @@ Writing a Worker
 ################
 
 
-Choose Generator, Processor or Splitter to subclass from.
+Choose Producer, Processor or Splitter to subclass from.
 
 Environment Variables
 *********************
 
-Application accepts following environment variables:
+Application accepts following environment variables 
+(Please note, you will need to add prefix `IN_`, `--in-` and
+`OUT_`, `--out-` to these variables to indicate the option for
+input and output):
 
 +----------------+-----------------+---------------------+
 |   environment  |  command line   |                     |
 |   variable     |  argument       | options             |
 +================+=================+=====================+
-|   PIPELINE     |  --kind         | KAFKA, PULSAR, FILE |
+|   KIND         |  --kind         | KAFKA, PULSAR, FILE |
 +----------------+-----------------+---------------------+
 |   PULSAR       |  --pulsar       | pulsar url          |
 +----------------+-----------------+---------------------+
@@ -150,9 +157,7 @@ Application accepts following environment variables:
 +----------------+-----------------+---------------------+
 |   GROUPID      |  --group-id     | kafka group id      |
 +----------------+-----------------+---------------------+
-|   INTOPIC      |  --in-topic     | topic to read       |
-+----------------+-----------------+---------------------+
-|   OUTTOPIC     |  --out-topic    | topic to write to   |
+|   TOPIC        |  --topic        | topic to read       |
 +----------------+-----------------+---------------------+
 
 

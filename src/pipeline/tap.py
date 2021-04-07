@@ -1,11 +1,15 @@
 #!/usr/bin/env python
 import csv
 import logging
-import os
 import sys
 import gzip
 from abc import ABC, abstractmethod
 
+from enum import Enum
+from typing import Dict, Tuple, Generator, List, ClassVar, Type, Union
+from pydantic import BaseModel, Field
+
+from .helpers import Settings
 from .message import Message
 from .importor import import_class
 
@@ -16,60 +20,13 @@ pipelineLogger = logging.getLogger("pipeline")
 pipelineLogger.setLevel(logging.DEBUG)
 
 
-def supportedTapKinds():
-    return {
-        "MEM": (MemorySource, MemoryDestination),
-        "FILE": (FileSource, FileDestination),
-        "CSV": (CsvSource, CsvDestination),
-        "REDIS": (
-            "pipeline.backends.redis:RedisStreamSource",
-            "pipeline.backends.redis:RedisStreamDestination",
-        ),
-        "LREDIS": (
-            "pipeline.backends.redis:RedisListSource",
-            "pipeline.backends.redis:RedisListDestination",
-        ),
-        "KAFKA": (
-            "pipeline.backends.kafka:KafkaSource",
-            "pipeline.backends.kafka:KafkaDestination",
-        ),
-        "PULSAR": (
-            "pipeline.backends.pulsar:PulsarSource",
-            "pipeline.backends.pulsar:PulsarDestination",
-        ),
-        "RABBITMQ": (
-            "pipeline.backends.rabbitmq:RabbitMQSource",
-            "pipeline.backends.rabbitmq:RabbitMQDestination",
-        ),
-    }
+class SourceSettings(Settings):
+    namespace: str = Field(None, title="source namespace")
+    topic: str = Field("in-topic", title="source topic")
+    timeout: int = Field(0, title="seconds to time out")
 
-
-def KindsOfSource():
-    return supportedTapKinds().keys()
-
-
-def SourceOf(typename):
-    try:
-        sourceClass, _ = supportedTapKinds()[typename]
-    except IndexError:
-        raise TypeError(f"Source type '{typename}' is invalid") from None
-
-    if isinstance(sourceClass, str):
-        return import_class(sourceClass)
-    else:
-        return sourceClass
-
-
-def DestinationOf(typename):
-    try:
-        _, destinationClass = supportedTapKinds()[typename]
-    except IndexError:
-        raise TypeError(f"Destination type '{typename}' is invalid") from None
-
-    if isinstance(destinationClass, str):
-        return import_class(destinationClass)
-    else:
-        return destinationClass
+    class Config:
+        env_prefix = "in_"
 
 
 class SourceTap(ABC):
@@ -77,143 +34,149 @@ class SourceTap(ABC):
     A source will emit Message.
     """
 
-    kind = "NONE"
-
-    def __init__(self, config, logger=pipelineLogger):
-        self.config = config
-        self.rewind = config.rewind
-        self.topic = config.in_topic
-        self.timeout = config.timeout
+    def __init__(self, settings: SourceSettings, logger=pipelineLogger):
+        self.settings = settings
+        self.topic = settings.topic
         self.logger = logger
-        self.messageClass = config.message if hasattr(config, "message") else Message
 
     @abstractmethod
-    def read(self):
+    def read(self) -> Generator[Message, None, None]:
         """ receive message. """
         raise NotImplementedError()
 
-    def rewind(self):
+    def rewind(self) -> None:
         """ rewind to earliest message. """
         pass
 
     @classmethod
-    def add_arguments(cls, parser):
-        parser.add_argument(
-            "--namespace",
-            type=str,
-            default=os.environ.get("NAMESPACE"),
-            help="namespace (default: None)",
-        )
-        parser.add_argument(
-            "--in-topic",
-            type=str,
-            default=os.environ.get("INTOPIC", "in-topic"),
-            help="topic to read from",
-        )
-        parser.add_argument(
-            "--rewind",
-            action="store_true",
-            default=False,
-            help="read from earliest message",
-        )
-        parser.add_argument(
-            "--timeout",
-            type=int,
-            default=os.environ.get("TIMEOUT", 0),
-            help="request timeout",
-        )
+    def of(cls, kind: "TapKind") -> "SourceAndSettings":
+        """
+        >>> source = SourceTap.of(TapKind.MEM)
+        """
+        try:
+            sourceAndSettings, _ = tap_kinds()[kind.value]
+        except IndexError:
+            raise TypeError(f"Source type '{kind}' is invalid") from None
 
-    @classmethod
-    def is_cls_of(cls, kind):
-        return kind == cls.kind
+        if isinstance(sourceAndSettings.sourceClass, str):
+            return SourceAndSettings(
+                sourceClass=import_class(sourceAndSettings.sourceClass),
+                settings=import_class(sourceAndSettings.settings),
+            )
+        else:
+            return sourceAndSettings
 
-    def close(self):
+    def close(self) -> None:
         pass
 
-    def acknowledge(self):
+    def acknowledge(self) -> None:
         pass
+
+
+class DestinationSettings(Settings):
+    namespace: str = Field(None, title="destination namespace")
+    topic: str = Field("out-topic", title="output topic")
+    compress: bool = Field(False, title="turn on compression")
+
+    class Config:
+        env_prefix = "out_"
 
 
 class DestinationTap(ABC):
     """Tap defines the interface for connecting components in pipeline."""
 
-    kind = "NONE"
-
-    def __init__(self, config, logger=pipelineLogger):
-        self.config = config
-        self.topic = config.out_topic
+    def __init__(self, settings: DestinationSettings, logger=pipelineLogger):
+        self.settings = settings
+        self.topic = settings.topic
         self.logger = logger
-        self.messageClass = config.message if hasattr(config, "message") else Message
 
     @abstractmethod
-    def write(self, message):
+    def write(self, message: Message) -> int:
         """ send message. """
         raise NotImplementedError()
 
     @classmethod
-    def is_cls_of(cls, kind):
-        return kind == cls.kind
+    def of(cls, kind: "TapKind") -> "DestinationAndSettings":
+        try:
+            _, destinationClassAndSettings = tap_kinds()[kind.value]
+        except IndexError:
+            raise TypeError(f"Destination type '{kind}' is invalid") from None
 
-    @classmethod
-    def add_arguments(cls, parser):
-        parser.add_argument(
-            "--namespace",
-            type=str,
-            default=os.environ.get("NAMESPACE"),
-            help="namespace (default: None)",
-        )
-        parser.add_argument(
-            "--out-topic",
-            type=str,
-            default=os.environ.get("OUTTOPIC", "out-topic"),
-            help="topic to write",
-        )
+        if isinstance(destinationClassAndSettings.destinationClass, str):
+            return DestinationAndSettings(
+                destinationClass=import_class(
+                    destinationClassAndSettings.destinationClass
+                ),
+                settings=import_class(destinationClassAndSettings.settings),
+            )
+        else:
+            return destinationClassAndSettings
 
-    def close(self):
+    def close(self) -> None:
         pass
+
+
+class MemorySourceSettings(SourceSettings):
+    topic: str = "in-topic"
+    data: List[dict] = []
 
 
 class MemorySource(SourceTap):
     """MemorySource iterates over a list of dict from 'data' in config.
     It is for testing only.
 
-    >>> from types import SimpleNamespace
     >>> data = [{'id':1},{'id':2}]
-    >>> config = SimpleNamespace(rewind=False, in_topic='test', data=data, timeout=0)
-    >>> [ m.dct for m in MemorySource(config).read() ]
+    >>> settings = MemorySourceSettings(data=data)
+    >>> [ m.content for m in MemorySource(settings=settings).read() ]
     [{'id': 1}, {'id': 2}]
     """
 
     kind = "MEM"
 
-    def read(self):
-        for i in self.config.data:
-            yield self.messageClass(i, config=self.config)
+    def __init__(self, settings: MemorySourceSettings, logger=pipelineLogger):
+        super().__init__(settings, logger)
+        self.data = settings.data
 
-    def rewind(self):
-        pass
+    def read(self) -> Generator[Message, None, None]:
+        for i in self.data:
+            yield Message(content=i)
+
+    def rewind(self) -> None:
+        raise NotImplementedError()
+
+
+class MemoryDestinationSettings(DestinationSettings):
+    topic: str = "out-topic"
 
 
 class MemoryDestination(DestinationTap):
     """MemoryDestination stores dicts written in results.
     It is for testing only.
 
-    >>> from types import SimpleNamespace
-    >>> d = MemoryDestination(SimpleNamespace(out_topic='test'))
-    >>> d.write(Message({"id": 1}))
-    >>> d.write(Message({"id": 2}))
-    >>> [r.dct for r in d.results]
+    >>> d = MemoryDestination(MemoryDestinationSettings())
+    >>> d.write(Message(content={"id": 1}))
+    0
+    >>> d.write(Message(content={"id": 2}))
+    0
+    >>> [r.content for r in d.results]
     [{'id': 1}, {'id': 2}]
     """
 
-    kind = "MEM"
+    kind: ClassVar[str] = "MEM"
 
-    def __init__(self, config, logger=pipelineLogger):
-        super().__init__(config, logger)
-        self.results = []
+    def __init__(self, settings: MemoryDestinationSettings, logger=pipelineLogger):
+        super().__init__(settings=settings, logger=logger)
+        self.results: List[Message] = []
 
-    def write(self, message):
+    def write(self, message: Message) -> int:
         self.results.append(message)
+        return 0
+
+
+class FileSourceSettings(SourceSettings):
+    filename: str = Field(
+        None, title="input filename, use '-' for stdin", required=True
+    )
 
 
 class FileSource(SourceTap):
@@ -222,92 +185,64 @@ class FileSource(SourceTap):
     It can be used for integration test for workers.
 
     >>> import tempfile
-    >>> from argparse import ArgumentParser
-    >>> parser = ArgumentParser()
-    >>> FileSource.add_arguments(parser)
     >>> with tempfile.NamedTemporaryFile() as tmpfile:
-    ...     tmpfile.write(b'[{ }, {"id": 0}]') and True
+    ...     tmpfile.write(Message(content={"id": 0}).serialize()) and True
     ...     tmpfile.flush()
-    ...     config = parser.parse_args("--infile {}".format(tmpfile.name).split())
-    ...     fileSource = FileSource(config)
-    ...     [m.dct["id"] for m in fileSource.read()]
+    ...     settings = FileSourceSettings(filename=tmpfile.name)
+    ...     fileSource = FileSource(settings)
+    ...     [m.content["id"] for m in fileSource.read()]
     True
     [0]
     """
 
     kind = "FILE"
 
-    def __init__(self, config, logger=pipelineLogger):
-        super().__init__(config, logger)
-        if config.infile == "-":
+    def __init__(self, settings: FileSourceSettings, logger=pipelineLogger) -> None:
+        super().__init__(settings=settings, logger=logger)
+        self.filename = settings.filename
+        if self.filename == "-":
             self.infile = sys.stdin.buffer
-        elif config.infile.endswith(".gz"):
-            self.infile = gzip.open(config.infile)
+        elif self.filename.endswith(".gz"):
+            self.infile = gzip.open(self.filename)
         else:
-            self.infile = open(config.infile, "rb")
-        self.repeat = config.repeat
-        self.logger.info("File Source: %s (repeat %d)", config.infile, config.repeat)
+            self.infile = open(self.filename, "rb")
+        logger.info("File Source: %s", self.filename)
 
-    def __repr__(self):
-        return 'FileSource("{}")'.format(self.infile.name)
+    def __repr__(self) -> str:
+        return 'FileSource("{}")'.format(self.filename)
 
-    @classmethod
-    def add_arguments(cls, parser):
-        super().add_arguments(parser)
-        parser.add_argument(
-            "--infile",
-            type=str,
-            required=True,
-            help="input file containing one message in JSON format per line",
-        )
-        parser.add_argument(
-            "--repeat", type=int, default=1, help="repeat input N times"
-        )
+    def read(self) -> Generator[Message, None, None]:
+        for line in self.infile:
+            yield Message.deserialize(line)
 
-    def read(self):
-        for i in range(0, self.repeat):
-            for line in self.infile:
-                yield self.messageClass.deserialize(line, config=self.config)
-            if self.repeat > 1:
-                self.infile.seek(0, 0)
+
+class FileDestinationSettings(DestinationSettings):
+    filename: str = Field(None, title="output filename", required=True)
+    overwrite: bool = Field(False, title="overwrite output file if exists")
 
 
 class FileDestination(DestinationTap):
     """FileDestination writes items to an output file, one item per line in json format.
 
     >>> import os, tempfile
-    >>> from argparse import ArgumentParser
-    >>> parser = ArgumentParser()
-    >>> FileDestination.add_arguments(parser)
-    >>> config = parser.parse_args(args=[])
-    >>> FileDestination(config)
+    >>> FileDestination(FileDestinationSettings(filename="out-topic.json"))
     FileDestination("out-topic.json")
-    >>> with tempfile.NamedTemporaryFile() as tmpfile:
-    ...     config = parser.parse_args(f"--outfile {tmpfile.name}".split())
-    ...     assert repr(FileDestination(config)) == f'FileDestination("{tmpfile.name}")'
     """
 
     kind = "FILE"
 
-    def __init__(self, config, logger=pipelineLogger):
-        super().__init__(config, logger)
-        if config.outfile is None:
-            if config.out_topic.find(".") >= 0:
-                self.filename = config.out_topic
-            else:
-                self.filename = config.out_topic + ".json"
-        else:
-            self.filename = config.outfile
-
+    def __init__(self, settings: FileDestinationSettings, logger=pipelineLogger):
+        super().__init__(settings, logger)
+        self.filename = settings.filename
         if self.filename == "-":
             self.outFile = sys.stdout.buffer
         elif self.filename.endswith(".gz"):
-            if config.overwrite:
+            if settings.overwrite:
                 self.outFile = gzip.GzipFile(self.filename, "wb")
             else:
                 self.outFile = gzip.GzipFile(self.filename, "ab")
         else:
-            if config.overwrite:
+            if settings.overwrite:
                 self.outFile = open(self.filename, "wb")
             else:
                 self.outFile = open(self.filename, "ab")
@@ -316,26 +251,27 @@ class FileDestination(DestinationTap):
     def __repr__(self):
         return 'FileDestination("{}")'.format(self.filename)
 
-    @classmethod
-    def add_arguments(cls, parser):
-        super().add_arguments(parser)
-        parser.add_argument("--outfile", type=str, help="output json file")
-        parser.add_argument(
-            "--overwrite",
-            action="store_true",
-            default=False,
-            help="overwrite output file instead of append",
-        )
-
-    def write(self, message):
-        serialized = message.serialize(no_compress=True) + "\n".encode("utf-8")
+    def write(self, message: Message) -> int:
+        serialized = message.serialize(compress=False) + "\n".encode("utf-8")
         self.outFile.write(serialized)
         return len(serialized)
 
-    def close(self):
+    def close(self) -> None:
         if self.filename != "-":
             self.outFile.close()
             self.logger.info("File Destination closed")
+
+
+class DialectEnum(str, Enum):
+    Excel = "excel"
+    ExcelTab = "excel-tab"
+    Unix = "unix"
+
+
+class CsvSourceSettings(FileSourceSettings):
+    dialect: DialectEnum = Field(
+        DialectEnum.Excel, title="csv format: excel or excel-tab"
+    )
 
 
 class CsvSource(SourceTap):
@@ -343,8 +279,6 @@ class CsvSource(SourceTap):
 
     >>> import tempfile, csv
     >>> from argparse import ArgumentParser
-    >>> parser = ArgumentParser()
-    >>> FileSource.add_arguments(parser)
     >>> with tempfile.NamedTemporaryFile(mode="w") as tmpfile:
     ...     fieldnames = ['id', 'field1', 'field2']
     ...     writer = csv.DictWriter(tmpfile, fieldnames=fieldnames)
@@ -352,75 +286,58 @@ class CsvSource(SourceTap):
     ...     writer.writerow({'id': 0, 'field1': 'value1', 'field2': 'value2'}) #doctest:+SKIP
     ...     tmpfile.flush()
     ...     config = parser.parse_args("--infile {}".format(tmpfile.name).split())
-    ...     csvSource = CsvSource(config)
+    ...     csvSource = CsvSource(settings=CsvSourceSettings(filename=tmpfile.name))
     ...     [m.dct["id"] for m in csvSource.read()]
     ['0']
     """
 
     kind = "CSV"
 
-    def __init__(self, config, logger=pipelineLogger):
-        super().__init__(config, logger)
-        if config.infile == "-":
+    def __init__(self, settings: CsvSourceSettings, logger=pipelineLogger):
+        super().__init__(settings, logger)
+        self.filename = settings.filename
+        if self.filename == "-":
             self.infile = sys.stdin
         else:
-            self.infile = open(config.infile, "r")
-        self.reader = csv.DictReader(self.infile, config.csv_dialect)
-        self.logger.info("CSV Source: %s", config.infile)
+            self.infile = open(self.filename, "r")
+        self.reader = csv.DictReader(self.infile, dialect=settings.dialect)
+        self.logger.info("CSV Source: %s", self.filename)
 
-    def __repr__(self):
-        return 'CsvSource("{}")'.format(self.infile.name)
+    def __repr__(self) -> str:
+        return 'CsvSource("{}")'.format(self.filename)
 
-    @classmethod
-    def add_arguments(cls, parser):
-        super().add_arguments(parser)
-        parser.add_argument("--infile", type=str, required=True, help="input csv file")
-        parser.add_argument(
-            "--csv-dialect",
-            type=str,
-            default="excel",
-            choices=["excel", "excel-tab", "unix"],
-            help="csv format: excel or excel-tab",
-        )
-
-    def read(self):
+    def read(self) -> Generator[Message, None, None]:
         for row in self.reader:
-            yield self.messageClass(row, config=self.config)
+            yield Message(content=row)
+
+
+class CsvDestinationSettings(FileDestinationSettings):
+    dialect: DialectEnum = Field(
+        DialectEnum.Excel, title="csv format: excel or excel-tab"
+    )
 
 
 class CsvDestination(DestinationTap):
     """CsvDestination writes items to a csv file.
 
     >>> import os, tempfile, csv
-    >>> from argparse import ArgumentParser
-    >>> parser = ArgumentParser()
-    >>> FileDestination.add_arguments(parser)
     >>> tmpdir = tempfile.mkdtemp()
     >>> outFilename = os.path.join(tmpdir, 'outfile.csv')
-    >>> config = parser.parse_args(args=[])
-    >>> CsvDestination(config)
-    CsvDestination("out-topic.csv")
-    >>> config = parser.parse_args("--outfile {}".format(outFilename).split())
-    >>> CsvDestination(config)
+    >>> CsvDestination(settings=CsvDestinationSettings(filename=outFilename))
     CsvDestination("...outfile.csv")
     """
 
     kind = "CSV"
 
-    def __init__(self, config, logger=pipelineLogger):
-        super().__init__(config, logger)
-        if config.outfile is None:
-            if config.out_topic.find(".") >= 0:
-                self.filename = config.out_topic
-            else:
-                self.filename = config.out_topic + ".csv"
-        else:
-            self.filename = config.outfile
+    def __init__(self, settings: CsvDestinationSettings, logger=pipelineLogger):
+        super().__init__(settings, logger)
+        self.dialect = settings.dialect
+        self.filename = settings.filename
 
-        if config.outfile == "-":
+        if self.filename == "-":
             self.outFile = sys.stdout
         else:
-            if config.overwrite:
+            if settings.overwrite:
                 self.outFile = open(self.filename, "w")
             else:
                 self.outFile = open(self.filename, "a")
@@ -430,36 +347,105 @@ class CsvDestination(DestinationTap):
     def __repr__(self):
         return 'CsvDestination("{}")'.format(self.filename)
 
-    @classmethod
-    def add_arguments(cls, parser):
-        super().add_arguments(parser)
-        parser.add_argument("--outfile", type=str, help="output json file")
-        parser.add_argument(
-            "--overwrite",
-            action="store_true",
-            default=False,
-            help="overwrite output file instead of append",
-        )
-        parser.add_argument(
-            "--csv-dialect",
-            type=str,
-            default="excel",
-            choices=["excel", "excel-tab", "unix"],
-            help="csv format: excel or excel-tab",
-        )
-
-    def write(self, message):
+    def write(self, message: Message) -> int:
         if self.writer is None:
             self.writer = csv.DictWriter(
                 self.outFile,
-                fieldnames=message.dct.keys(),
-                dialect=self.config.csv_dialect,
+                fieldnames=message.content.keys(),
+                dialect=self.dialect,
             )
             self.writer.writeheader()
-        self.writer.writerow(message.dct)
+        self.writer.writerow(message.content)
         self.outFile.flush()
+        return 0
 
-    def close(self):
+    def close(self) -> None:
         if self.filename != "-":
             self.outFile.close()
             self.logger.info("CsvDestination closed")
+
+
+class SourceAndSettings(BaseModel):
+    sourceClass: Union[Type[SourceTap], str]
+    settings: Union[Type[SourceSettings], str]
+
+
+class DestinationAndSettings(BaseModel):
+    destinationClass: Union[Type[DestinationTap], str]
+    settings: Union[Type[DestinationSettings], str]
+
+
+def tap_kinds() -> Dict[str, Tuple]:
+    return {
+        "MEM": (
+            SourceAndSettings(sourceClass=MemorySource, settings=MemorySourceSettings),
+            DestinationAndSettings(
+                destinationClass=MemoryDestination, settings=MemoryDestinationSettings
+            ),
+        ),
+        "FILE": (
+            SourceAndSettings(sourceClass=FileSource, settings=FileSourceSettings),
+            DestinationAndSettings(
+                destinationClass=FileDestination, settings=FileDestinationSettings
+            ),
+        ),
+        "CSV": (
+            SourceAndSettings(sourceClass=CsvSource, settings=CsvSourceSettings),
+            DestinationAndSettings(
+                destinationClass=CsvDestination, settings=CsvDestinationSettings
+            ),
+        ),
+        "REDIS": (
+            SourceAndSettings(
+                sourceClass="pipeline.backends.redis:RedisStreamSource",
+                settings="pipeline.backends.redis:RedisSourceSettings",
+            ),
+            DestinationAndSettings(
+                destinationClass="pipeline.backends.redis:RedisStreamDestination",
+                settings="pipeline.backends.redis:RedisDestinationSettings",
+            ),
+        ),
+        "LREDIS": (
+            SourceAndSettings(
+                sourceClass="pipeline.backends.redis:RedisListSource",
+                settings="pipeline.backends.redis:RedisSourceSettings",
+            ),
+            DestinationAndSettings(
+                destinationClass="pipeline.backends.redis:RedisListDestination",
+                settings="pipeline.backends.redis:RedisDestinationSettings",
+            ),
+        ),
+        "KAFKA": (
+            SourceAndSettings(
+                sourceClass="pipeline.backends.kafka:KafkaSource",
+                settings="pipeline.backends.kafka:KafkaSourceSettings",
+            ),
+            DestinationAndSettings(
+                destinationClass="pipeline.backends.kafka:KafkaDestination",
+                settings="pipeline.backends.kafka:KafkaDestinationSettings",
+            ),
+        ),
+        "PULSAR": (
+            SourceAndSettings(
+                sourceClass="pipeline.backends.pulsar:PulsarSource",
+                settings="pipeline.backends.pulsar:PulsarSourceSettings",
+            ),
+            DestinationAndSettings(
+                destinationClass="pipeline.backends.pulsar:PulsarDestination",
+                settings="pipeline.backends.pulsar:PulsarDestinationSettings",
+            ),
+        ),
+        "RABBITMQ": (
+            SourceAndSettings(
+                sourceClass="pipeline.backends.rabbitmq:RabbitMQSource",
+                settings="pipeline.backends.rabbitmq:RabbitMQSourceSettings",
+            ),
+            DestinationAndSettings(
+                destinationClass="pipeline.backends.rabbitmq:RabbitMQDestination",
+                settings="pipeline.backends.rabbitmq:RabbitMQDestinationSettings",
+            ),
+        ),
+    }
+
+
+TapKind = Enum("TapKind", {x: x for x in tap_kinds().keys()})

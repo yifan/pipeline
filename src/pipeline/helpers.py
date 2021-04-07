@@ -1,37 +1,51 @@
-import argparse
-import os
-import sys
 import time
+from argparse import ArgumentParser, Action
 
-from .exception import PipelineError
-from .cache import KindsOfCache
-from .tap import KindsOfSource
+from typing import List
+from pydantic import BaseSettings
 
 
-def parse_kind(args):
-    kindParser = argparse.ArgumentParser(add_help=False)
-    kindParser.add_argument(
-        "--kind",
-        type=str,
-        default=os.environ.get("PIPELINE", None),
-        choices=KindsOfSource(),
-        help="pipeline kind, can be {}".format(",".join(KindsOfSource())),
-    )
-    kindParser.add_argument(
-        "--cacheKind",
-        type=str,
-        default=os.environ.get("CACHEKIND", None),
-        choices=KindsOfCache(),
-        help="cache kind, can be {}".format(",".join(KindsOfCache())),
-    )
-    known, extras = kindParser.parse_known_args(args)
-    if known.kind is None:
-        kindParser.print_help(sys.stderr)
-        raise PipelineError(
-            "Either set PIPELINE in environment, pass --kind on command line, or "
-            "specify it with kind= in constructor"
-        )
-    return known, extras
+class Settings(BaseSettings):
+    """Settings can read from environment variable and parse
+    command line arguments as well.
+
+    Usage:
+    >>> class ASettings(Settings):
+    ...     name:str
+    ...     class Config:
+    ...         env_prefix = 'in_'
+    >>> settings = ASettings(name='name')
+    >>> settings.name
+    'name'
+    >>> settings.parse_args("--in-name yifan".split())
+    >>> settings.name
+    'yifan'
+    """
+
+    def parse_args(self, args: List[str]) -> None:
+        settingsRef: Settings = self
+
+        class SetSettingsAction(Action):
+            settings = settingsRef
+
+            def __call__(self, parser, namespace, values, option_string=None):
+                if settingsRef.Config.env_prefix:
+                    dest = self.dest[len(self.settings.Config.env_prefix) :]
+                else:
+                    dest = self.dest
+                if hasattr(settingsRef, dest):
+                    setattr(settingsRef, dest, values)
+
+        parser = ArgumentParser(add_help=True)
+        for name, field in self.__fields__.items():
+            name = (self.Config.env_prefix + name).replace("_", "-")
+            parser.add_argument(
+                f"--{name}",
+                type=field.type_,
+                action=SetSettingsAction,
+                help=field.field_info.title,
+            )
+        parser.parse_known_args(args)
 
 
 class Timer:

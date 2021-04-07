@@ -1,11 +1,11 @@
-import os
 import time
 import uuid
 
 import redis
+from pydantic import RedisDsn, Field
 
-from ..cache import parse_connection_string, Cache
-from ..tap import SourceTap, DestinationTap
+from ..tap import SourceTap, SourceSettings, DestinationTap, DestinationSettings
+from ..message import Message
 
 
 def namespacedTopic(topic, namespace=None):
@@ -15,38 +15,38 @@ def namespacedTopic(topic, namespace=None):
         return topic
 
 
+class RedisSourceSettings(SourceSettings):
+    redis: RedisDsn = Field("redis://localhost:6379", title="redis url")
+    group: str = Field(None, title="redis consumer group name")
+
+
 class RedisStreamSource(SourceTap):
     """RedisStreamSource reads from Redis Stream
 
     >>> import logging
     >>> from unittest.mock import patch
-    >>> from argparse import ArgumentParser
-    >>> parser = ArgumentParser(conflict_handler='resolve')
-    >>> RedisStreamSource.add_arguments(parser)
-    >>> config = parser.parse_args([])
+    >>> settings = RedisSourceSettings()
     >>> with patch('redis.Redis') as c:
-    ...     RedisStreamSource(config, logger=logging)
-    RedisStreamSource(host="localhost:6379",name="in-topic")
+    ...     RedisStreamSource(settings=settings, logger=logging)
+    RedisStreamSource(host="redis://localhost:6379/0", topic="in-topic")
     """
 
     kind = "XREDIS"
 
-    def __init__(self, config, logger):
-        super().__init__(config, logger)
-        self.config = config
-        self.client = redis.Redis(config.redis)
-        self.topic = config.in_topic
-        self.group = config.group
-        self.name = namespacedTopic(config.in_topic, config.namespace)
-        self.timeout = config.timeout
-        self.redisConfig = parse_connection_string(self.config.redis, no_username=True)
+    def __init__(self, settings, logger):
+        super().__init__(settings, logger)
+        self.settings = settings
+        self.client = redis.Redis(settings.redis)
+        self.group = settings.group
+        self.topic = namespacedTopic(settings.topic, settings.namespace)
+        self.timeout = settings.timeout
         self.redis = redis.Redis(
-            host=self.redisConfig.host,
-            port=self.redisConfig.port,
-            password=self.redisConfig.password,
+            host=self.settings.redis.host,
+            port=self.settings.redis.port,
+            password=self.settings.redis.password,
         )
         try:
-            self.redis.xgroup_create(self.name, self.group, id="0", mkstream=True)
+            self.redis.xgroup_create(self.topic, self.group, id="0", mkstream=True)
         except redis.exceptions.ResponseError as e:
             logger.error(str(e))
 
@@ -54,27 +54,7 @@ class RedisStreamSource(SourceTap):
         self.last_msg = None
 
     def __repr__(self):
-        return 'RedisStreamSource(host="{}:{}",name="{}")'.format(
-            self.redisConfig.host,
-            self.redisConfig.port,
-            self.name,
-        )
-
-    @classmethod
-    def add_arguments(cls, parser):
-        super().add_arguments(parser)
-        parser.add_argument(
-            "--redis",
-            type=str,
-            default=os.environ.get("REDIS", "localhost:6379"),
-            help="redis host:port",
-        )
-        parser.add_argument(
-            "--group",
-            type=str,
-            default=os.environ.get("GROUP", "group"),
-            help="consumer group name",
-        )
+        return f'RedisStreamSource(host="{self.settings.redis}", topic="{self.topic}")'
 
     def read(self):
         timedOut = False
@@ -88,9 +68,7 @@ class RedisStreamSource(SourceTap):
                     (msgId, data) = msg[0][1][0]
                     self.last_msg = msgId
                     self.logger.info("Read message %s", msgId)
-                    yield self.messageClass.deserialize(
-                        data[b"data"], config=self.config
-                    )
+                    yield Message.deserialize(data[b"data"])
                     lastMessageTime = time.time()
             except Exception as ex:
                 self.logger.error(ex)
@@ -108,55 +86,40 @@ class RedisStreamSource(SourceTap):
         self.redis.close()
 
 
+class RedisDestinationSettings(DestinationSettings):
+    redis: RedisDsn = Field("redis://localhost:6379", title="redis url")
+
+
 class RedisStreamDestination(DestinationTap):
     """RedisDestination writes to Redis Stream
 
     >>> import logging
     >>> from unittest.mock import patch
-    >>> from argparse import ArgumentParser
-    >>> parser = ArgumentParser(conflict_handler='resolve')
-    >>> RedisStreamDestination.add_arguments(parser)
-    >>> config = parser.parse_args([])
+    >>> settings = RedisDestinationSettings()
     >>> with patch('redis.Redis') as c:
-    ...     RedisStreamDestination(config, logger=logging)
-    RedisStreamDestination(host="localhost:6379",name="out-topic")
+    ...     RedisStreamDestination(settings=settings, logger=logging)
+    RedisStreamDestination(host="redis://localhost:6379/0", topic="out-topic")
     """
 
     kind = "XREDIS"
 
-    def __init__(self, config, logger):
-        super().__init__(config, logger)
-        self.config = config
-        self.client = redis.Redis(config.redis)
-        self.topic = config.out_topic
-        self.name = namespacedTopic(config.out_topic, config.namespace)
-        self.redisConfig = parse_connection_string(self.config.redis, no_username=True)
+    def __init__(self, settings, logger):
+        super().__init__(settings, logger)
+        self.settings = settings
+        self.client = redis.Redis(settings.redis)
+        self.topic = namespacedTopic(settings.topic, settings.namespace)
         self.redis = redis.Redis(
-            host=self.redisConfig.host,
-            port=self.redisConfig.port,
-            password=self.redisConfig.password,
+            host=self.settings.redis.host,
+            port=self.settings.redis.port,
+            password=self.settings.redis.password,
         )
 
     def __repr__(self):
-        return 'RedisStreamDestination(host="{}:{}",name="{}")'.format(
-            self.redisConfig.host,
-            self.redisConfig.port,
-            self.name,
-        )
-
-    @classmethod
-    def add_arguments(cls, parser):
-        super().add_arguments(parser)
-        parser.add_argument(
-            "--redis",
-            type=str,
-            default=os.environ.get("REDIS", "localhost:6379"),
-            help="redis host:port",
-        )
+        return f'RedisStreamDestination(host="{self.settings.redis}", topic="{self.topic}")'
 
     def write(self, message):
-        serialized = message.serialize()
-        self.redis.xadd(self.name, fields={"data": serialized})
+        serialized = message.serialize(compress=self.settings.compress)
+        self.redis.xadd(self.topic, fields={"data": serialized})
         return len(serialized)
 
     def close(self):
@@ -170,54 +133,30 @@ class RedisListSource(SourceTap):
 
     >>> import logging
     >>> from unittest.mock import patch
-    >>> from argparse import ArgumentParser
-    >>> parser = ArgumentParser(conflict_handler='resolve')
-    >>> RedisListSource.add_arguments(parser)
-    >>> config = parser.parse_args([])
+    >>> settings = RedisSourceSettings()
     >>> with patch('redis.Redis') as c:
-    ...     RedisListSource(config, logger=logging)
-    RedisListSource(host="localhost:6379",name="in-topic")
+    ...     RedisListSource(settings=settings, logger=logging)
+    RedisListSource(host="redis://localhost:6379/0", topic="in-topic")
     """
 
     kind = "LREDIS"
 
-    def __init__(self, config, logger):
-        super().__init__(config, logger)
-        self.config = config
-        self.client = redis.Redis(config.redis)
-        self.group = config.group
-        self.topic = namespacedTopic(config.in_topic, config.namespace)
-        self.timeout = config.timeout
-        self.redisConfig = parse_connection_string(self.config.redis, no_username=True)
+    def __init__(self, settings, logger):
+        super().__init__(settings, logger)
+        self.settings = settings
+        self.client = redis.Redis(settings.redis)
+        self.group = settings.group
+        self.topic = namespacedTopic(settings.topic, settings.namespace)
+        self.timeout = settings.timeout
         self.redis = redis.Redis(
-            host=self.redisConfig.host,
-            port=self.redisConfig.port,
-            password=self.redisConfig.password,
+            host=settings.redis.host,
+            port=settings.redis.port,
+            password=settings.redis.password,
         )
         self.last_msg = None
 
     def __repr__(self):
-        return 'RedisListSource(host="{}:{}",name="{}")'.format(
-            self.redisConfig.host,
-            self.redisConfig.port,
-            self.topic,
-        )
-
-    @classmethod
-    def add_arguments(cls, parser):
-        super().add_arguments(parser)
-        parser.add_argument(
-            "--redis",
-            type=str,
-            default=os.environ.get("REDIS", "localhost:6379"),
-            help="redis host:port",
-        )
-        parser.add_argument(
-            "--group",
-            type=str,
-            default=os.environ.get("GROUP", "group"),
-            help="consumer group name",
-        )
+        return f'RedisListSource(host="{self.settings.redis}", topic="{self.topic}")'
 
     def read(self):
         timedOut = False
@@ -226,7 +165,7 @@ class RedisListSource(SourceTap):
             try:
                 value = self.redis.lpop(self.topic)
                 if value:
-                    msg = self.messageClass.deserialize(value, config=self.config)
+                    msg = Message.deserialize(value)
                     self.logger.info("Read message %s", str(msg))
                     yield msg
                     lastMessageTime = time.time()
@@ -249,48 +188,32 @@ class RedisListDestination(DestinationTap):
 
     >>> import logging
     >>> from unittest.mock import patch
-    >>> from argparse import ArgumentParser
-    >>> parser = ArgumentParser(conflict_handler='resolve')
-    >>> RedisListDestination.add_arguments(parser)
-    >>> config = parser.parse_args([])
+    >>> settings = RedisDestinationSettings()
     >>> with patch('redis.Redis') as c:
-    ...     RedisListDestination(config, logger=logging)
-    RedisListDestination(host="localhost:6379",name="out-topic")
+    ...     RedisListDestination(settings=settings, logger=logging)
+    RedisListDestination(host="redis://localhost:6379/0", topic="out-topic")
     """
 
     kind = "LREDIS"
 
-    def __init__(self, config, logger):
-        super().__init__(config, logger)
-        self.config = config
-        self.client = redis.Redis(config.redis)
-        self.topic = namespacedTopic(config.out_topic, config.namespace)
-        self.redisConfig = parse_connection_string(self.config.redis, no_username=True)
+    def __init__(self, settings, logger):
+        super().__init__(settings, logger)
+        self.settings = settings
+        self.client = redis.Redis(settings.redis)
+        self.topic = namespacedTopic(settings.topic, settings.namespace)
         self.redis = redis.Redis(
-            host=self.redisConfig.host,
-            port=self.redisConfig.port,
-            password=self.redisConfig.password,
+            host=settings.redis.host,
+            port=settings.redis.port,
+            password=settings.redis.password,
         )
 
     def __repr__(self):
-        return 'RedisListDestination(host="{}:{}",name="{}")'.format(
-            self.redisConfig.host,
-            self.redisConfig.port,
-            self.topic,
-        )
-
-    @classmethod
-    def add_arguments(cls, parser):
-        super().add_arguments(parser)
-        parser.add_argument(
-            "--redis",
-            type=str,
-            default=os.environ.get("REDIS", "localhost:6379"),
-            help="redis host:port",
+        return (
+            f'RedisListDestination(host="{self.settings.redis}", topic="{self.topic}")'
         )
 
     def write(self, message):
-        serialized = message.serialize()
+        serialized = message.serialize(compress=self.settings.compress)
         self.redis.rpush(self.topic, serialized)
         return len(serialized)
 
@@ -298,79 +221,79 @@ class RedisListDestination(DestinationTap):
         self.redis.close()
 
 
-class RedisCache(Cache):
-    """RedisCache reads/writes data from/to Redis
-
-    >>> import logging
-    >>> from unittest.mock import patch
-    >>> from argparse import ArgumentParser
-    >>> parser = ArgumentParser()
-    >>> RedisCache.add_arguments(parser)
-    >>> config = parser.parse_args(["--in-fields", "text,title"])
-    >>> with patch('redis.Redis') as c:
-    ...     RedisCache(config, logger=logging)
-    RedisCache(localhost:6379):['text', 'title']:[]
-    """
-
-    kind = "REDIS"
-
-    def __init__(self, config, logger):
-        super().__init__(config, logger)
-        self.setup()
-
-    def __repr__(self):
-        return "RedisCache({}:{}):{}:{}".format(
-            self.redisConfig.host,
-            self.redisConfig.port,
-            self.in_fields,
-            self.out_fields,
-        )
-
-    @classmethod
-    def add_arguments(cls, parser):
-        super().add_arguments(parser)
-        parser.add_argument(
-            "--redis",
-            type=str,
-            default=os.environ.get("REDIS", "localhost:6379"),
-            help="redis host:port",
-        )
-        parser.add_argument(
-            "--expire",
-            type=int,
-            default=os.environ.get("REDISEXPIRE", 7 * 86400),
-            help="expire time for database (default: 7 days)",
-        )
-
-    def setup(self):
-        self.redisConfig = parse_connection_string(self.config.redis, no_username=True)
-        self.redis = redis.Redis(
-            host=self.redisConfig.host,
-            port=self.redisConfig.port,
-            password=self.redisConfig.password,
-        )
-
-    def read(self, key):
-        """entries are stored as following in redis:
-        a set is managed for each key to contain fields available
-        a key:field -> value for accessing field for each key
-
-        TODO: raise error if fields are not available
-        """
-        results = self.redis.mget(
-            ["{}:{}".format(key, field) for field in self.in_fields]
-        )
-        return dict(zip(self.fields, results))
-
-    def write(self, key, kvs):
-        """entries are stored as following in redis:
-        a set is managed for each key to contain fields available
-        a key:field -> value for accessing field for each key
-
-        TODO: check error after mset
-        """
-        self.redis.mset(
-            dict([(key, k) for k, v in kvs.items()]),
-        )
-        for key in kvs.keys():
-            self.redis.expire(key, self.config.expire)
+# class RedisCache(Cache):
+#     """RedisCache reads/writes data from/to Redis
+#
+#     >>> import logging
+#     >>> from unittest.mock import patch
+#     >>> from argparse import ArgumentParser
+#     >>> parser = ArgumentParser()
+#     >>> RedisCache.add_arguments(parser)
+#     >>> config = parser.parse_args(["--in-fields", "text,title"])
+#     >>> with patch('redis.Redis') as c:
+#     ...     RedisCache(config, logger=logging)
+#     RedisCache(localhost:6379):['text', 'title']:[]
+#     """
+#
+#     kind = "REDIS"
+#
+#     def __init__(self, config, logger):
+#         super().__init__(config, logger)
+#         self.setup()
+#
+#     def __repr__(self):
+#         return "RedisCache({}:{}):{}:{}".format(
+#             self.redisConfig.host,
+#             self.redisConfig.port,
+#             self.in_fields,
+#             self.out_fields,
+#         )
+#
+#     @classmethod
+#     def add_arguments(cls, parser):
+#         super().add_arguments(parser)
+#         parser.add_argument(
+#             "--redis",
+#             type=str,
+#             default=os.environ.get("REDIS", "localhost:6379"),
+#             help="redis host:port",
+#         )
+#         parser.add_argument(
+#             "--expire",
+#             type=int,
+#             default=os.environ.get("REDISEXPIRE", 7 * 86400),
+#             help="expire time for database (default: 7 days)",
+#         )
+#
+#     def setup(self):
+#         self.redisConfig = parse_connection_string(self.config.redis, no_username=True)
+#         self.redis = redis.Redis(
+#             host=self.redisConfig.host,
+#             port=self.redisConfig.port,
+#             password=self.redisConfig.password,
+#         )
+#
+#     def read(self, key):
+#         """entries are stored as following in redis:
+#         a set is managed for each key to contain fields available
+#         a key:field -> value for accessing field for each key
+#
+#         TODO: raise error if fields are not available
+#         """
+#         results = self.redis.mget(
+#             ["{}:{}".format(key, field) for field in self.in_fields]
+#         )
+#         return dict(zip(self.fields, results))
+#
+#     def write(self, key, kvs):
+#         """entries are stored as following in redis:
+#         a set is managed for each key to contain fields available
+#         a key:field -> value for accessing field for each key
+#
+#         TODO: check error after mset
+#         """
+#         self.redis.mset(
+#             dict([(key, k) for k, v in kvs.items()]),
+#         )
+#         for key in kvs.keys():
+#             self.redis.expire(key, self.config.expire)

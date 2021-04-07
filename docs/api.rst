@@ -11,7 +11,7 @@ API
    :special-members:
 
 
-.. autoclass:: Generator
+.. autoclass:: Producer
    :members:
    :inherited-members:
    :private-members:

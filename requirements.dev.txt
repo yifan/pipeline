@@ -6,3 +6,4 @@ pylint
 pre-commit
 sphinx
 pytest
+mypy

@@ -1,190 +1,156 @@
-import argparse
 import logging
-import os
 import sys
 import traceback
 from abc import ABC
 from copy import copy
+from datetime import datetime
+from enum import IntEnum
+from typing import Set, List, Generator, Type
 
-from .cache import CacheOf, CachedMessageClass
+from pydantic import BaseModel, ByteSize, Field, ValidationError
+
 from .exception import PipelineError
 from .message import Message
 from .monitor import Monitor
-from .tap import DestinationOf, SourceOf
-from .helpers import parse_kind, Timer
+from .tap import DestinationTap, SourceTap
+from .tap import TapKind, SourceSettings, DestinationSettings  # noqa: F401
+from .helpers import Settings, Timer
 
 
 pipelineLogger = logging.getLogger("pipeline")
 pipelineLogger.setLevel(logging.INFO)
 
 
-class WorkerConfig:
-    NO_FLAG = 0
-    NO_INPUT = 1
-    NO_OUTPUT = 2
+class Log(BaseModel):
+    name: str
+    version: str
+    updated: Set[str]
+    received: datetime = datetime.now()
+    processed: datetime = None
+    elapsed: float = None
 
-    def __init__(
-        self,
-        noInput=False,
-        noOutput=False,
-        messageClass=Message,
-        cacheKind=None,
-    ):
-        if noInput and noOutput:
-            raise ValueError("Worker cannot has no input AND no output")
-        self.flag = WorkerConfig.NO_FLAG
-        if noInput:
-            self.flag = WorkerConfig.NO_INPUT
-        if noOutput:
-            self.flag = WorkerConfig.NO_OUTPUT
-        self.messageClass = messageClass
-        self.cacheKind = cacheKind
 
-    def disable_input(self):
-        self.flag = WorkerConfig.NO_INPUT
+class WorkerType(IntEnum):
+    Normal = 0
+    NoInput = 1
+    NoOutput = 2
 
-    def disable_output(self):
-        self.flag = WorkerConfig.NO_OUTPUT
+
+class WorkerSettings(Settings):
+    name: str
+    version: str
+    description: str
+    debug: bool = Field(False, title="print DEBUG log")
+    monitoring: bool = Field(False, title="enable prometheus monitoring")
 
 
 class WorkerCore(ABC):
     """Internal base class for pulsar-worker, DO NOT use it in your program!"""
 
-    def __init__(self, name, version, description, config, logger):
-        self.name = name
-        self.version = [int(x) for x in version.split(".")]
-        if len(self.version) != 3:
-            raise RuntimeError("Version format is not valid [x.x.x]")
-        self.description = description
-        self.kind = None
+    def __init__(
+        self,
+        settings: WorkerSettings,
+        worker_type: WorkerType = WorkerType.Normal,
+        logger=pipelineLogger,
+    ) -> None:
+        self.name = settings.name
+        self.version = settings.version
+        self.description = settings.description
+        self.worker_type = worker_type
+        self.settings = settings
         self.logger = logger
-        self.flag = config.flag
-        self.messageClass = config.messageClass
-        self.cacheKind = config.cacheKind
         self.timer = Timer()
-
-        self.parser = argparse.ArgumentParser(
-            prog=name,
-            description=description,
-            conflict_handler="resolve",
-            formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-        )
 
         self.monitor = Monitor(self)
 
-        self.logger.info("Pipeline Worker %s (%s)", name, version)
+        self.logger.info("Pipeline Worker %s (%s)", self.name, self.version)
 
-    def setup(self):
+    def setup(self) -> None:
         """loading code goes here"""
+        pass
 
-    def shutdown(self):
+    def shutdown(self) -> None:
         """clean up code goes here"""
+        pass
 
-    def has_no_input(self):
-        return self.flag == WorkerConfig.NO_INPUT
+    def has_input(self) -> bool:
+        return self.worker_type != WorkerType.NoInput
 
-    def has_no_output(self):
-        return self.flag == WorkerConfig.NO_OUTPUT
+    def has_output(self) -> bool:
+        return self.worker_type != WorkerType.NoOutput
 
-    def parse_args(self, args=sys.argv[1:], config=None):
-        known, extras = parse_kind(args)
-        self.kind = known.kind
-        if self.kind is None:
-            self.logger.critical(
-                "Please specify pipeline kind with '--kind' or environment 'PIPELINE'!"
+    def parse_args(self, args: List[str] = sys.argv[1:]) -> None:
+        self.settings.parse_args(args)
+
+        if self.has_input():
+            if self.settings.in_kind is None:
+                self.logger.critical(
+                    "Please specify '--in-kind' or environment 'IN_KIND'!"
+                )
+                raise
+            self.sourceClassAndSettings = SourceTap.of(self.settings.in_kind)
+            settings = self.sourceClassAndSettings.settings()
+            settings.parse_args(args)
+            self.source = self.sourceClassAndSettings.sourceClass(
+                settings=settings, logger=self.logger
             )
-            return
-        self.cacheKind = known.cacheKind or self.cacheKind
-        if self.flag != WorkerConfig.NO_INPUT:
-            self.sourceClass = SourceOf(self.kind)
-        if self.flag != WorkerConfig.NO_OUTPUT:
-            self.destinationClass = DestinationOf(self.kind)
-        if self.cacheKind:
-            self.cacheClass = CacheOf(self.cacheKind)
-        self._add_arguments(self.parser)
 
-        if config:
-            self.parser.set_defaults(**config)
-        self.options = self.parser.parse_args(extras)
-
-        if self.cacheKind:
-            self.cache = self.cacheClass(self.options, logger=self.logger)
-            self.options.message = CachedMessageClass(self.messageClass, self.cache)
+        if self.settings.out_kind:
+            self.destinationClassAndSettings = DestinationTap.of(self.settings.out_kind)
+            settings = self.destinationClassAndSettings.settings()
+            settings.parse_args(args)
+            self.destination = self.destinationClassAndSettings.destinationClass(
+                settings=settings, logger=self.logger
+            )
         else:
-            self.options.message = self.messageClass
-        if self.flag != WorkerConfig.NO_INPUT:
-            self.source = self.sourceClass(self.options, logger=self.logger)
-        if self.flag != WorkerConfig.NO_OUTPUT:
-            self.destination = self.destinationClass(self.options, logger=self.logger)
+            self.worker_type = WorkerType.NoOutput
+
         # report worker info to monitor
         self.monitor.record_worker_info()
 
-    def _add_arguments(self, parser):
-        parser.add_argument(
-            "--debug",
-            action="store_true",
-            default=os.environ.get("DEBUG", "FALSE") == "TRUE",
-            help="debug, more verbose logging",
-        )
-        if self.flag != WorkerConfig.NO_INPUT:
-            self.sourceClass.add_arguments(parser)
-        if self.flag != WorkerConfig.NO_OUTPUT:
-            self.destinationClass.add_arguments(parser)
-        if self.cacheKind:
-            self.cacheClass.add_arguments(parser)
-        self.messageClass.add_arguments(parser)
-        self.add_arguments(parser)
 
-    def add_arguments(self, parser):
-        """Add commandline arguments, to be override by child classes."""
+class ProducerSettings(WorkerSettings):
+    out_kind: TapKind = Field(None, title="output kind")
 
 
-class GeneratorConfig(WorkerConfig):
-    pass
+class Producer(WorkerCore):
+    """Producer is a worker to generate new messages. For example, a webcrawler can
+    be a producer. It reads no input, and produce outputs until it exits.
 
+    Usage:
+    >>> from pydantic import BaseModel
+    >>>
+    >>> class Output(BaseModel):
+    ...     pass
+    >>>
+    >>> settings = ProducerSettings(name='', version='', description='', out_kind='MEM')
+    >>> producer = Producer(settings, output=Output)
+    >>> producer.parse_args()
+    >>> #producer.start()
+    """
 
-class Generator(WorkerCore):
     def __init__(
         self,
-        name,
-        version,
-        description=None,
-        config=GeneratorConfig(),
+        settings: ProducerSettings,
+        output: Type[BaseModel],
         logger=pipelineLogger,
     ):
-        config.disable_input()
-        super().__init__(name, version, description, config, logger)
-        self.generator = None
+        super().__init__(settings, worker_type=WorkerType.NoInput, logger=logger)
+        self.producer = None
+        self.output = output
 
-    def generate(self):
-        """a generator to generate dict."""
-        yield {}
+    def generate(self) -> Generator[BaseModel, None, None]:
+        """a producer to generate dict."""
+        yield BaseModel()
 
-    def _step(self, index):
-        if not self.generator:
-            self.generator = self.generate()
-        dct = next(self.generator)
-        msg = self.messageClass({}, config=self.options)
-        msg.update(dct)
-        msg.update_version(self.name, self.version)
-        self.logger.info("Generated %d-th message %s", index, msg)
-        if msg.is_valid():
-            self.logger.info("Writing %d-th message %s", index, msg)
-            msg.complete()
-            msgSize = self.destination.write(msg)
-            self.logger.info(f"Message size: {msgSize}")
-            self.monitor.record_write(self.destination.topic)
-        elif msg.terminated:
-            self.logger.info("Message terminates here")
-        else:
-            self.logger.error("Generated message is invalid, skipping")
-            self.logger.debug(msg.log_info())
-            self.logger.debug(msg.log_content())
-            raise PipelineError("Invalid message")
+    def _step(self) -> BaseModel:
+        if not self.producer:
+            self.producer = self.generate()
+        return next(self.producer)
 
-    def start(self, monitoring=False):
+    def start(self) -> None:
         try:
-            options = self.options
+            options = self.settings
         except AttributeError:
             self.logger.critical("Did you forget to run .parse_args before start?")
             return
@@ -193,11 +159,11 @@ class Generator(WorkerCore):
         if options.debug:
             self.logger.setLevel(level=logging.DEBUG)
 
-        self.logger.info("settings: write topic %s", options.out_topic)
+        self.logger.info("settings: write topic %s", self.destination.topic)
 
         self.setup()
 
-        if monitoring:
+        if self.settings.monitoring:
             self.monitor.expose()
 
         self.monitor.record_start()
@@ -206,9 +172,24 @@ class Generator(WorkerCore):
             i = 0
             while True:
                 i += 1
+                log = Log(
+                    name=self.name,
+                    version=self.version,
+                    updated=set(),
+                    received=datetime.now(),
+                )
                 self.timer.start()
-                self._step(i)
+                output = self._step()
                 self.timer.log(self.logger)
+                # FIXME message id????
+                msg = Message(content=output.dict())
+                self.logger.info("Generated %d-th message %s", i, msg)
+                log.updated.update(output.dict().keys())
+                msg.logs.append(log)
+                self.logger.info("Writing message %s", msg)
+                size = ByteSize(self.destination.write(msg))
+                self.logger.info(f"Message size: {size.human_readable()}")
+                self.monitor.record_write(self.destination.topic)
         except StopIteration:
             pass
         except PipelineError as e:
@@ -224,8 +205,9 @@ class Generator(WorkerCore):
         self.monitor.record_finish()
 
 
-class SplitterConfig(WorkerConfig):
-    pass
+class SplitterSettings(WorkerSettings):
+    in_kind: TapKind = Field(None, title="input kind")
+    out_kind: TapKind = Field(None, title="output kind")
 
 
 class Splitter(WorkerCore):
@@ -233,18 +215,16 @@ class Splitter(WorkerCore):
 
     def __init__(
         self,
-        name,
-        version,
-        description=None,
-        config=SplitterConfig(),
+        settings: SplitterSettings,
         logger=pipelineLogger,
     ):
-        super().__init__(name, version, description, config, logger)
+        super().__init__(settings, logger=logger)
         # keep a dictionary for 'topic': 'destination', self.destination is only used to parse
         # command line arguments
         self.destinations = {}
 
     def get_topic(self, msg):
+        # FIXME remove example
         return "{}-{}".format(self.destination.topic, msg.get("language", ""))
 
     def _run_streaming(self):
@@ -252,22 +232,31 @@ class Splitter(WorkerCore):
             self.logger.info("Received message '%s'", str(msg))
             self.monitor.record_read(self.source.topic)
 
-            msg.update_version(self.name, self.version)
+            log = Log(
+                name=self.name,
+                version=self.version,
+                updated=set(),
+                received=datetime.now(),
+            )
 
             topic = self.get_topic(msg)
 
             if topic not in self.destinations:
-                config = copy(self.destination.config)
-                config.out_topic = topic
-                self.destinations[topic] = self.destinationClass(
-                    config, logger=self.logger
+                settings = copy(self.destination.settings)
+                settings.topic = topic
+                self.destinations[
+                    topic
+                ] = self.destinationClassAndSettings.destinationClass(
+                    settings, logger=self.logger
                 )
 
             destination = self.destinations[topic]
 
-            if msg.is_valid():
+            msg.logs.append(log)
+
+            # FIXME validation
+            if True or msg.is_valid():
                 self.logger.info("Writing message %s to topic <%s>", str(msg), topic)
-                msg.complete()
                 msgSize = destination.write(msg)
                 self.logger.info(f"Message size: {msgSize}")
             else:
@@ -277,20 +266,14 @@ class Splitter(WorkerCore):
             self.monitor.record_write(topic)
             self.source.acknowledge()
 
-    def start(self, monitoring=False):
-        try:
-            options = self.options
-        except AttributeError:
-            self.logger.critical("Did you forget to run .parse_args before start?")
-            raise
-
+    def start(self):
         self.logger.setLevel(level=logging.INFO)
-        if options.debug:
+        if self.settings.debug:
             self.logger.setLevel(level=logging.DEBUG)
 
-        if options.rewind:
-            # consumer.seek(pulsar.MessageId.earliest)
-            self.logger.info("seeked to earliest message available as requested")
+        # if options.rewind:
+        #     # consumer.seek(pulsar.MessageId.earliest)
+        #     self.logger.info("seeked to earliest message available as requested")
 
         self.setup()
 
@@ -299,7 +282,7 @@ class Splitter(WorkerCore):
         #  self._run_batch()
         # else:
 
-        if monitoring:
+        if self.settings.monitoring:
             self.monitor.expose()
 
         self.monitor.record_start()
@@ -318,43 +301,40 @@ class Splitter(WorkerCore):
         self.monitor.record_finish()
 
 
-class ProcessorConfig(WorkerConfig):
-    def __init__(
-        self,
-        noInput=False,
-        noOutput=False,
-        messageClass=Message,
-        cacheKind=None,
-        limit=None,
-    ):
-        super().__init__(noInput, noOutput, messageClass, cacheKind)
-        self.limit = limit
+class ProcessorSettings(WorkerSettings):
+    in_kind: TapKind = Field(None, title="input kind")
+    out_kind: TapKind = Field(None, title="output kind")
+    limit: int = Field(
+        None, title="set a limit to number of messages to process before exiting"
+    )
 
 
 class Processor(WorkerCore):
     def __init__(
         self,
-        name,
-        version,
-        description=None,
-        config=ProcessorConfig(),
+        settings: ProcessorSettings,
+        input: Type[BaseModel],
+        output: Type[BaseModel] = None,
         logger=pipelineLogger,
     ):
-        super().__init__(name, version, description, config, logger)
+        super().__init__(settings, logger=logger)
         self.retryEnabled = False
-        self.limit = config.limit - 1 if config.limit else config.limit
+        self.input = input
+        self.output = output
 
     def use_retry_topic(self, name=None):
         """Retry topic is introduced to solve error handling by saving
         message being processed when error occurs to a separate topic.
         In this way, these messages can be reprocessed at a later stage.
         """
-        config = copy(self.source.config)
-        config.out_topic = name if name else self.name + "-retry"
-        self.retryDestination = self.destinationClass(config, logger=self.logger)
+        settings = copy(self.source.settings)
+        settings.topic = name if name else self.name + "-retry"
+        self.retryDestination = self.destinationClass(
+            settings=settings, logger=self.logger
+        )
         self.retryEnabled = True
 
-    def process(self, msg):
+    def process(self, msg: BaseModel) -> BaseModel:
         """process function to be overridden by users, for streaming
         processing, this function needs to do in-place update on msg.dct
         and return an error or a list of errors (for batch processing).
@@ -366,66 +346,53 @@ class Processor(WorkerCore):
         .. code-block:: python
             :linenos:
 
-            value = msg.get('preExistingKey')
-            updates = {
-                'newKey': 'newValue',
-            }
-            msg.update(updates)
+            newValue = msg.value
+            return OutputModel(value=newValue)
         """
-        return None
+        return msg
 
     def _step(self, msg):
         """ process one message """
-        failedOnError = False
-
-        # process message
-        if msg.should_update(self.name, self.version):
-            self.logger.info("Processing message '%s'", str(msg))
-
-            try:
-                err = self.process(msg)
-            except Exception:
-                self.logger.error(traceback.format_exc())
-                self.logger.debug(msg.log_info())
-                self.logger.debug(msg.log_content())
-                raise
-
-            if err:
-                self.logger.error(
-                    "Error has occurred for message '%s': %s", str(msg), err
-                )
-                failedOnError = True
-            else:
-                msg.update_version(self.name, self.version)
-        else:
-            self.logger.warning(
-                "Message has been processed by higher version processor, no processed"
+        try:
+            # each worker to append a log
+            log = Log(
+                name=self.name,
+                version=self.version,
+                updated=set(),
+                received=datetime.now(),
             )
+            self.logger.info(f"Receive message {msg}")
+            input = msg.as_model(self.input)
+            self.logger.info(f"Prepared input {input}")
+            output = self.process(input)
+            self.logger.info(f"Processed message {msg}")
+            if output:
+                updated = msg.update_content(output)
+                log.updated.update(updated)
+            log.processed = datetime.now()
+            log.elapsed = 0.0
+            msg.logs.append(log)
+        except ValidationError as e:
+            # When input error, we don't expect to rerun with same input,
+            # it is okay to print error and skip to next input
+            self.logger.error(f"Input validation failed for message {msg}")
+            self.logger.error(e.json())
+            return
+        except Exception as e:
+            self.logger.error(traceback.format_exc())
+            self.logger.error(e.json())
+            # self.logger.error(
+            #     "message is sent to retry topic %s",
+            #     self.retryDestination.config.out_topic,
+            # )
+            # self.retryDestination.write(msg)
+            # self.monitor.record_write(self.retryDestination.topic)
+            return
 
-        # skip validation and output for some cases
-        if msg.terminated:
-            self.logger.info("Message<%s> terminates here", str(msg))
-        elif not any((failedOnError, self.has_no_output())):
-            if msg.is_valid():
-                self.logger.info("Writing message '%s'", str(msg))
-                msg.complete()
-                msgSize = self.destination.write(msg)
-                self.logger.info(f"Message size: {msgSize}")
-                self.monitor.record_write(self.destination.topic)
-            else:
-                failedOnError = True
-                self.logger.error("result message is invalid, skipping")
-                self.logger.debug(msg.log_info())
-                self.logger.debug(msg.log_content())
-
-        # retry if necessary
-        if failedOnError and self.retryEnabled:
-            self.logger.warning(
-                "message is sent to retry topic %s",
-                self.retryDestination.config.out_topic,
-            )
-            self.retryDestination.write(msg)
-            self.monitor.record_write(self.retryDestination.topic)
+        if self.has_output():
+            size = self.destination.write(msg)
+            self.logger.info(f"Wrote message {msg}(size:{size})")
+            self.monitor.record_write(self.destination.topic)
 
     def _run_streaming(self):
         """streaming processing messages from source and write resulted messages to destination
@@ -454,24 +421,25 @@ class Processor(WorkerCore):
 
             self.source.acknowledge()
 
+            self.logger.info(f"{i} == {self.limit}")
             if i == self.limit:
-                return
+                self.logger.info(f"Limit {self.limit} reached, exiting")
+                break
 
-    def start(self, batch_mode=False, monitoring=False):
+    def start(self):
         """ start processing. """
-        try:
-            options = self.options
-        except AttributeError:
-            self.logger.critical("Did you forget to run .parse_args before start?")
-            return
 
         self.logger.setLevel(level=logging.INFO)
-        if options.debug:
+        if self.settings.debug:
             self.logger.setLevel(level=logging.DEBUG)
 
-        if options.rewind:
-            # consumer.seek(pulsar.MessageId.earliest)
-            self.logger.info("seeked to earliest message available as requested")
+        self.limit = (
+            self.settings.limit - 1 if self.settings.limit else self.settings.limit
+        )
+
+        # if options.rewind:
+        #     # consumer.seek(pulsar.MessageId.earliest)
+        #     self.logger.info("seeked to earliest message available as requested")
 
         self.setup()
 
@@ -480,7 +448,7 @@ class Processor(WorkerCore):
         #  self._run_batch()
         # else:
 
-        if monitoring:
+        if self.settings.monitoring:
             self.monitor.expose()
 
         self.monitor.record_start()
@@ -496,6 +464,6 @@ class Processor(WorkerCore):
 
         self.shutdown()
         self.source.close()
-        if not self.has_no_output():
+        if self.has_output():
             self.destination.close()
         self.monitor.record_finish()

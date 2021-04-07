@@ -2,8 +2,10 @@ import os
 import time
 
 import pika
+from pydantic import AnyUrl, Field
 
-from ..tap import SourceTap, DestinationTap
+from ..tap import SourceTap, SourceSettings, DestinationTap, DestinationSettings
+from ..message import Message
 
 
 def namespacedTopic(topic, namespace=None):
@@ -11,6 +13,16 @@ def namespacedTopic(topic, namespace=None):
         return "{}/{}".format(namespace, topic)
     else:
         return topic
+
+
+class RabbitMQDsn(AnyUrl):
+    allowed_schemes = {
+        "amqp",
+    }
+
+
+class RabbitMQSourceSettings(SourceSettings):
+    rabbitmq: RabbitMQDsn = Field("amqp://localhost", title="RabbitMQ host")
 
 
 class RabbitMQSource(SourceTap):
@@ -25,25 +37,22 @@ class RabbitMQSource(SourceTap):
 
     >>> import logging
     >>> from unittest.mock import patch
-    >>> from argparse import ArgumentParser
-    >>> parser = ArgumentParser(conflict_handler='resolve')
-    >>> RabbitMQSource.add_arguments(parser)
-    >>> config = parser.parse_args([])
+    >>> settings = RabbitMQSourceSettings()
     >>> with patch('pika.ConnectionParameters') as c1:
     ...     with patch('pika.BlockingConnection') as c2:
-    ...         RabbitMQSource(config, logger=logging)
+    ...         RabbitMQSource(settings=settings, logger=logging)
     RabbitMQSource(queue="in-topic")
     """
 
     kind = "RABBITMQ"
 
-    def __init__(self, config, logger):
-        super().__init__(config, logger)
-        self.config = config
-        self.topic = config.in_topic
-        self.name = namespacedTopic(config.in_topic, config.namespace)
-        self.timeout = config.timeout
-        parameters = pika.ConnectionParameters(config.rabbitmq)
+    def __init__(self, settings, logger):
+        super().__init__(settings, logger)
+        self.settings = settings
+        self.topic = settings.topic
+        self.name = namespacedTopic(settings.topic, settings.namespace)
+        self.timeout = settings.timeout
+        parameters = pika.ConnectionParameters(settings.rabbitmq)
         self.rabbit = pika.BlockingConnection(parameters)
         self.channel = self.rabbit.channel()
         self.channel.queue_declare(queue=self.name)
@@ -52,19 +61,7 @@ class RabbitMQSource(SourceTap):
         self.logger.info("RabbitMQSource initialized.")
 
     def __repr__(self):
-        return 'RabbitMQSource(queue="{}")'.format(
-            self.name,
-        )
-
-    @classmethod
-    def add_arguments(cls, parser):
-        super().add_arguments(parser)
-        parser.add_argument(
-            "--rabbitmq",
-            type=str,
-            default=os.environ.get("RABBITMQ", "localhost"),
-            help="RabbitMQ host",
-        )
+        return f'RabbitMQSource(queue="{self.name}")'
 
     def read(self):
         timedOut = False
@@ -75,7 +72,7 @@ class RabbitMQSource(SourceTap):
                 method, header, body = self.channel.basic_get(self.name)
             except pika.exceptions.AMQPConnectionError:
                 self.logger.warning("Trying to restore connection to RabbitMQ...")
-                parameters = pika.ConnectionParameters(self.config.rabbitmq)
+                parameters = pika.ConnectionParameters(self.settings.rabbitmq)
                 self.rabbit = pika.BlockingConnection(parameters)
                 self.channel = self.rabbit.channel()
                 self.logger.warning("Connection to RabbitMQ restored.")
@@ -87,7 +84,7 @@ class RabbitMQSource(SourceTap):
             if method:
                 self.delivery_tag = method.delivery_tag
                 self.logger.info("Read message %s", self.delivery_tag)
-                yield self.messageClass.deserialize(body, config=self.config)
+                yield Message.deserialize(body)
                 lastMessageTime = time.time()
             time.sleep(0.01)
             if self.timeout > 0 and time.time() - lastMessageTime > self.timeout:
@@ -104,6 +101,10 @@ class RabbitMQSource(SourceTap):
         self.rabbit.close()
 
 
+class RabbitMQDestinationSettings(DestinationSettings):
+    rabbitmq: RabbitMQDsn = Field("amqp://localhost", title="RabbitMQ host")
+
+
 class RabbitMQDestination(DestinationTap):
     """RabbitMQDestination writes to RabbitMQ
 
@@ -115,24 +116,21 @@ class RabbitMQDestination(DestinationTap):
 
     >>> import logging
     >>> from unittest.mock import patch
-    >>> from argparse import ArgumentParser
-    >>> parser = ArgumentParser(conflict_handler='resolve')
-    >>> RabbitMQDestination.add_arguments(parser)
-    >>> config = parser.parse_args([])
+    >>> settings = RabbitMQDestinationSettings()
     >>> with patch('pika.ConnectionParameters') as c1:
     ...     with patch('pika.BlockingConnection') as c2:
-    ...        RabbitMQDestination(config, logger=logging)
+    ...        RabbitMQDestination(settings=settings, logger=logging)
     RabbitMQDestination(queue="out-topic")
     """
 
     kind = "RABBITMQ"
 
-    def __init__(self, config, logger):
-        super().__init__(config, logger)
-        self.config = config
-        self.topic = config.out_topic
-        self.name = namespacedTopic(config.out_topic, config.namespace)
-        parameters = pika.ConnectionParameters(config.rabbitmq, heartbeat=5)
+    def __init__(self, settings, logger):
+        super().__init__(settings, logger)
+        self.settings = settings
+        self.topic = settings.topic
+        self.name = namespacedTopic(settings.topic, settings.namespace)
+        parameters = pika.ConnectionParameters(settings.rabbitmq, heartbeat=5)
         self.rabbit = pika.BlockingConnection(parameters)
         self.channel = self.rabbit.channel()
         self.channel.queue_declare(queue=self.name)
@@ -163,12 +161,14 @@ class RabbitMQDestination(DestinationTap):
         except pika.exceptions.StreamLostError:
             self.logger.warning("Trying to restore connection to RabbitMQ...")
             self.rabbit = pika.BlockingConnection(
-                pika.ConnectionParameters(self.config.rabbitmq)
+                pika.ConnectionParameters(self.settings.rabbitmq)
             )
             self.channel = self.rabbit.channel()
             self.logger.warning("Connection to RabbitMQ restored.")
             self.channel.basic_publish(
-                exchange="", routing_key=self.name, body=message.serialize()
+                exchange="",
+                routing_key=self.name,
+                body=message.serialize(compress=self.settings.compress),
             )
 
     def close(self):
