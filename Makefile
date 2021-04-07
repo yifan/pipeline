@@ -9,6 +9,9 @@ pytest:
 pylint:
 	. venv/bin/activate; \
 	python3 -m pylint src
+mypy:
+	. venv/bin/activate; \
+	mypy --ignore-missing-imports src
 test:venv
 	. venv/bin/activate; \
 	tox

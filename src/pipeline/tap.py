@@ -6,7 +6,7 @@ import gzip
 from abc import ABC, abstractmethod
 
 from enum import Enum
-from typing import Dict, Tuple, Generator, List, ClassVar, Type, Union
+from typing import Optional, Dict, Tuple, Generator, List, ClassVar, Type, Union, cast
 from pydantic import BaseModel, Field
 
 from .helpers import Settings
@@ -49,22 +49,23 @@ class SourceTap(ABC):
         pass
 
     @classmethod
-    def of(cls, kind: "TapKind") -> "SourceAndSettings":
+    def of(cls, kind: "TapKind") -> "SourceAndSettingsClasses":
         """
         >>> source = SourceTap.of(TapKind.MEM)
         """
         try:
-            sourceAndSettings, _ = tap_kinds()[kind.value]
+            classesOrStrings, _ = tap_kinds()[kind.value]
         except IndexError:
             raise TypeError(f"Source type '{kind}' is invalid") from None
 
-        if isinstance(sourceAndSettings.sourceClass, str):
-            return SourceAndSettings(
-                sourceClass=import_class(sourceAndSettings.sourceClass),
-                settings=import_class(sourceAndSettings.settings),
+        if isinstance(classesOrStrings, TapAndSettingsImportStrings):
+            tapAndSettingsImportStrings = cast(TapAndSettingsImportStrings, classesOrStrings)
+            return SourceAndSettingsClasses(
+                sourceClass=import_class(tapAndSettingsImportStrings.tapClass),
+                settingsClass=import_class(tapAndSettingsImportStrings.settingsClass),
             )
         else:
-            return sourceAndSettings
+            return cast(SourceAndSettingsClasses, classesOrStrings)
 
     def close(self) -> None:
         pass
@@ -96,21 +97,22 @@ class DestinationTap(ABC):
         raise NotImplementedError()
 
     @classmethod
-    def of(cls, kind: "TapKind") -> "DestinationAndSettings":
+    def of(cls, kind: "TapKind") -> "DestinationAndSettingsClasses":
         try:
-            _, destinationClassAndSettings = tap_kinds()[kind.value]
+            _, classesOrStrings = tap_kinds()[kind.value]
         except IndexError:
             raise TypeError(f"Destination type '{kind}' is invalid") from None
 
-        if isinstance(destinationClassAndSettings.destinationClass, str):
-            return DestinationAndSettings(
+        if isinstance(classesOrStrings, TapAndSettingsImportStrings):
+            tapAndSettingsImportStrings = cast(TapAndSettingsImportStrings, classesOrStrings)
+            return DestinationAndSettingsClasses(
                 destinationClass=import_class(
-                    destinationClassAndSettings.destinationClass
+                    tapAndSettingsImportStrings.tapClass
                 ),
-                settings=import_class(destinationClassAndSettings.settings),
+                settingsClass=import_class(tapAndSettingsImportStrings.settingsClass),
             )
         else:
-            return destinationClassAndSettings
+            return cast(DestinationAndSettingsClasses, classesOrStrings)
 
     def close(self) -> None:
         pass
@@ -203,7 +205,7 @@ class FileSource(SourceTap):
         if self.filename == "-":
             self.infile = sys.stdin.buffer
         elif self.filename.endswith(".gz"):
-            self.infile = gzip.open(self.filename)
+            self.infile = gzip.open(self.filename)  # type: ignore
         else:
             self.infile = open(self.filename, "rb")
         logger.info("File Source: %s", self.filename)
@@ -238,9 +240,9 @@ class FileDestination(DestinationTap):
             self.outFile = sys.stdout.buffer
         elif self.filename.endswith(".gz"):
             if settings.overwrite:
-                self.outFile = gzip.GzipFile(self.filename, "wb")
+                self.outFile = gzip.GzipFile(self.filename, "wb")   # type: ignore
             else:
-                self.outFile = gzip.GzipFile(self.filename, "ab")
+                self.outFile = gzip.GzipFile(self.filename, "ab")   # type: ignore
         else:
             if settings.overwrite:
                 self.outFile = open(self.filename, "wb")
@@ -341,7 +343,7 @@ class CsvDestination(DestinationTap):
                 self.outFile = open(self.filename, "w")
             else:
                 self.outFile = open(self.filename, "a")
-        self.writer = None
+        self.writer: Optional[csv.DictWriter] = None
         self.logger.info("CsvDestination: %s", self.filename)
 
     def __repr__(self):
@@ -365,87 +367,95 @@ class CsvDestination(DestinationTap):
             self.logger.info("CsvDestination closed")
 
 
-class SourceAndSettings(BaseModel):
-    sourceClass: Union[Type[SourceTap], str]
-    settings: Union[Type[SourceSettings], str]
+class TapAndSettingsImportStrings(BaseModel):
+    tapClass: str
+    settingsClass: str
 
 
-class DestinationAndSettings(BaseModel):
-    destinationClass: Union[Type[DestinationTap], str]
-    settings: Union[Type[DestinationSettings], str]
+class SourceAndSettingsClasses(BaseModel):
+    sourceClass: Type[SourceTap]
+    settingsClass: Type[SourceSettings]
 
 
-def tap_kinds() -> Dict[str, Tuple]:
+class DestinationAndSettingsClasses(BaseModel):
+    destinationClass: Type[DestinationTap]
+    settingsClass: Type[DestinationSettings]
+
+
+def tap_kinds() -> Dict[str, Union[
+    Tuple[SourceAndSettingsClasses, DestinationAndSettingsClasses],
+    Tuple[TapAndSettingsImportStrings, TapAndSettingsImportStrings]
+]]:
     return {
         "MEM": (
-            SourceAndSettings(sourceClass=MemorySource, settings=MemorySourceSettings),
-            DestinationAndSettings(
-                destinationClass=MemoryDestination, settings=MemoryDestinationSettings
+            SourceAndSettingsClasses(sourceClass=MemorySource, settingsClass=MemorySourceSettings),
+            DestinationAndSettingsClasses(
+                destinationClass=MemoryDestination, settingsClass=MemoryDestinationSettings
             ),
         ),
         "FILE": (
-            SourceAndSettings(sourceClass=FileSource, settings=FileSourceSettings),
-            DestinationAndSettings(
-                destinationClass=FileDestination, settings=FileDestinationSettings
+            SourceAndSettingsClasses(sourceClass=FileSource, settingsClass=FileSourceSettings),
+            DestinationAndSettingsClasses(
+                destinationClass=FileDestination, settingsClass=FileDestinationSettings
             ),
         ),
         "CSV": (
-            SourceAndSettings(sourceClass=CsvSource, settings=CsvSourceSettings),
-            DestinationAndSettings(
-                destinationClass=CsvDestination, settings=CsvDestinationSettings
+            SourceAndSettingsClasses(sourceClass=CsvSource, settingsClass=CsvSourceSettings),
+            DestinationAndSettingsClasses(
+                destinationClass=CsvDestination, settingsClass=CsvDestinationSettings
             ),
         ),
         "REDIS": (
-            SourceAndSettings(
+            TapAndSettingsImportStrings(
                 sourceClass="pipeline.backends.redis:RedisStreamSource",
-                settings="pipeline.backends.redis:RedisSourceSettings",
+                settingsClass="pipeline.backends.redis:RedisSourceSettings",
             ),
-            DestinationAndSettings(
+            TapAndSettingsImportStrings(
                 destinationClass="pipeline.backends.redis:RedisStreamDestination",
-                settings="pipeline.backends.redis:RedisDestinationSettings",
+                settingsClass="pipeline.backends.redis:RedisDestinationSettings",
             ),
         ),
         "LREDIS": (
-            SourceAndSettings(
+            TapAndSettingsImportStrings(
                 sourceClass="pipeline.backends.redis:RedisListSource",
-                settings="pipeline.backends.redis:RedisSourceSettings",
+                settingsClass="pipeline.backends.redis:RedisSourceSettings",
             ),
-            DestinationAndSettings(
+            TapAndSettingsImportStrings(
                 destinationClass="pipeline.backends.redis:RedisListDestination",
-                settings="pipeline.backends.redis:RedisDestinationSettings",
+                settingsClass="pipeline.backends.redis:RedisDestinationSettings",
             ),
         ),
         "KAFKA": (
-            SourceAndSettings(
+            TapAndSettingsImportStrings(
                 sourceClass="pipeline.backends.kafka:KafkaSource",
-                settings="pipeline.backends.kafka:KafkaSourceSettings",
+                settingsClass="pipeline.backends.kafka:KafkaSourceSettings",
             ),
-            DestinationAndSettings(
+            TapAndSettingsImportStrings(
                 destinationClass="pipeline.backends.kafka:KafkaDestination",
-                settings="pipeline.backends.kafka:KafkaDestinationSettings",
+                settingsClass="pipeline.backends.kafka:KafkaDestinationSettings",
             ),
         ),
         "PULSAR": (
-            SourceAndSettings(
+            TapAndSettingsImportStrings(
                 sourceClass="pipeline.backends.pulsar:PulsarSource",
-                settings="pipeline.backends.pulsar:PulsarSourceSettings",
+                settingsClass="pipeline.backends.pulsar:PulsarSourceSettings",
             ),
-            DestinationAndSettings(
+            TapAndSettingsImportStrings(
                 destinationClass="pipeline.backends.pulsar:PulsarDestination",
-                settings="pipeline.backends.pulsar:PulsarDestinationSettings",
+                settingsClass="pipeline.backends.pulsar:PulsarDestinationSettings",
             ),
         ),
         "RABBITMQ": (
-            SourceAndSettings(
+            TapAndSettingsImportStrings(
                 sourceClass="pipeline.backends.rabbitmq:RabbitMQSource",
-                settings="pipeline.backends.rabbitmq:RabbitMQSourceSettings",
+                settingsClass="pipeline.backends.rabbitmq:RabbitMQSourceSettings",
             ),
-            DestinationAndSettings(
+            TapAndSettingsImportStrings(
                 destinationClass="pipeline.backends.rabbitmq:RabbitMQDestination",
-                settings="pipeline.backends.rabbitmq:RabbitMQDestinationSettings",
+                settingsClass="pipeline.backends.rabbitmq:RabbitMQDestinationSettings",
             ),
         ),
     }
 
 
-TapKind = Enum("TapKind", {x: x for x in tap_kinds().keys()})
+TapKind = Enum("TapKind", {x: x for x in tap_kinds().keys()})   # type: ignore

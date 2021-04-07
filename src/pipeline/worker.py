@@ -5,7 +5,7 @@ from abc import ABC
 from copy import copy
 from datetime import datetime
 from enum import IntEnum
-from typing import Set, List, Generator, Type
+from typing import Optional, Set, List, Dict, Iterator, Type
 
 from pydantic import BaseModel, ByteSize, Field, ValidationError
 
@@ -26,8 +26,8 @@ class Log(BaseModel):
     version: str
     updated: Set[str]
     received: datetime = datetime.now()
-    processed: datetime = None
-    elapsed: float = None
+    processed: Optional[datetime] = None
+    elapsed: Optional[float] = None
 
 
 class WorkerType(IntEnum):
@@ -40,6 +40,8 @@ class WorkerSettings(Settings):
     name: str
     version: str
     description: str
+    in_kind: TapKind = Field(None, title="input kind")
+    out_kind: TapKind = Field(None, title="output kind")
     debug: bool = Field(False, title="print DEBUG log")
     monitoring: bool = Field(False, title="enable prometheus monitoring")
 
@@ -89,18 +91,18 @@ class WorkerCore(ABC):
                 )
                 raise
             self.sourceClassAndSettings = SourceTap.of(self.settings.in_kind)
-            settings = self.sourceClassAndSettings.settings()
-            settings.parse_args(args)
+            sourceSettings = self.sourceClassAndSettings.settingsClass()
+            sourceSettings.parse_args(args)
             self.source = self.sourceClassAndSettings.sourceClass(
-                settings=settings, logger=self.logger
+                settings=sourceSettings, logger=self.logger
             )
 
         if self.settings.out_kind:
             self.destinationClassAndSettings = DestinationTap.of(self.settings.out_kind)
-            settings = self.destinationClassAndSettings.settings()
-            settings.parse_args(args)
+            destinationSettings = self.destinationClassAndSettings.settingsClass()
+            destinationSettings.parse_args(args)
             self.destination = self.destinationClassAndSettings.destinationClass(
-                settings=settings, logger=self.logger
+                settings=destinationSettings, logger=self.logger
             )
         else:
             self.worker_type = WorkerType.NoOutput
@@ -110,7 +112,7 @@ class WorkerCore(ABC):
 
 
 class ProducerSettings(WorkerSettings):
-    out_kind: TapKind = Field(None, title="output kind")
+    pass
 
 
 class Producer(WorkerCore):
@@ -136,17 +138,14 @@ class Producer(WorkerCore):
         logger=pipelineLogger,
     ):
         super().__init__(settings, worker_type=WorkerType.NoInput, logger=logger)
-        self.producer = None
         self.output = output
 
-    def generate(self) -> Generator[BaseModel, None, None]:
+    def generate(self) -> Iterator[BaseModel]:
         """a producer to generate dict."""
         yield BaseModel()
 
     def _step(self) -> BaseModel:
-        if not self.producer:
-            self.producer = self.generate()
-        return next(self.producer)
+        return next(self.generator)
 
     def start(self) -> None:
         try:
@@ -169,6 +168,8 @@ class Producer(WorkerCore):
         self.monitor.record_start()
 
         try:
+            self.generator = self.generate()
+
             i = 0
             while True:
                 i += 1
@@ -221,7 +222,7 @@ class Splitter(WorkerCore):
         super().__init__(settings, logger=logger)
         # keep a dictionary for 'topic': 'destination', self.destination is only used to parse
         # command line arguments
-        self.destinations = {}
+        self.destinations: Dict[str, DestinationTap] = {}
 
     def get_topic(self, msg):
         # FIXME remove example
@@ -302,8 +303,6 @@ class Splitter(WorkerCore):
 
 
 class ProcessorSettings(WorkerSettings):
-    in_kind: TapKind = Field(None, title="input kind")
-    out_kind: TapKind = Field(None, title="output kind")
     limit: int = Field(
         None, title="set a limit to number of messages to process before exiting"
     )
