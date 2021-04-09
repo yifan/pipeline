@@ -71,13 +71,13 @@ class Pipeline(object):
         if self.settings.in_kind:
             self.sources = {}
             self.sourceClassAndSettings = SourceTap.of(self.settings.in_kind)
-            self.sourceSettings = self.sourceClassAndSettings.settings()
+            self.sourceSettings = self.sourceClassAndSettings.settingsClass()
             self.sourceSettings.parse_args(args)
 
         if self.settings.out_kind:
             self.destinations = {}
             self.destinationClassAndSettings = DestinationTap.of(self.settings.out_kind)
-            self.destinationSettings = self.destinationClassAndSettings.settings()
+            self.destinationSettings = self.destinationClassAndSettings.settingsClass()
             self.destinationSettings.parse_args(args)
 
         if self.settings.in_kind is None and self.settings.out_kind is None:

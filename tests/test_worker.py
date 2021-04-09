@@ -259,6 +259,7 @@ class TestWorkerCore(TestCase):
         settings = ProcessorSettings(name="processor", version="0.0.0", description="")
         processor = Processor(settings, input=Input, output=Output)
         processor.parse_args(args=["--in-kind", "MEM"])
+        assert processor.settings.out_kind is None
         assert not hasattr(processor, "destination")
 
     def test_mem_processor_limit(self):

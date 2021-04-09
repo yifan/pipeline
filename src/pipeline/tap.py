@@ -407,51 +407,51 @@ def tap_kinds() -> Dict[str, Union[
         ),
         "REDIS": (
             TapAndSettingsImportStrings(
-                sourceClass="pipeline.backends.redis:RedisStreamSource",
+                tapClass="pipeline.backends.redis:RedisStreamSource",
                 settingsClass="pipeline.backends.redis:RedisSourceSettings",
             ),
             TapAndSettingsImportStrings(
-                destinationClass="pipeline.backends.redis:RedisStreamDestination",
+                tapClass="pipeline.backends.redis:RedisStreamDestination",
                 settingsClass="pipeline.backends.redis:RedisDestinationSettings",
             ),
         ),
         "LREDIS": (
             TapAndSettingsImportStrings(
-                sourceClass="pipeline.backends.redis:RedisListSource",
+                tapClass="pipeline.backends.redis:RedisListSource",
                 settingsClass="pipeline.backends.redis:RedisSourceSettings",
             ),
             TapAndSettingsImportStrings(
-                destinationClass="pipeline.backends.redis:RedisListDestination",
+                tapClass="pipeline.backends.redis:RedisListDestination",
                 settingsClass="pipeline.backends.redis:RedisDestinationSettings",
             ),
         ),
         "KAFKA": (
             TapAndSettingsImportStrings(
-                sourceClass="pipeline.backends.kafka:KafkaSource",
+                tapClass="pipeline.backends.kafka:KafkaSource",
                 settingsClass="pipeline.backends.kafka:KafkaSourceSettings",
             ),
             TapAndSettingsImportStrings(
-                destinationClass="pipeline.backends.kafka:KafkaDestination",
+                tapClass="pipeline.backends.kafka:KafkaDestination",
                 settingsClass="pipeline.backends.kafka:KafkaDestinationSettings",
             ),
         ),
         "PULSAR": (
             TapAndSettingsImportStrings(
-                sourceClass="pipeline.backends.pulsar:PulsarSource",
+                tapClass="pipeline.backends.pulsar:PulsarSource",
                 settingsClass="pipeline.backends.pulsar:PulsarSourceSettings",
             ),
             TapAndSettingsImportStrings(
-                destinationClass="pipeline.backends.pulsar:PulsarDestination",
+                tapClass="pipeline.backends.pulsar:PulsarDestination",
                 settingsClass="pipeline.backends.pulsar:PulsarDestinationSettings",
             ),
         ),
         "RABBITMQ": (
             TapAndSettingsImportStrings(
-                sourceClass="pipeline.backends.rabbitmq:RabbitMQSource",
+                tapClass="pipeline.backends.rabbitmq:RabbitMQSource",
                 settingsClass="pipeline.backends.rabbitmq:RabbitMQSourceSettings",
             ),
             TapAndSettingsImportStrings(
-                destinationClass="pipeline.backends.rabbitmq:RabbitMQDestination",
+                tapClass="pipeline.backends.rabbitmq:RabbitMQDestination",
                 settingsClass="pipeline.backends.rabbitmq:RabbitMQDestinationSettings",
             ),
         ),
