@@ -19,7 +19,7 @@ pylint: $(VPY)
 
 .PHONY: mypy
 mypy: $(VPY)
-	$(VPY) --ignore-missing-imports src
+	$(VPY) -m mypy --ignore-missing-imports src
 
 .PHONY: test
 test: $(VPY)
