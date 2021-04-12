@@ -1,4 +1,6 @@
 import time
+from logging import Logger
+from typing import ClassVar, Iterator
 
 import pulsar
 from pydantic import AnyUrl, Field
@@ -30,9 +32,11 @@ class PulsarSource(SourceTap):
     PulsarSource(host="pulsar://localhost:6650",name="persistent://tenant/test/in-topic",subscription="subscription")
     """
 
-    kind = "PULSAR"
+    settings: PulsarSourceSettings
 
-    def __init__(self, settings: PulsarSourceSettings, logger):
+    kind: ClassVar[str] = "PULSAR"
+
+    def __init__(self, settings: PulsarSourceSettings, logger: Logger) -> None:
         super().__init__(settings, logger)
         self.settings = settings
         self.client = pulsar.Client(settings.pulsar)
@@ -51,15 +55,15 @@ class PulsarSource(SourceTap):
         )
         self.last_msg = None
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return 'PulsarSource(host="{}",name="{}",subscription="{}")'.format(
             self.settings.pulsar,
             self.name,
             self.subscription,
         )
 
-    def read(self):
-        timeout_ms = self.timeout * 1000 if self.timeout else None
+    def read(self) -> Iterator[Message]:
+        timeout_ms = self.settings.timeout * 1000 if self.settings.timeout else None
         msg = self.consumer.receive(timeout_millis=timeout_ms)
         while msg:
             msg = self.consumer.receive(timeout_millis=timeout_ms)
@@ -68,10 +72,10 @@ class PulsarSource(SourceTap):
                 yield Message.deserialize(msg.data())
             time.sleep(0.01)
 
-    def acknowledge(self):
+    def acknowledge(self) -> None:
         self.consumer.acknowledge(self.last_msg)
 
-    def close(self):
+    def close(self) -> None:
         self.client.close()
 
 
@@ -91,9 +95,11 @@ class PulsarDestination(DestinationTap):
     PulsarDestination(host="pulsar://localhost:6650",name="persistent://tenant/test/out-topic")
     """
 
-    kind = "PULSAR"
+    settings: PulsarDestinationSettings
 
-    def __init__(self, settings, logger):
+    kind: ClassVar[str] = "PULSAR"
+
+    def __init__(self, settings: PulsarDestinationSettings, logger: Logger) -> None:
         super().__init__(settings, logger)
         self.settings = settings
         self.client = pulsar.Client(settings.pulsar)
@@ -105,16 +111,16 @@ class PulsarDestination(DestinationTap):
         )
         self.producer = self.client.create_producer(self.name)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return 'PulsarDestination(host="{}",name="{}")'.format(
             self.settings.pulsar,
             self.name,
         )
 
-    def write(self, message):
+    def write(self, message: Message) -> int:
         serialized = message.serialize(compress=self.settings.compress)
         self.producer.send(serialized)
         return len(serialized)
 
-    def close(self):
+    def close(self) -> None:
         self.client.close()

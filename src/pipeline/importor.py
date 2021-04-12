@@ -1,7 +1,8 @@
 import importlib
+from typing import Any
 
 
-def import_class(importString):
+def import_class(importString: str) -> Any:
     moduleName, _, className = importString.partition(":")
 
     try:

@@ -1,14 +1,16 @@
 import time
 import uuid
+from logging import Logger
+from typing import Iterator, ClassVar, Any
 
-import redis
 from pydantic import RedisDsn, Field
+from redis import Redis, ResponseError as RedisResponseError
 
 from ..tap import SourceTap, SourceSettings, DestinationTap, DestinationSettings
 from ..message import Message
 
 
-def namespacedTopic(topic, namespace=None):
+def namespacedTopic(topic: str, namespace: str = None) -> str:
     if namespace:
         return "{}/{}".format(namespace, topic)
     else:
@@ -26,37 +28,40 @@ class RedisStreamSource(SourceTap):
     >>> import logging
     >>> from unittest.mock import patch
     >>> settings = RedisSourceSettings()
-    >>> with patch('redis.Redis') as c:
+    >>> with patch('Redis') as c:
     ...     RedisStreamSource(settings=settings, logger=logging)
     RedisStreamSource(host="redis://localhost:6379/0", topic="in-topic")
     """
 
-    kind = "XREDIS"
+    settings: RedisSourceSettings
+    redis: Any
 
-    def __init__(self, settings, logger):
+    kind: ClassVar[str] = "XREDIS"
+
+    def __init__(self, settings: RedisSourceSettings, logger: Logger) -> None:
         super().__init__(settings, logger)
         self.settings = settings
-        self.client = redis.Redis(settings.redis)
+        self.client = Redis(settings.redis)
         self.group = settings.group
         self.topic = namespacedTopic(settings.topic, settings.namespace)
         self.timeout = settings.timeout
-        self.redis = redis.Redis(
+        self.redis = Redis(
             host=self.settings.redis.host,
-            port=self.settings.redis.port,
+            port=int(self.settings.redis.port) if self.settings.redis.port else 6380,
             password=self.settings.redis.password,
         )
         try:
             self.redis.xgroup_create(self.topic, self.group, id="0", mkstream=True)
-        except redis.exceptions.ResponseError as e:
+        except RedisResponseError as e:
             logger.error(str(e))
 
         self.consumer = str(uuid.uuid1())
         self.last_msg = None
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f'RedisStreamSource(host="{self.settings.redis}", topic="{self.topic}")'
 
-    def read(self):
+    def read(self) -> Iterator[Message]:
         timedOut = False
         lastMessageTime = time.time()
         while not timedOut:
@@ -77,11 +82,11 @@ class RedisStreamSource(SourceTap):
             if self.timeout > 0 and time.time() - lastMessageTime > self.timeout:
                 timedOut = True
 
-    def acknowledge(self):
+    def acknowledge(self) -> None:
         self.logger.info("acknowledged message %s", self.last_msg)
         self.redis.xack(self.topic, self.group, self.last_msg)
 
-    def close(self):
+    def close(self) -> None:
         self.redis.xgroup_delconsumer(self.topic, self.group, self.consumer)
         self.redis.close()
 
@@ -96,33 +101,36 @@ class RedisStreamDestination(DestinationTap):
     >>> import logging
     >>> from unittest.mock import patch
     >>> settings = RedisDestinationSettings()
-    >>> with patch('redis.Redis') as c:
+    >>> with patch('Redis') as c:
     ...     RedisStreamDestination(settings=settings, logger=logging)
     RedisStreamDestination(host="redis://localhost:6379/0", topic="out-topic")
     """
 
-    kind = "XREDIS"
+    settings: RedisDestinationSettings
+    redis: Any
 
-    def __init__(self, settings, logger):
+    kind: ClassVar[str] = "XREDIS"
+
+    def __init__(self, settings: RedisDestinationSettings, logger: Logger) -> None:
         super().__init__(settings, logger)
         self.settings = settings
-        self.client = redis.Redis(settings.redis)
+        self.client = Redis(settings.redis)
         self.topic = namespacedTopic(settings.topic, settings.namespace)
-        self.redis = redis.Redis(
+        self.redis = Redis(
             host=self.settings.redis.host,
-            port=self.settings.redis.port,
+            port=int(self.settings.redis.port) if self.settings.redis.port else 6380,
             password=self.settings.redis.password,
         )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f'RedisStreamDestination(host="{self.settings.redis}", topic="{self.topic}")'
 
-    def write(self, message):
+    def write(self, message: Message) -> int:
         serialized = message.serialize(compress=self.settings.compress)
         self.redis.xadd(self.topic, fields={"data": serialized})
         return len(serialized)
 
-    def close(self):
+    def close(self) -> None:
         self.redis.close()
 
 
@@ -134,31 +142,34 @@ class RedisListSource(SourceTap):
     >>> import logging
     >>> from unittest.mock import patch
     >>> settings = RedisSourceSettings()
-    >>> with patch('redis.Redis') as c:
+    >>> with patch('Redis') as c:
     ...     RedisListSource(settings=settings, logger=logging)
     RedisListSource(host="redis://localhost:6379/0", topic="in-topic")
     """
 
-    kind = "LREDIS"
+    settings: RedisSourceSettings
+    redis: Any
 
-    def __init__(self, settings, logger):
+    kind: ClassVar[str] = "LREDIS"
+
+    def __init__(self, settings: RedisSourceSettings, logger: Logger) -> None:
         super().__init__(settings, logger)
         self.settings = settings
-        self.client = redis.Redis(settings.redis)
+        self.client = Redis(settings.redis)
         self.group = settings.group
         self.topic = namespacedTopic(settings.topic, settings.namespace)
         self.timeout = settings.timeout
-        self.redis = redis.Redis(
+        self.redis = Redis(
             host=settings.redis.host,
-            port=settings.redis.port,
+            port=int(self.settings.redis.port) if self.settings.redis.port else 6380,
             password=settings.redis.password,
         )
         self.last_msg = None
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f'RedisListSource(host="{self.settings.redis}", topic="{self.topic}")'
 
-    def read(self):
+    def read(self) -> Iterator[Message]:
         timedOut = False
         lastMessageTime = time.time()
         while not timedOut:
@@ -176,10 +187,10 @@ class RedisListSource(SourceTap):
             if self.timeout > 0 and time.time() - lastMessageTime > self.timeout:
                 timedOut = True
 
-    def acknowledge(self):
+    def acknowledge(self) -> None:
         self.logger.info("Acknowledgement is not supported for LREDIS (Redis List)")
 
-    def close(self):
+    def close(self) -> None:
         self.redis.close()
 
 
@@ -189,35 +200,38 @@ class RedisListDestination(DestinationTap):
     >>> import logging
     >>> from unittest.mock import patch
     >>> settings = RedisDestinationSettings()
-    >>> with patch('redis.Redis') as c:
+    >>> with patch('Redis') as c:
     ...     RedisListDestination(settings=settings, logger=logging)
     RedisListDestination(host="redis://localhost:6379/0", topic="out-topic")
     """
 
-    kind = "LREDIS"
+    settings: RedisDestinationSettings
+    redis: Any
 
-    def __init__(self, settings, logger):
+    kind: ClassVar[str] = "LREDIS"
+
+    def __init__(self, settings: RedisDestinationSettings, logger: Logger) -> None:
         super().__init__(settings, logger)
         self.settings = settings
-        self.client = redis.Redis(settings.redis)
+        self.client = Redis(settings.redis)
         self.topic = namespacedTopic(settings.topic, settings.namespace)
-        self.redis = redis.Redis(
+        self.redis = Redis(
             host=settings.redis.host,
-            port=settings.redis.port,
+            port=int(self.settings.redis.port) if self.settings.redis.port else 6380,
             password=settings.redis.password,
         )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return (
             f'RedisListDestination(host="{self.settings.redis}", topic="{self.topic}")'
         )
 
-    def write(self, message):
+    def write(self, message: Message) -> int:
         serialized = message.serialize(compress=self.settings.compress)
         self.redis.rpush(self.topic, serialized)
         return len(serialized)
 
-    def close(self):
+    def close(self) -> None:
         self.redis.close()
 
 
@@ -230,7 +244,7 @@ class RedisListDestination(DestinationTap):
 #     >>> parser = ArgumentParser()
 #     >>> RedisCache.add_arguments(parser)
 #     >>> config = parser.parse_args(["--in-fields", "text,title"])
-#     >>> with patch('redis.Redis') as c:
+#     >>> with patch('Redis') as c:
 #     ...     RedisCache(config, logger=logging)
 #     RedisCache(localhost:6379):['text', 'title']:[]
 #     """
@@ -267,7 +281,7 @@ class RedisListDestination(DestinationTap):
 #
 #     def setup(self):
 #         self.redisConfig = parse_connection_string(self.config.redis, no_username=True)
-#         self.redis = redis.Redis(
+#         self.redis = Redis(
 #             host=self.redisConfig.host,
 #             port=self.redisConfig.port,
 #             password=self.redisConfig.password,

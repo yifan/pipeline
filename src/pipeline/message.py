@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 from enum import Enum
-from typing import List, Optional, Union, KeysView
+from typing import Any, Type, Dict, List, Optional, Union, KeysView
 from pydantic import BaseModel, UUID1
 import zstandard
 
@@ -29,7 +29,7 @@ class Message(BaseModel):
     id: Union[UUID1, str] = uuid.uuid1()
     created: datetime = datetime.now()
     logs: List[BaseModel] = []
-    content: dict = {}
+    content: Dict[str, Any] = {}
 
     @classmethod
     def _compress(cls, data: bytes) -> bytes:
@@ -54,7 +54,7 @@ class Message(BaseModel):
             data = b"Z" + self._compress(data)
         return data
 
-    def as_model(self, modelClass) -> BaseModel:
+    def as_model(self, modelClass: Type[BaseModel]) -> BaseModel:
         return modelClass(**self.content)
 
     def update_content(self, other: BaseModel) -> KeysView[str]:
@@ -62,7 +62,7 @@ class Message(BaseModel):
         self.content.update(d)
         return d.keys()
 
-    def get(self, key, default=None):
+    def get(self, key: str, default: Any = None) -> Any:
         return self.content.get(key, default)
 
 

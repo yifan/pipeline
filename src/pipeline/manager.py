@@ -1,8 +1,15 @@
 import logging
 from copy import copy
+from typing import Any, Dict
 
 from .exception import PipelineError
-from .tap import SourceTap, DestinationTap
+from .tap import (
+    TapKind,
+    SourceTap,
+    DestinationTap,
+    SourceAndSettingsClasses,
+    DestinationAndSettingsClasses,
+)
 from .worker import ProcessorSettings
 
 pipelineLogger = logging.getLogger("pipeline")
@@ -37,9 +44,15 @@ class Pipeline(object):
       pipeline = Pipeline()
     """
 
+    settings: ProcessorSettings
+    sources: Dict[str, SourceTap]
+    sourceClassAndSettings: SourceAndSettingsClasses
+    destinations: Dict[str, DestinationTap]
+    destinationClassAndSettings: DestinationAndSettingsClasses
+
     def __init__(
         self,
-        **kwargs,
+        **kwargs: Any,
     ):
         """Initialize Pipeline with kind and options to turn off input/output
 
@@ -54,18 +67,17 @@ class Pipeline(object):
         """
         args = kwargs.get("args", None)
         logger = kwargs.get("logger", pipelineLogger)
-        defaults = {
-            "name": "pipeline",
-            "version": "",
-            "description": "",
-        }
+        self.settings = ProcessorSettings(
+            name="pipeline",
+            version="",
+            description="",
+        )
         in_kind = kwargs.get("in_kind")
         if in_kind:
-            defaults["in_kind"] = in_kind
+            self.settings.in_kind = TapKind[in_kind]
         out_kind = kwargs.get("out_kind")
         if out_kind:
-            defaults["out_kind"] = out_kind
-        self.settings = ProcessorSettings(**defaults)
+            self.settings.out_kind = TapKind[out_kind]
         self.settings.parse_args(args)
 
         if self.settings.in_kind:
@@ -85,7 +97,7 @@ class Pipeline(object):
 
         self.logger = logger
 
-    def addSourceTopic(self, name):
+    def addSourceTopic(self, name: str) -> None:
         """Add a new :class:`SourceTap` with a defined topic(queue) name
 
         :param name: a name given for the source topic
@@ -96,7 +108,7 @@ class Pipeline(object):
             settings=settings, logger=self.logger
         )
 
-    def addDestinationTopic(self, name):
+    def addDestinationTopic(self, name: str) -> None:
         """Add a new :class:`DestinationTap` with a defined topic(queue) name
 
         :param name: a name given for the destination topic
@@ -107,10 +119,10 @@ class Pipeline(object):
             settings=settings, logger=self.logger
         )
 
-    def sourceOf(self, name):
+    def sourceOf(self, name: str) -> SourceTap:
         """Return the :class:`SourceTap` of specified topic(queue) name"""
         return self.sources[name]
 
-    def destinationOf(self, name):
+    def destinationOf(self, name: str) -> DestinationTap:
         """Return the :class:`DestinationTap` of specified topic(queue) name"""
         return self.destinations[name]

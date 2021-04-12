@@ -1,6 +1,10 @@
 import time
+from typing import TYPE_CHECKING
 
 from prometheus_client import Counter, Enum, Histogram, Info, start_http_server
+
+if TYPE_CHECKING:
+    from .worker import Worker
 
 
 class Monitor(object):
@@ -19,15 +23,15 @@ class Monitor(object):
     )
     process_timer = Histogram("process_time_seconds", "Process time (seconds)")
 
-    def __init__(self, worker, port=8000):
+    def __init__(self, worker: "Worker", port: int = 8000) -> None:
         self.worker = worker
         self.state.labels(name=worker.name).state("starting")
         self.port = port
 
-    def expose(self):
+    def expose(self) -> None:
         start_http_server(self.port)
 
-    def record_worker_info(self):
+    def record_worker_info(self) -> None:
         self.info.info(
             {
                 "name": self.worker.name,
@@ -42,7 +46,7 @@ class Monitor(object):
             }
         )
 
-    def record_start(self):
+    def record_start(self) -> None:
         self.info.info(
             {
                 "name": self.worker.name,
@@ -52,7 +56,7 @@ class Monitor(object):
         )
         self.state.labels(name=self.worker.name).state("running")
 
-    def record_finish(self):
+    def record_finish(self) -> None:
         self.info.info(
             {
                 "name": self.worker.name,
@@ -62,7 +66,7 @@ class Monitor(object):
         )
         self.state.labels(name=self.worker.name).state("stopped")
 
-    def record_error(self, msg):
+    def record_error(self, msg: str) -> None:
         self.err.info(
             {
                 "name": self.worker.name,
@@ -73,8 +77,8 @@ class Monitor(object):
         )
         self.counter.labels(name=self.worker.name, operation="error", topic=None).inc()
 
-    def record_write(self, topic=None):
+    def record_write(self, topic: str = None) -> None:
         self.counter.labels(name=self.worker.name, operation="write", topic=topic).inc()
 
-    def record_read(self, topic=None):
+    def record_read(self, topic: str = None) -> None:
         self.counter.labels(name=self.worker.name, operation="read", topic=topic).inc()

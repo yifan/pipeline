@@ -6,6 +6,7 @@ from copy import copy
 from datetime import datetime
 from enum import IntEnum
 from typing import Optional, Set, List, Dict, Iterator, Type
+from logging import Logger
 
 from pydantic import BaseModel, ByteSize, Field, ValidationError
 
@@ -46,14 +47,14 @@ class WorkerSettings(Settings):
     monitoring: bool = Field(False, title="enable prometheus monitoring")
 
 
-class WorkerCore(ABC):
+class Worker(ABC):
     """Internal base class for pulsar-worker, DO NOT use it in your program!"""
 
     def __init__(
         self,
         settings: WorkerSettings,
         worker_type: WorkerType = WorkerType.Normal,
-        logger=pipelineLogger,
+        logger: Logger = pipelineLogger,
     ) -> None:
         self.name = settings.name
         self.version = settings.version
@@ -115,7 +116,7 @@ class ProducerSettings(WorkerSettings):
     pass
 
 
-class Producer(WorkerCore):
+class Producer(Worker):
     """Producer is a worker to generate new messages. For example, a webcrawler can
     be a producer. It reads no input, and produce outputs until it exits.
 
@@ -135,7 +136,7 @@ class Producer(WorkerCore):
         self,
         settings: ProducerSettings,
         output: Type[BaseModel],
-        logger=pipelineLogger,
+        logger: Logger = pipelineLogger,
     ):
         super().__init__(settings, worker_type=WorkerType.NoInput, logger=logger)
         self.output = output
@@ -211,24 +212,23 @@ class SplitterSettings(WorkerSettings):
     out_kind: TapKind = Field(None, title="output kind")
 
 
-class Splitter(WorkerCore):
+class Splitter(Worker):
     """Splitter will write to a topic whose name is based on a function"""
 
     def __init__(
         self,
         settings: SplitterSettings,
-        logger=pipelineLogger,
-    ):
+        logger: Logger = pipelineLogger,
+    ) -> None:
         super().__init__(settings, logger=logger)
         # keep a dictionary for 'topic': 'destination', self.destination is only used to parse
         # command line arguments
         self.destinations: Dict[str, DestinationTap] = {}
 
-    def get_topic(self, msg):
-        # FIXME remove example
-        return "{}-{}".format(self.destination.topic, msg.get("language", ""))
+    def get_topic(self, msg: Message) -> str:
+        raise NotImplementedError("You need to implement .get_topic(self, msg)")
 
-    def _run_streaming(self):
+    def _run_streaming(self) -> None:
         for msg in self.source.read():
             self.logger.info("Received message '%s'", str(msg))
             self.monitor.record_read(self.source.topic)
@@ -267,7 +267,7 @@ class Splitter(WorkerCore):
             self.monitor.record_write(topic)
             self.source.acknowledge()
 
-    def start(self):
+    def start(self) -> None:
         self.logger.setLevel(level=logging.INFO)
         if self.settings.debug:
             self.logger.setLevel(level=logging.DEBUG)
@@ -308,30 +308,36 @@ class ProcessorSettings(WorkerSettings):
     )
 
 
-class Processor(WorkerCore):
+class Processor(Worker):
+    settings: ProcessorSettings
+
     def __init__(
         self,
         settings: ProcessorSettings,
         input: Type[BaseModel],
         output: Type[BaseModel] = None,
-        logger=pipelineLogger,
-    ):
+        logger: Logger = pipelineLogger,
+    ) -> None:
         super().__init__(settings, logger=logger)
         self.retryEnabled = False
         self.input = input
         self.output = output
+        self.destinationClass: Optional[Type[DestinationTap]] = None
 
-    def use_retry_topic(self, name=None):
+    def use_retry_topic(self, name: str = None) -> None:
         """Retry topic is introduced to solve error handling by saving
         message being processed when error occurs to a separate topic.
         In this way, these messages can be reprocessed at a later stage.
         """
-        settings = copy(self.source.settings)
-        settings.topic = name if name else self.name + "-retry"
-        self.retryDestination = self.destinationClass(
-            settings=settings, logger=self.logger
-        )
-        self.retryEnabled = True
+        if self.destinationClass:
+            settings = copy(self.destination.settings)
+            settings.topic = name if name else self.name + "-retry"
+            self.retryDestination = self.destinationClass(
+                settings=settings, logger=self.logger
+            )
+            self.retryEnabled = True
+        else:
+            raise PipelineError("Please call this function after parse_args")
 
     def process(self, msg: BaseModel) -> BaseModel:
         """process function to be overridden by users, for streaming
@@ -350,7 +356,7 @@ class Processor(WorkerCore):
         """
         return msg
 
-    def _step(self, msg):
+    def _step(self, msg: Message) -> None:
         """ process one message """
         try:
             # each worker to append a log
@@ -379,7 +385,7 @@ class Processor(WorkerCore):
             return
         except Exception as e:
             self.logger.error(traceback.format_exc())
-            self.logger.error(e.json())
+            self.logger.error(e)
             # self.logger.error(
             #     "message is sent to retry topic %s",
             #     self.retryDestination.config.out_topic,
@@ -393,7 +399,7 @@ class Processor(WorkerCore):
             self.logger.info(f"Wrote message {msg}(size:{size})")
             self.monitor.record_write(self.destination.topic)
 
-    def _run_streaming(self):
+    def _run_streaming(self) -> None:
         """streaming processing messages from source and write resulted messages to destination
 
 
@@ -425,7 +431,7 @@ class Processor(WorkerCore):
                 self.logger.info(f"Limit {self.limit} reached, exiting")
                 break
 
-    def start(self):
+    def start(self) -> None:
         """ start processing. """
 
         self.logger.setLevel(level=logging.INFO)

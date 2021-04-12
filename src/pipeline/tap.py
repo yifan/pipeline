@@ -4,9 +4,10 @@ import logging
 import sys
 import gzip
 from abc import ABC, abstractmethod
-
+from logging import Logger
 from enum import Enum
-from typing import Optional, Dict, Tuple, Generator, List, ClassVar, Type, Union, cast
+from typing import Optional, Dict, Tuple, Iterator, List, ClassVar, Type, Union, Any
+
 from pydantic import BaseModel, Field
 
 from .helpers import Settings
@@ -34,13 +35,15 @@ class SourceTap(ABC):
     A source will emit Message.
     """
 
-    def __init__(self, settings: SourceSettings, logger=pipelineLogger):
+    def __init__(
+        self, settings: SourceSettings, logger: Logger = pipelineLogger
+    ) -> None:
         self.settings = settings
         self.topic = settings.topic
         self.logger = logger
 
     @abstractmethod
-    def read(self) -> Generator[Message, None, None]:
+    def read(self) -> Iterator[Message]:
         """ receive message. """
         raise NotImplementedError()
 
@@ -59,13 +62,13 @@ class SourceTap(ABC):
             raise TypeError(f"Source type '{kind}' is invalid") from None
 
         if isinstance(classesOrStrings, TapAndSettingsImportStrings):
-            tapAndSettingsImportStrings = cast(TapAndSettingsImportStrings, classesOrStrings)
+            tapAndSettingsImportStrings = classesOrStrings
             return SourceAndSettingsClasses(
                 sourceClass=import_class(tapAndSettingsImportStrings.tapClass),
                 settingsClass=import_class(tapAndSettingsImportStrings.settingsClass),
             )
         else:
-            return cast(SourceAndSettingsClasses, classesOrStrings)
+            return classesOrStrings
 
     def close(self) -> None:
         pass
@@ -86,7 +89,7 @@ class DestinationSettings(Settings):
 class DestinationTap(ABC):
     """Tap defines the interface for connecting components in pipeline."""
 
-    def __init__(self, settings: DestinationSettings, logger=pipelineLogger):
+    def __init__(self, settings: DestinationSettings, logger: Logger = pipelineLogger):
         self.settings = settings
         self.topic = settings.topic
         self.logger = logger
@@ -104,15 +107,13 @@ class DestinationTap(ABC):
             raise TypeError(f"Destination type '{kind}' is invalid") from None
 
         if isinstance(classesOrStrings, TapAndSettingsImportStrings):
-            tapAndSettingsImportStrings = cast(TapAndSettingsImportStrings, classesOrStrings)
+            tapAndSettingsImportStrings = classesOrStrings
             return DestinationAndSettingsClasses(
-                destinationClass=import_class(
-                    tapAndSettingsImportStrings.tapClass
-                ),
+                destinationClass=import_class(tapAndSettingsImportStrings.tapClass),
                 settingsClass=import_class(tapAndSettingsImportStrings.settingsClass),
             )
         else:
-            return cast(DestinationAndSettingsClasses, classesOrStrings)
+            return classesOrStrings
 
     def close(self) -> None:
         pass
@@ -120,7 +121,7 @@ class DestinationTap(ABC):
 
 class MemorySourceSettings(SourceSettings):
     topic: str = "in-topic"
-    data: List[dict] = []
+    data: List[Dict[str, Any]] = []
 
 
 class MemorySource(SourceTap):
@@ -135,11 +136,13 @@ class MemorySource(SourceTap):
 
     kind = "MEM"
 
-    def __init__(self, settings: MemorySourceSettings, logger=pipelineLogger):
+    def __init__(
+        self, settings: MemorySourceSettings, logger: Logger = pipelineLogger
+    ) -> None:
         super().__init__(settings, logger)
         self.data = settings.data
 
-    def read(self) -> Generator[Message, None, None]:
+    def read(self) -> Iterator[Message]:
         for i in self.data:
             yield Message(content=i)
 
@@ -166,7 +169,9 @@ class MemoryDestination(DestinationTap):
 
     kind: ClassVar[str] = "MEM"
 
-    def __init__(self, settings: MemoryDestinationSettings, logger=pipelineLogger):
+    def __init__(
+        self, settings: MemoryDestinationSettings, logger: Logger = pipelineLogger
+    ) -> None:
         super().__init__(settings=settings, logger=logger)
         self.results: List[Message] = []
 
@@ -199,7 +204,9 @@ class FileSource(SourceTap):
 
     kind = "FILE"
 
-    def __init__(self, settings: FileSourceSettings, logger=pipelineLogger) -> None:
+    def __init__(
+        self, settings: FileSourceSettings, logger: Logger = pipelineLogger
+    ) -> None:
         super().__init__(settings=settings, logger=logger)
         self.filename = settings.filename
         if self.filename == "-":
@@ -213,7 +220,7 @@ class FileSource(SourceTap):
     def __repr__(self) -> str:
         return 'FileSource("{}")'.format(self.filename)
 
-    def read(self) -> Generator[Message, None, None]:
+    def read(self) -> Iterator[Message]:
         for line in self.infile:
             yield Message.deserialize(line)
 
@@ -233,16 +240,18 @@ class FileDestination(DestinationTap):
 
     kind = "FILE"
 
-    def __init__(self, settings: FileDestinationSettings, logger=pipelineLogger):
+    def __init__(
+        self, settings: FileDestinationSettings, logger: Logger = pipelineLogger
+    ) -> None:
         super().__init__(settings, logger)
         self.filename = settings.filename
         if self.filename == "-":
             self.outFile = sys.stdout.buffer
         elif self.filename.endswith(".gz"):
             if settings.overwrite:
-                self.outFile = gzip.GzipFile(self.filename, "wb")   # type: ignore
+                self.outFile = gzip.GzipFile(self.filename, "wb")  # type: ignore
             else:
-                self.outFile = gzip.GzipFile(self.filename, "ab")   # type: ignore
+                self.outFile = gzip.GzipFile(self.filename, "ab")  # type: ignore
         else:
             if settings.overwrite:
                 self.outFile = open(self.filename, "wb")
@@ -250,7 +259,7 @@ class FileDestination(DestinationTap):
                 self.outFile = open(self.filename, "ab")
         self.logger.info("File Destination: %s", self.filename)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return 'FileDestination("{}")'.format(self.filename)
 
     def write(self, message: Message) -> int:
@@ -295,7 +304,9 @@ class CsvSource(SourceTap):
 
     kind = "CSV"
 
-    def __init__(self, settings: CsvSourceSettings, logger=pipelineLogger):
+    def __init__(
+        self, settings: CsvSourceSettings, logger: Logger = pipelineLogger
+    ) -> None:
         super().__init__(settings, logger)
         self.filename = settings.filename
         if self.filename == "-":
@@ -308,7 +319,7 @@ class CsvSource(SourceTap):
     def __repr__(self) -> str:
         return 'CsvSource("{}")'.format(self.filename)
 
-    def read(self) -> Generator[Message, None, None]:
+    def read(self) -> Iterator[Message]:
         for row in self.reader:
             yield Message(content=row)
 
@@ -331,7 +342,9 @@ class CsvDestination(DestinationTap):
 
     kind = "CSV"
 
-    def __init__(self, settings: CsvDestinationSettings, logger=pipelineLogger):
+    def __init__(
+        self, settings: CsvDestinationSettings, logger: Logger = pipelineLogger
+    ) -> None:
         super().__init__(settings, logger)
         self.dialect = settings.dialect
         self.filename = settings.filename
@@ -346,7 +359,7 @@ class CsvDestination(DestinationTap):
         self.writer: Optional[csv.DictWriter] = None
         self.logger.info("CsvDestination: %s", self.filename)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return 'CsvDestination("{}")'.format(self.filename)
 
     def write(self, message: Message) -> int:
@@ -382,25 +395,35 @@ class DestinationAndSettingsClasses(BaseModel):
     settingsClass: Type[DestinationSettings]
 
 
-def tap_kinds() -> Dict[str, Union[
-    Tuple[SourceAndSettingsClasses, DestinationAndSettingsClasses],
-    Tuple[TapAndSettingsImportStrings, TapAndSettingsImportStrings]
-]]:
+def tap_kinds() -> Dict[
+    str,
+    Union[
+        Tuple[SourceAndSettingsClasses, DestinationAndSettingsClasses],
+        Tuple[TapAndSettingsImportStrings, TapAndSettingsImportStrings],
+    ],
+]:
     return {
         "MEM": (
-            SourceAndSettingsClasses(sourceClass=MemorySource, settingsClass=MemorySourceSettings),
+            SourceAndSettingsClasses(
+                sourceClass=MemorySource, settingsClass=MemorySourceSettings
+            ),
             DestinationAndSettingsClasses(
-                destinationClass=MemoryDestination, settingsClass=MemoryDestinationSettings
+                destinationClass=MemoryDestination,
+                settingsClass=MemoryDestinationSettings,
             ),
         ),
         "FILE": (
-            SourceAndSettingsClasses(sourceClass=FileSource, settingsClass=FileSourceSettings),
+            SourceAndSettingsClasses(
+                sourceClass=FileSource, settingsClass=FileSourceSettings
+            ),
             DestinationAndSettingsClasses(
                 destinationClass=FileDestination, settingsClass=FileDestinationSettings
             ),
         ),
         "CSV": (
-            SourceAndSettingsClasses(sourceClass=CsvSource, settingsClass=CsvSourceSettings),
+            SourceAndSettingsClasses(
+                sourceClass=CsvSource, settingsClass=CsvSourceSettings
+            ),
             DestinationAndSettingsClasses(
                 destinationClass=CsvDestination, settingsClass=CsvDestinationSettings
             ),
@@ -458,4 +481,4 @@ def tap_kinds() -> Dict[str, Union[
     }
 
 
-TapKind = Enum("TapKind", {x: x for x in tap_kinds().keys()})   # type: ignore
+TapKind = Enum("TapKind", {x: x for x in tap_kinds().keys()})  # type: ignore

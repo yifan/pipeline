@@ -1,4 +1,6 @@
 import time
+from logging import Logger
+from typing import ClassVar, Iterator, Dict
 
 from pydantic import Json, Field
 from confluent_kafka import (
@@ -15,7 +17,7 @@ from ..message import Message
 class KafkaSourceSettings(SourceSettings):
     kafka: str = Field("localhost", title="kafka url")
     group_id: str = Field(None, title="kafka consumer group id")
-    config: Json = Field(None, title="kafka config in json format")
+    config: Json[Dict[str, str]] = Field("{}", title="kafka config in json format")
     poll_timeout: int = Field(
         30, title="time out for polling new messages"
     )  # TODO check if duplicate with timeout
@@ -30,9 +32,11 @@ class KafkaSource(SourceTap):
     KafkaSource(host="localhost",groupid="group-id",topic="in-topic")
     """
 
-    kind = "KAFKA"
+    settings: KafkaSourceSettings
 
-    def __init__(self, settings, logger):
+    kind: ClassVar[str] = "KAFKA"
+
+    def __init__(self, settings: KafkaSourceSettings, logger: Logger) -> None:
         super().__init__(settings, logger)
 
         config = {
@@ -52,7 +56,7 @@ class KafkaSource(SourceTap):
         self.topic = settings.topic
         self.last_msg = None
 
-        def maybe_rewind(c, partitions):
+        def maybe_rewind(c, partitions):  # type: ignore
             self.logger.info("Assignment: %s", str(partitions))
             # disable rewind for now
             # if settings.rewind:
@@ -64,15 +68,15 @@ class KafkaSource(SourceTap):
         self.consumer.subscribe([self.topic], on_assign=maybe_rewind)
         self.logger.info("KAFKA consumer subscribed to topic %s", self.topic)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return 'KafkaSource(host="{}",groupid="{}",topic="{}")'.format(
             self.settings.kafka, self.settings.group_id, self.topic
         )
 
-    def read(self):
-        timedOut = False
-        lastMessageTime = time.time()
-        while not timedOut:
+    def read(self) -> Iterator[Message]:
+        timedout = False
+        last_message_time = time.time()
+        while not timedout:
             msg = self.consumer.poll(timeout=self.settings.poll_timeout)
             if msg is None:
                 self.logger.warning("No message to read, timed out")
@@ -87,17 +91,18 @@ class KafkaSource(SourceTap):
             else:
                 self.logger.info("Read {}, {}".format(msg.topic(), msg.offset()))
                 self.last_msg = msg
-                yield Message.deserialize(msg.value(), compress=self.settings.compress)
-                lastMessageTime = time.time()
+                yield Message.deserialize(msg.value())
+                last_message_time = time.time()
             time.sleep(0.01)
-            if self.timeout > 0 and time.time() - lastMessageTime > self.timeout:
-                timedOut = True
+            if self.settings.timeout > 0:
+                time_since_last_message = time.time() - last_message_time
+                timedout = time_since_last_message > self.settings.timeout
 
-    def acknowledge(self):
+    def acknowledge(self) -> None:
         if self.last_msg:
             self.consumer.commit(message=self.last_msg)
 
-    def close(self):
+    def close(self) -> None:
         self.consumer.close()
 
 
@@ -115,9 +120,11 @@ class KafkaDestination(DestinationTap):
     KafkaDestination(host="localhost",topic="out-topic")
     """
 
-    kind = "KAFKA"
+    settings: KafkaDestinationSettings
 
-    def __init__(self, settings, logger):
+    kind: ClassVar[str] = "KAFKA"
+
+    def __init__(self, settings: KafkaDestinationSettings, logger: Logger) -> None:
         super().__init__(settings, logger)
         config = {
             "bootstrap.servers": settings.kafka,
@@ -128,18 +135,18 @@ class KafkaDestination(DestinationTap):
         }
 
         if settings.config:
-            config.update(settings.config)
+            config.update(settings.config.items())
 
         self.topic = settings.topic
         self.producer = Producer(config, logger=self.logger)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return 'KafkaDestination(host="{}",topic="{}")'.format(
             self.settings.kafka, self.topic
         )
 
-    def write(self, message):
-        def delivery_report(err, msg):
+    def write(self, message: Message) -> int:
+        def delivery_report(err, msg):  # type: ignore
             if err:
                 self.logger.error(
                     "Message delivery failed ({} [{}]: {}".format(
@@ -158,5 +165,5 @@ class KafkaDestination(DestinationTap):
         self.producer.flush()
         return len(serialized)
 
-    def close(self):
+    def close(self) -> None:
         self.producer.flush()

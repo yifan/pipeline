@@ -1,7 +1,8 @@
 import time
 from argparse import ArgumentParser, Action
-
 from typing import List
+from logging import Logger
+
 from pydantic import BaseSettings
 
 
@@ -28,7 +29,7 @@ class Settings(BaseSettings):
         class SetSettingsAction(Action):
             settings = settingsRef
 
-            def __call__(self, parser, namespace, values, option_string=None):
+            def __call__(self, parser, namespace, values, option_string=None):  # type: ignore
                 if settingsRef.Config.env_prefix:
                     dest = self.dest[len(self.settings.Config.env_prefix) :]
                 else:
@@ -49,7 +50,7 @@ class Settings(BaseSettings):
 
 
 class Timer:
-    def __init__(self):
+    def __init__(self) -> None:
         self.startTime = time.perf_counter()
         self.startProcessTime = time.process_time()
         self.totalTime = 0.0
@@ -57,29 +58,29 @@ class Timer:
         self.timeCount = 0
         self.processTimeCount = 0
 
-    def elapsed_time(self):
+    def elapsed_time(self) -> float:
         t = time.perf_counter() - self.startTime
         self.totalTime += t
         self.timeCount += 1
         return t
 
-    def average_time(self):
+    def average_time(self) -> float:
         return self.totalTime / self.timeCount
 
-    def process_time(self):
+    def process_time(self) -> float:
         t = time.process_time() - self.startProcessTime
         self.totalProcessTime += t
         self.processTimeCount += 1
         return t
 
-    def average_process_time(self):
+    def average_process_time(self) -> float:
         return self.totalProcessTime / self.processTimeCount
 
-    def start(self):
+    def start(self) -> None:
         self.startTime = time.perf_counter()
         self.startProcessTime = time.process_time()
 
-    def log(self, logger):
+    def log(self, logger: Logger) -> None:
         elapsedTime = self.elapsed_time()
         averageTime = self.average_time()
         logger.info("Elapsed Time: %.2f, Average Time: %.2f", elapsedTime, averageTime)
