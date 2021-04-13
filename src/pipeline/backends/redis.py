@@ -28,8 +28,7 @@ class RedisStreamSource(SourceTap):
     >>> import logging
     >>> from unittest.mock import patch
     >>> settings = RedisSourceSettings()
-    >>> with patch('Redis') as c:
-    ...     RedisStreamSource(settings=settings, logger=logging)
+    >>> RedisStreamSource(settings=settings, logger=logging)
     RedisStreamSource(host="redis://localhost:6379/0", topic="in-topic")
     """
 
@@ -50,10 +49,6 @@ class RedisStreamSource(SourceTap):
             port=int(self.settings.redis.port) if self.settings.redis.port else 6380,
             password=self.settings.redis.password,
         )
-        try:
-            self.redis.xgroup_create(self.topic, self.group, id="0", mkstream=True)
-        except RedisResponseError as e:
-            logger.error(str(e))
 
         self.consumer = str(uuid.uuid1())
         self.last_msg = None
@@ -62,6 +57,13 @@ class RedisStreamSource(SourceTap):
         return f'RedisStreamSource(host="{self.settings.redis}", topic="{self.topic}")'
 
     def read(self) -> Iterator[Message]:
+
+        try:
+            self.redis.xgroup_create(self.topic, self.group, id="0", mkstream=True)
+        except RedisResponseError as e:
+            self.logger.error(str(e))
+            raise
+
         timedOut = False
         lastMessageTime = time.time()
         while not timedOut:
@@ -101,8 +103,7 @@ class RedisStreamDestination(DestinationTap):
     >>> import logging
     >>> from unittest.mock import patch
     >>> settings = RedisDestinationSettings()
-    >>> with patch('Redis') as c:
-    ...     RedisStreamDestination(settings=settings, logger=logging)
+    >>> RedisStreamDestination(settings=settings, logger=logging)
     RedisStreamDestination(host="redis://localhost:6379/0", topic="out-topic")
     """
 
@@ -142,8 +143,7 @@ class RedisListSource(SourceTap):
     >>> import logging
     >>> from unittest.mock import patch
     >>> settings = RedisSourceSettings()
-    >>> with patch('Redis') as c:
-    ...     RedisListSource(settings=settings, logger=logging)
+    >>> RedisListSource(settings=settings, logger=logging)
     RedisListSource(host="redis://localhost:6379/0", topic="in-topic")
     """
 
@@ -200,8 +200,7 @@ class RedisListDestination(DestinationTap):
     >>> import logging
     >>> from unittest.mock import patch
     >>> settings = RedisDestinationSettings()
-    >>> with patch('Redis') as c:
-    ...     RedisListDestination(settings=settings, logger=logging)
+    >>> RedisListDestination(settings=settings, logger=logging)
     RedisListDestination(host="redis://localhost:6379/0", topic="out-topic")
     """
 

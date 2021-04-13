@@ -292,7 +292,12 @@ class TestWorkerCore(TestCase):
             in_kind=TapKind.MEM,
             out_kind=TapKind.MEM,
         )
-        splitter = Splitter(settings)
+
+        class MySplitter(Splitter):
+            def get_topic(self, msg):
+                return f'test-{msg.get("language")}'
+
+        splitter = MySplitter(settings)
         splitter.parse_args(args=["--out-topic", "test"])
         splitter.source.data = msgs
         splitter.start()
@@ -325,7 +330,12 @@ class TestWorkerCore(TestCase):
                 settings = SplitterSettings(
                     name="splitter", version="0.0.0", description=""
                 )
-                splitter = Splitter(settings=settings)
+
+                class MySplitter(Splitter):
+                    def get_topic(self, msg):
+                        return f'test-{msg.get("language")}'
+
+                splitter = MySplitter(settings=settings)
                 splitter.parse_args(
                     args=[
                         "--in-kind",

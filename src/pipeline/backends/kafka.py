@@ -1,8 +1,9 @@
 import time
+import json
 from logging import Logger
-from typing import ClassVar, Iterator, Dict
+from typing import ClassVar, Iterator, Optional
 
-from pydantic import Json, Field
+from pydantic import Field
 from confluent_kafka import (
     Consumer,
     KafkaError,
@@ -17,10 +18,8 @@ from ..message import Message
 class KafkaSourceSettings(SourceSettings):
     kafka: str = Field("localhost", title="kafka url")
     group_id: str = Field(None, title="kafka consumer group id")
-    config: Json[Dict[str, str]] = Field("{}", title="kafka config in json format")
-    poll_timeout: int = Field(
-        30, title="time out for polling new messages"
-    )  # TODO check if duplicate with timeout
+    config: Optional[str] = Field(None, title="kafka config in json format")
+    poll_timeout: int = Field(30, title="time out for polling new messages")
 
 
 class KafkaSource(SourceTap):
@@ -50,7 +49,8 @@ class KafkaSource(SourceTap):
         }
 
         if settings.config:
-            config.update(settings.config)
+            user_config = json.loads(settings.config)
+            config.update(user_config)
 
         self.consumer = Consumer(config, logger=self.logger)
         self.topic = settings.topic
@@ -108,7 +108,7 @@ class KafkaSource(SourceTap):
 
 class KafkaDestinationSettings(DestinationSettings):
     kafka: str = Field("localhost", title="kafka url")
-    config: Json = Field(None, title="kafka config in json format")
+    config: str = Field("{}", title="kafka config in json format")
 
 
 class KafkaDestination(DestinationTap):
@@ -135,7 +135,8 @@ class KafkaDestination(DestinationTap):
         }
 
         if settings.config:
-            config.update(settings.config.items())
+            user_config = json.loads(settings.config)
+            config.update(user_config)
 
         self.topic = settings.topic
         self.producer = Producer(config, logger=self.logger)

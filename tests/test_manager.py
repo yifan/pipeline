@@ -1,5 +1,4 @@
 import os
-
 from unittest import TestCase, mock
 
 from pipeline import TapKind, Pipeline, Message, PipelineError
@@ -26,8 +25,7 @@ class TestPipeline(TestCase):
         destination.write(Message(content={"key": "dummy", "test": "value"}))
         self.assertEqual(len(destination.results), 1)
 
-    @mock.patch("redis.Redis")
-    def test_pipeline_redis(self, r):
+    def test_pipeline_redis(self):
         os.environ["IN_KIND"] = "LREDIS"
         os.environ["OUT_KIND"] = "LREDIS"
         pipeline = Pipeline()
@@ -37,6 +35,7 @@ class TestPipeline(TestCase):
         assert pipeline.sourceOf("test") is not None
         pipeline.addDestinationTopic("test")
         destination = pipeline.destinationOf("test")
+        destination.redis = mock.MagicMock()
         destination.write(Message(content={"key": "dummy", "test": "value"}))
 
     def test_pipeline_unknown(self):

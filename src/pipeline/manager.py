@@ -4,7 +4,6 @@ from typing import Any, Dict
 
 from .exception import PipelineError
 from .tap import (
-    TapKind,
     SourceTap,
     DestinationTap,
     SourceAndSettingsClasses,
@@ -74,10 +73,10 @@ class Pipeline(object):
         )
         in_kind = kwargs.get("in_kind")
         if in_kind:
-            self.settings.in_kind = TapKind[in_kind]
+            self.settings.in_kind = in_kind
         out_kind = kwargs.get("out_kind")
         if out_kind:
-            self.settings.out_kind = TapKind[out_kind]
+            self.settings.out_kind = out_kind
         self.settings.parse_args(args)
 
         if self.settings.in_kind:
