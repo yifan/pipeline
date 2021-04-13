@@ -266,15 +266,10 @@ class Splitter(Worker):
 
             msg.logs.append(log)
 
-            # FIXME validation
-            if True or msg.is_valid():
-                self.logger.info("Writing message %s to topic <%s>", str(msg), topic)
-                msgSize = destination.write(msg)
-                self.logger.info(f"Message size: {msgSize}")
-            else:
-                self.logger.error("Produced message is invalid, skipping")
-                self.logger.debug(msg.log_info())
-                self.logger.debug(msg.log_content())
+            self.logger.info("Writing message %s to topic <%s>", str(msg), topic)
+            msgSize = destination.write(msg)
+            self.logger.info(f"Message size: {msgSize}")
+
             self.monitor.record_write(topic)
             self.source.acknowledge()
 
