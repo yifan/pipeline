@@ -6,6 +6,7 @@ import pytest
 
 from pipeline import (
     TapKind,
+    DescribeMessage,
     ProducerSettings,
     Producer,
     ProcessorSettings,
@@ -457,7 +458,7 @@ class TestWorkerCore(TestCase):
         assert len(processor.destination.results) == 3
         logger.info.assert_any_call("logging")
 
-    def test_invalid_input(self):
+    def test_describe_message(self):
         class Input(BaseModel):
             key: int
             title: str
@@ -467,10 +468,10 @@ class TestWorkerCore(TestCase):
 
         class MyProcessor(Processor):
             def process(self, msg: Input) -> Output:
-                return msg
+                return Output(key=1)
 
         logger = mock.MagicMock()
-        msgs = [{"key": "1"}, {"key": "2"}, {"key": "3", "title": "title"}]
+        msgs = [DescribeMessage(), {"key": "3", "title": "title"}]
         settings = ProcessorSettings(
             name="processor",
             version="0.0.0",
@@ -484,4 +485,7 @@ class TestWorkerCore(TestCase):
         processor.parse_args(args="--out-topic test".split())
         processor.source.data = msgs
         processor.start()
-        assert len(processor.destination.results) == 1
+        assert len(processor.destination.results) == 2
+        result = processor.destination.results[0]
+        assert result.input_schema is not None
+        assert result.output_schema is not None

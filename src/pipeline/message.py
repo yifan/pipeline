@@ -74,5 +74,10 @@ class DescribeMessage(Message):
 
     """
 
+    input_schema: Optional[str]
+    output_schema: Optional[str]
+
     def __init__(self) -> None:
         super().__init__(kind=Kind.Describe)
+        self.input_schema = None
+        self.output_schema = None

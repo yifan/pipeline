@@ -10,6 +10,7 @@ from typing import Optional, Dict, Tuple, Iterator, List, ClassVar, Type, Union,
 
 from pydantic import BaseModel, Field
 
+from .exception import PipelineMessageError
 from .helpers import Settings
 from .message import Message
 from .importor import import_class
@@ -147,7 +148,12 @@ class MemorySource(SourceTap):
 
     def read(self) -> Iterator[Message]:
         for i in self.data:
-            yield Message(content=i)
+            if isinstance(i, Message):
+                yield i
+            elif isinstance(i, dict):
+                yield Message(content=i)
+            else:
+                raise PipelineMessageError("MemorySource needs Message or dict")
 
     def rewind(self) -> None:
         raise NotImplementedError()

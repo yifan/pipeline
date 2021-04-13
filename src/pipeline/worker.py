@@ -365,7 +365,7 @@ class Processor(Worker):
         """
         raise NotImplementedError("You need to implement .process()")
 
-    def _step(self, msg: Message) -> None:
+    def _step(self, msg: Message) -> Message:
         """ process one message """
 
         self.logger.info(f"Receive message {msg}")
@@ -466,8 +466,26 @@ class Processor(Worker):
         for i, msg in enumerate(self.source.read()):
 
             if isinstance(msg, DescribeMessage):
-                pass
-                # TODO describe worker input and output
+                self.logger.info(f"Receive message {msg}")
+                log = Log(
+                    name=self.name,
+                    version=self.version,
+                    updated=set(),
+                    received=datetime.now(),
+                )
+                if self.input_class:
+                    msg.input_schema = self.input_class.schema_json(indent=2)
+                if self.output_class:
+                    msg.output_schema = self.output_class.schema_json(indent=2)
+                log.processed = datetime.now()
+                log.elapsed = 0.0
+                msg.logs.append(log)
+
+                if self.has_output():
+                    size = self.destination.write(msg)
+                    self.logger.info(f"Wrote message {msg}(size:{size})")
+                    self.monitor.record_write(self.destination.topic)
+
             else:
                 self.monitor.record_read(self.source.topic)
                 self.logger.info("Received %d-th message '%s'", i, str(msg))

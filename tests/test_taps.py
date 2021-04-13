@@ -81,7 +81,7 @@ class TestTaps(TestCase):
     def test_redis(self):
         destination_and_settings_classes = DestinationTap.of(TapKind.REDIS)
         settings = destination_and_settings_classes.settings_class()
-        settings.parse_args(f"--out-namespace out".split())
+        settings.parse_args("--out-namespace out".split())
         destination = destination_and_settings_classes.destination_class(settings)
         destination.redis = mock.MagicMock()
         message_written = Message(content={"key": "written"})
@@ -90,7 +90,7 @@ class TestTaps(TestCase):
 
         source_and_settings_classes = SourceTap.of(TapKind.REDIS)
         settings = source_and_settings_classes.settings_class()
-        settings.parse_args(f"--in-namespace in".split())
+        settings.parse_args("--in-namespace in".split())
         source = source_and_settings_classes.source_class(settings)
         source.redis = mock.MagicMock()
         # message_read = next(source.read())
