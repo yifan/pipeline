@@ -11,11 +11,11 @@ $(VPY): $(VENV)
 
 .PHONY: pytest
 pytest: $(VPY)
-	$(VPY) -m pytest
+	$(VPY) -m pytest $(ARGS)
 
 .PHONY: pylint
 pylint: $(VPY)
-	$(VPY) -m pylint src
+	$(VPY) -m pylint $(ARGS) src
 
 .PHONY: mypy
 mypy: $(VPY)
@@ -23,7 +23,7 @@ mypy: $(VPY)
 
 .PHONY: test
 test: $(VPY)
-	$(VPY) -m tox
+	$(VPY) -m tox $(ARGS)
 
 .PHONY: upload
 upload: $(VPY) test
