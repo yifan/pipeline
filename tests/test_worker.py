@@ -66,7 +66,7 @@ class TestWorkerCore(TestCase):
             in_kind=TapKind.MEM,
             out_kind=TapKind.MEM,
         )
-        processor = Processor(settings, input_class=Input, output_class=Output)
+        processor = MyProcessor(settings, input_class=Input, output_class=Output)
         msgs = [{"key": 1}, {"key": 2}]
         processor.parse_args()
         processor.source.data = msgs
