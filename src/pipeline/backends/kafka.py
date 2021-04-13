@@ -74,26 +74,26 @@ class KafkaSource(SourceTap):
         )
 
     def read(self) -> Iterator[Message]:
+        # sometimes it is better to make constant call to KAFKA
+        # to keep the connection alive.
         timedout = False
         last_message_time = time.time()
         while not timedout:
             msg = self.consumer.poll(timeout=self.settings.poll_timeout)
-            if msg is None:
-                self.logger.warning("No message to read, timed out")
-                break
 
-            if msg.error():
-                if msg.error().code() == KafkaError._PARTITION_EOF:
-                    self.logger.warning("Reaching EOF")
-                    break
+            if msg:
+                if msg.error():
+                    if msg.error().code() == KafkaError._PARTITION_EOF:
+                        self.logger.warning("Reaching EOF")
+                        break
+                    else:
+                        raise KafkaException(msg.error())
                 else:
-                    raise KafkaException(msg.error())
-            else:
-                self.logger.info("Read {}, {}".format(msg.topic(), msg.offset()))
-                self.last_msg = msg
-                yield Message.deserialize(msg.value())
-                last_message_time = time.time()
-            time.sleep(0.01)
+                    self.logger.info("Read {}, {}".format(msg.topic(), msg.offset()))
+                    self.last_msg = msg
+                    yield Message.deserialize(msg.value())
+                    last_message_time = time.time()
+
             if self.settings.timeout > 0:
                 time_since_last_message = time.time() - last_message_time
                 timedout = time_since_last_message > self.settings.timeout
