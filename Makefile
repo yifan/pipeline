@@ -15,7 +15,7 @@ pytest: $(VPY)
 
 .PHONY: coverage
 coverage: $(VPY)
-	PYTHONPATH=src $(VPY) -m pytest --cov=src --cov-report term-missing tests $(ARGS)
+	PYTHONPATH=src $(VPY) -m pytest --cov=src --cov-report term-missing tests src $(ARGS)
 
 .PHONY: pylint
 pylint: $(VPY)
