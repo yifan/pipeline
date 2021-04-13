@@ -1,5 +1,6 @@
 import time
 import uuid
+import logging
 from logging import Logger
 from typing import Iterator, ClassVar, Any
 
@@ -9,6 +10,12 @@ from redis import Redis, ResponseError as RedisResponseError
 from ..tap import SourceTap, SourceSettings, DestinationTap, DestinationSettings
 from ..message import Message
 from ..helpers import namespaced_topic
+
+
+FORMAT = "%(asctime)-15s %(levelname)s %(message)s"
+logging.basicConfig(format=FORMAT)
+pipelineLogger = logging.getLogger("pipeline")
+pipelineLogger.setLevel(logging.DEBUG)
 
 
 class RedisSourceSettings(SourceSettings):
@@ -31,7 +38,9 @@ class RedisStreamSource(SourceTap):
 
     kind: ClassVar[str] = "XREDIS"
 
-    def __init__(self, settings: RedisSourceSettings, logger: Logger) -> None:
+    def __init__(
+        self, settings: RedisSourceSettings, logger: Logger = pipelineLogger
+    ) -> None:
         super().__init__(settings, logger)
         self.settings = settings
         self.client = Redis(settings.redis)
@@ -106,7 +115,9 @@ class RedisStreamDestination(DestinationTap):
 
     kind: ClassVar[str] = "XREDIS"
 
-    def __init__(self, settings: RedisDestinationSettings, logger: Logger) -> None:
+    def __init__(
+        self, settings: RedisDestinationSettings, logger: Logger = pipelineLogger
+    ) -> None:
         super().__init__(settings, logger)
         self.settings = settings
         self.client = Redis(settings.redis)
@@ -146,7 +157,9 @@ class RedisListSource(SourceTap):
 
     kind: ClassVar[str] = "LREDIS"
 
-    def __init__(self, settings: RedisSourceSettings, logger: Logger) -> None:
+    def __init__(
+        self, settings: RedisSourceSettings, logger: Logger = pipelineLogger
+    ) -> None:
         super().__init__(settings, logger)
         self.settings = settings
         self.client = Redis(settings.redis)
@@ -203,7 +216,9 @@ class RedisListDestination(DestinationTap):
 
     kind: ClassVar[str] = "LREDIS"
 
-    def __init__(self, settings: RedisDestinationSettings, logger: Logger) -> None:
+    def __init__(
+        self, settings: RedisDestinationSettings, logger: Logger = pipelineLogger
+    ) -> None:
         super().__init__(settings, logger)
         self.settings = settings
         self.client = Redis(settings.redis)

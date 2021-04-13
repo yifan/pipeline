@@ -13,6 +13,10 @@ $(VPY): $(VENV)
 pytest: $(VPY)
 	$(VPY) -m pytest $(ARGS)
 
+.PHONY: coverage
+coverage: $(VPY)
+	PYTHONPATH=src $(VPY) -m pytest --cov=src --cov-report term-missing tests $(ARGS)
+
 .PHONY: pylint
 pylint: $(VPY)
 	$(VPY) -m pylint $(ARGS) src

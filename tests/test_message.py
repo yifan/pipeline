@@ -1,6 +1,8 @@
 from unittest import TestCase
 
-from pipeline import Message
+import pytest
+
+from pipeline import Message, DescribeMessage, MessageParsingError
 
 
 class TestMessage(TestCase):
@@ -42,3 +44,10 @@ class TestMessage(TestCase):
     def test_key(self):
         message = Message(id="m", content={"value": "*" * 2048})
         assert message.id == "m"
+
+    def test_parsing_exception(self):
+        with pytest.raises(MessageParsingError):
+            Message.deserialize(b"HFHGKDJFHG")
+
+    def test_describe(self):
+        DescribeMessage()

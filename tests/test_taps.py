@@ -1,5 +1,5 @@
 import tempfile
-from unittest import TestCase
+from unittest import TestCase, mock
 
 from pipeline import DestinationTap, SourceTap, Message, TapKind
 
@@ -77,3 +77,20 @@ class TestTaps(TestCase):
         self.assertEqual(
             message_written.content.get("key"), message_read.content.get("key")
         )
+
+    def test_redis(self):
+        destination_and_settings_classes = DestinationTap.of(TapKind.REDIS)
+        settings = destination_and_settings_classes.settings_class()
+        settings.parse_args(f"--out-namespace out".split())
+        destination = destination_and_settings_classes.destination_class(settings)
+        destination.redis = mock.MagicMock()
+        message_written = Message(content={"key": "written"})
+        destination.write(message_written)
+        destination.close()
+
+        source_and_settings_classes = SourceTap.of(TapKind.REDIS)
+        settings = source_and_settings_classes.settings_class()
+        settings.parse_args(f"--in-namespace in".split())
+        source = source_and_settings_classes.source_class(settings)
+        source.redis = mock.MagicMock()
+        # message_read = next(source.read())

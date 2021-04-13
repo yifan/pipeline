@@ -1,5 +1,5 @@
 from .exception import PipelineError
-from .message import Message
+from .message import Message, DescribeMessage, MessageParsingError
 from .tap import DestinationTap, SourceTap, TapKind
 from .worker import (
     ProducerSettings,
@@ -14,6 +14,7 @@ from .manager import Pipeline
 
 __all__ = [
     "PipelineError",
+    "MessageParsingError",
     "SourceTap",
     "DestinationTap",
     "TapKind",
@@ -24,5 +25,6 @@ __all__ = [
     "SplitterSettings",
     "Splitter",
     "Message",
+    "DescribeMessage",
     "Pipeline",
 ]

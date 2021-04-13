@@ -5,8 +5,10 @@ from typing import Any, Type, Dict, List, Optional, Union, KeysView
 from pydantic import BaseModel, UUID1
 import zstandard
 
+from .exception import PipelineError
 
-class MessageParsingException(Exception):
+
+class MessageParsingError(PipelineError):
     pass
 
 
@@ -46,7 +48,7 @@ class Message(BaseModel):
         elif data[0] == ord("Z"):
             return cls.parse_raw(cls._decompress(data[1:]).decode("utf-8"))
         else:
-            raise MessageParsingException()
+            raise MessageParsingError("Unknown format")
 
     def serialize(self, compress: bool = False) -> bytes:
         data = self.json().encode("utf-8")
