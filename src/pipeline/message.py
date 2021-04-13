@@ -54,8 +54,8 @@ class Message(BaseModel):
             data = b"Z" + self._compress(data)
         return data
 
-    def as_model(self, modelClass: Type[BaseModel]) -> BaseModel:
-        return modelClass(**self.content)
+    def as_model(self, model_class: Type[BaseModel]) -> BaseModel:
+        return model_class(**self.content)
 
     def update_content(self, other: BaseModel) -> KeysView[str]:
         d = other.dict()

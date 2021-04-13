@@ -66,7 +66,7 @@ will produce output without input. A crawler can be seen as a producer.
     ...             yield Output(key=i)
     >>>
     >>> settings = Settings(name='producer', version='0.0.0', description='')
-    >>> producer = MyProducer(settings, output=Output)
+    >>> producer = MyProducer(settings, output_class=Output)
     >>> producer.parse_args("--out-kind MEM --out-topic test".split())
     >>> producer.start()
     >>> [r.get('key') for r in producer.destination.results]
@@ -95,7 +95,7 @@ can produce one output for each input, or no output.
     ...         return Output(key=input.key, processed=True)
     >>>
     >>> settings = Settings(name='processor', version='0.1.0', description='')
-    >>> processor = MyProcessor(settings, input=Input, output=Output)
+    >>> processor = MyProcessor(settings, input_class=Input, output_class=Output)
     >>> args = "--in-kind MEM --in-topic test --out-kind MEM --out-topic test".split()
     >>> processor.parse_args(args)
     >>> processor.start()

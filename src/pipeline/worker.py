@@ -90,20 +90,25 @@ class Worker(ABC):
                 self.logger.critical(
                     "Please specify '--in-kind' or environment 'IN_KIND'!"
                 )
-                raise
-            self.sourceClassAndSettings = SourceTap.of(self.settings.in_kind)
-            sourceSettings = self.sourceClassAndSettings.settingsClass()
-            sourceSettings.parse_args(args)
-            self.source = self.sourceClassAndSettings.sourceClass(
-                settings=sourceSettings, logger=self.logger
+                raise PipelineError(
+                    "Please specify '--in-kind' or environment 'IN_KIND'!"
+                )
+
+            self.source_and_settings_classes = SourceTap.of(self.settings.in_kind)
+            source_settings = self.source_and_settings_classes.settingsClass()
+            source_settings.parse_args(args)
+            self.source = self.source_and_settings_classes.sourceClass(
+                settings=source_settings, logger=self.logger
             )
 
         if self.settings.out_kind:
-            self.destinationClassAndSettings = DestinationTap.of(self.settings.out_kind)
-            destinationSettings = self.destinationClassAndSettings.settingsClass()
-            destinationSettings.parse_args(args)
-            self.destination = self.destinationClassAndSettings.destinationClass(
-                settings=destinationSettings, logger=self.logger
+            self.destination_and_settings_classes = DestinationTap.of(
+                self.settings.out_kind
+            )
+            destination_settings = self.destination_and_settings_classes.settingsClass()
+            destination_settings.parse_args(args)
+            self.destination = self.destination_and_settings_classes.destinationClass(
+                settings=destination_settings, logger=self.logger
             )
         else:
             self.worker_type = WorkerType.NoOutput
@@ -127,23 +132,25 @@ class Producer(Worker):
     ...     pass
     >>>
     >>> settings = ProducerSettings(name='', version='', description='', out_kind='MEM')
-    >>> producer = Producer(settings, output=Output)
+    >>> producer = Producer(settings, output_class=Output)
     >>> producer.parse_args()
     >>> #producer.start()
     """
 
+    generator: Iterator[Message]
+
     def __init__(
         self,
         settings: ProducerSettings,
-        output: Type[BaseModel],
+        output_class: Type[BaseModel],
         logger: Logger = pipelineLogger,
     ):
         super().__init__(settings, worker_type=WorkerType.NoInput, logger=logger)
-        self.output = output
+        self.output_class = output_class
 
     def generate(self) -> Iterator[BaseModel]:
         """a producer to generate dict."""
-        yield BaseModel()
+        yield self.output_class()
 
     def _step(self) -> BaseModel:
         return next(self.generator)
@@ -247,7 +254,7 @@ class Splitter(Worker):
                 settings.topic = topic
                 self.destinations[
                     topic
-                ] = self.destinationClassAndSettings.destinationClass(
+                ] = self.destination_and_settings_classes.destinationClass(
                     settings, logger=self.logger
                 )
 
@@ -310,29 +317,32 @@ class ProcessorSettings(WorkerSettings):
 
 class Processor(Worker):
     settings: ProcessorSettings
+    input_class: Type[BaseModel]
+    output_class: Optional[Type[BaseModel]]
+    destination_class: Optional[Type[DestinationTap]]
 
     def __init__(
         self,
         settings: ProcessorSettings,
-        input: Type[BaseModel],
-        output: Type[BaseModel] = None,
+        input_class: Type[BaseModel],
+        output_class: Optional[Type[BaseModel]] = None,
         logger: Logger = pipelineLogger,
     ) -> None:
         super().__init__(settings, logger=logger)
         self.retryEnabled = False
-        self.input = input
-        self.output = output
-        self.destinationClass: Optional[Type[DestinationTap]] = None
+        self.input_class = input_class
+        self.output_class = output_class
+        self.destination_class = None
 
     def use_retry_topic(self, name: str = None) -> None:
         """Retry topic is introduced to solve error handling by saving
         message being processed when error occurs to a separate topic.
         In this way, these messages can be reprocessed at a later stage.
         """
-        if self.destinationClass:
+        if self.destination_class:
             settings = copy(self.destination.settings)
             settings.topic = name if name else self.name + "-retry"
-            self.retryDestination = self.destinationClass(
+            self.retryDestination = self.destination_class(
                 settings=settings, logger=self.logger
             )
             self.retryEnabled = True
@@ -354,7 +364,7 @@ class Processor(Worker):
             newValue = msg.value
             return OutputModel(value=newValue)
         """
-        return msg
+        raise NotImplementedError("You need to implement .process()")
 
     def _step(self, msg: Message) -> None:
         """ process one message """
@@ -367,12 +377,14 @@ class Processor(Worker):
                 received=datetime.now(),
             )
             self.logger.info(f"Receive message {msg}")
-            input = msg.as_model(self.input)
+            input_data = msg.as_model(self.input_class)
             self.logger.info(f"Prepared input {input}")
-            output = self.process(input)
+            output_data = self.process(input_data)
+            # force validate output
+            output_model = self.output_class(**output_data.dict())
             self.logger.info(f"Processed message {msg}")
-            if output:
-                updated = msg.update_content(output)
+            if output_model:
+                updated = msg.update_content(output_model)
                 log.updated.update(updated)
             log.processed = datetime.now()
             log.elapsed = 0.0

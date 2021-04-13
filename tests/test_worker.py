@@ -1,6 +1,5 @@
 import tempfile
 from unittest import TestCase, mock
-from typing import Type
 
 from pydantic import BaseModel
 
@@ -26,7 +25,7 @@ def make_output(filename):
                 yield Output(key=i, language=language)
 
     settings = ProducerSettings(name="producer", version="0.1.0", description="")
-    producer = MyProducer(settings, output=Output)
+    producer = MyProducer(settings, output_class=Output)
     producer.parse_args(args=f"--out-kind FILE --out-filename {filename}".split())
     producer.start()
 
@@ -44,28 +43,60 @@ class TestWorkerCore(TestCase):
         settings = ProducerSettings(
             name="producer", version="0.1.0", description="", out_kind=TapKind.MEM
         )
-        producer = MyProducer(settings, output=Output)
+        producer = MyProducer(settings, output_class=Output)
         producer.parse_args(args=["--out-topic", "test"])
         producer.start()
         assert len(producer.destination.results) == 3
 
-    # def test_producer_invalid_message(self):
-    #     valids = [True, True, False]
-    #
-    #     class InvalidMessage(Message):
-    #         def is_valid(self):
-    #             return self.dct.get("valid", False)
-    #
-    #     class MyProducer(Producer):
-    #         def generate(self):
-    #             for i, v in enumerate(valids):
-    #                 yield {"key": i, "valid": v}
-    #
-    #     config = ProducerConfig(messageClass=InvalidMessage)
-    #     producer = MyProducer("producer", "0.1.0", config=config)
-    #     producer.parse_args(args=["--kind", "MEM", "--out-topic", "test"])
-    #     producer.start()
-    #     assert len(producer.destination.results) == 2
+    def test_processor_invalid_output(self):
+        class Output(BaseModel):
+            language: str
+
+        class Input(BaseModel):
+            key: int
+
+        class MyProcessor(Processor):
+            def process(self, msg):
+                return Input()
+
+        settings = ProcessorSettings(
+            name="processor",
+            version="0.1.0",
+            description="",
+            in_kind=TapKind.MEM,
+            out_kind=TapKind.MEM,
+        )
+        processor = Processor(settings, input_class=Input, output_class=Output)
+        msgs = [{"key": 1}, {"key": 2}]
+        processor.parse_args()
+        processor.source.data = msgs
+        processor.start()
+        assert len(processor.destination.results) == 0
+
+    def test_processor_invalid_input(self):
+        class Output(BaseModel):
+            language: str
+
+        class Input(BaseModel):
+            language: str
+
+        class MyProcessor(Processor):
+            def process(self, msg: Input) -> Output:
+                return Output(language="en")
+
+        settings = ProcessorSettings(
+            name="processor",
+            version="0.1.0",
+            description="",
+            in_kind=TapKind.MEM,
+            out_kind=TapKind.MEM,
+        )
+        processor = MyProcessor(settings, input_class=Input, output_class=Output)
+        msgs = [{"key": 1}, {"key": 2}]
+        processor.parse_args()
+        processor.source.data = msgs
+        processor.start()
+        assert len(processor.destination.results) == 0
 
     # def test_processor_invalid_message(self):
     #     class InvalidMessage(Message):
@@ -131,7 +162,7 @@ class TestWorkerCore(TestCase):
 
         msgs = [{"key": "1"}, {"key": "2"}, {"key": "3"}]
         settings = ProcessorSettings(name="processor", version="0.0.0", description="")
-        processor = MyProcessor(settings, input=Input, output=Output)
+        processor = MyProcessor(settings, input_class=Input, output_class=Output)
         processor.parse_args(
             args="--in-kind MEM --out-kind MEM --out-topic test".split()
         )
@@ -178,6 +209,10 @@ class TestWorkerCore(TestCase):
             key: int
             language: str
 
+        class MyProcessor(Processor):
+            def process(self, msg: Input) -> Output:
+                return Output(key=msg.key, language=msg.language)
+
         with tempfile.NamedTemporaryFile() as tmpInFile:
             make_output(tmpInFile.name)
 
@@ -185,7 +220,9 @@ class TestWorkerCore(TestCase):
                 settings = ProcessorSettings(
                     name="processor", version="0.0.0", description=""
                 )
-                processor = Processor(settings, input=Input, output=Output)
+                processor = MyProcessor(
+                    settings, input_class=Input, output_class=Output
+                )
                 processor.parse_args(
                     args=[
                         "--in-kind",
@@ -211,13 +248,17 @@ class TestWorkerCore(TestCase):
             key: int
             language: str
 
+        class MyProcessor(Processor):
+            def process(self, msg: Input) -> Output:
+                return Output(key=msg.key, language=msg.language)
+
         with tempfile.NamedTemporaryFile() as tmpInFile:
             make_output(tmpInFile.name)
 
             settings = ProcessorSettings(
                 name="processor", version="0.0.0", description=""
             )
-            processor = Processor(settings, input=Input, output=Output)
+            processor = MyProcessor(settings, input_class=Input, output_class=Output)
             processor.parse_args(
                 args=[
                     "--in-kind",
@@ -239,9 +280,13 @@ class TestWorkerCore(TestCase):
         class Output(BaseModel):
             pass
 
+        class MyProcessor(Processor):
+            def process(self, msg: Input) -> Output:
+                return Output()
+
         msgs = [{}, {}, {}]
         settings = ProcessorSettings(name="processor", version="0.0.0", description="")
-        processor = Processor(settings, input=Input, output=Output)
+        processor = MyProcessor(settings, input_class=Input, output_class=Output)
         processor.parse_args(
             args="--in-kind MEM --out-kind MEM --out-topic test".split()
         )
@@ -257,7 +302,7 @@ class TestWorkerCore(TestCase):
             pass
 
         settings = ProcessorSettings(name="processor", version="0.0.0", description="")
-        processor = Processor(settings, input=Input, output=Output)
+        processor = Processor(settings, input_class=Input, output_class=Output)
         processor.parse_args(args=["--in-kind", "MEM"])
         assert processor.settings.out_kind is None
         assert not hasattr(processor, "destination")
@@ -269,6 +314,10 @@ class TestWorkerCore(TestCase):
         class Output(BaseModel):
             pass
 
+        class MyProcessor(Processor):
+            def process(self, msg: Input) -> Output:
+                return Output()
+
         msgs = [{}, {}, {}]
         settings = ProcessorSettings(
             name="processor",
@@ -277,7 +326,7 @@ class TestWorkerCore(TestCase):
             in_kind=TapKind.MEM,
             out_kind=TapKind.MEM,
         )
-        processor = Processor(settings, input=Input, output=Output)
+        processor = MyProcessor(settings, input_class=Input, output_class=Output)
         processor.parse_args(args=["--limit", "1", "--out-topic", "test"])
         processor.source.data = msgs
         processor.start()
@@ -376,7 +425,9 @@ class TestWorkerCore(TestCase):
             in_kind=TapKind.MEM,
             out_kind=TapKind.MEM,
         )
-        processor = MyProcessor(settings, input=Input, output=Output, logger=logger)
+        processor = MyProcessor(
+            settings, input_class=Input, output_class=Output, logger=logger
+        )
         processor.parse_args(args="--out-topic test".split())
         processor.source.data = msgs
         processor.start()
@@ -392,7 +443,7 @@ class TestWorkerCore(TestCase):
             key: int
 
         class MyProcessor(Processor):
-            def process(self, msg: Type[Input]) -> Type[Output]:
+            def process(self, msg: Input) -> Output:
                 return msg
 
         logger = mock.MagicMock()
@@ -404,7 +455,9 @@ class TestWorkerCore(TestCase):
             in_kind=TapKind.MEM,
             out_kind=TapKind.MEM,
         )
-        processor = MyProcessor(settings, input=Input, output=Output, logger=logger)
+        processor = MyProcessor(
+            settings, input_class=Input, output_class=Output, logger=logger
+        )
         processor.parse_args(args="--out-topic test".split())
         processor.source.data = msgs
         processor.start()

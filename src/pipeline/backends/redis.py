@@ -8,13 +8,7 @@ from redis import Redis, ResponseError as RedisResponseError
 
 from ..tap import SourceTap, SourceSettings, DestinationTap, DestinationSettings
 from ..message import Message
-
-
-def namespacedTopic(topic: str, namespace: str = None) -> str:
-    if namespace:
-        return "{}/{}".format(namespace, topic)
-    else:
-        return topic
+from ..helpers import namespaced_topic
 
 
 class RedisSourceSettings(SourceSettings):
@@ -42,7 +36,7 @@ class RedisStreamSource(SourceTap):
         self.settings = settings
         self.client = Redis(settings.redis)
         self.group = settings.group
-        self.topic = namespacedTopic(settings.topic, settings.namespace)
+        self.topic = namespaced_topic(settings.topic, settings.namespace)
         self.timeout = settings.timeout
         self.redis = Redis(
             host=self.settings.redis.host,
@@ -116,7 +110,7 @@ class RedisStreamDestination(DestinationTap):
         super().__init__(settings, logger)
         self.settings = settings
         self.client = Redis(settings.redis)
-        self.topic = namespacedTopic(settings.topic, settings.namespace)
+        self.topic = namespaced_topic(settings.topic, settings.namespace)
         self.redis = Redis(
             host=self.settings.redis.host,
             port=int(self.settings.redis.port) if self.settings.redis.port else 6380,
@@ -157,7 +151,7 @@ class RedisListSource(SourceTap):
         self.settings = settings
         self.client = Redis(settings.redis)
         self.group = settings.group
-        self.topic = namespacedTopic(settings.topic, settings.namespace)
+        self.topic = namespaced_topic(settings.topic, settings.namespace)
         self.timeout = settings.timeout
         self.redis = Redis(
             host=settings.redis.host,
@@ -213,7 +207,7 @@ class RedisListDestination(DestinationTap):
         super().__init__(settings, logger)
         self.settings = settings
         self.client = Redis(settings.redis)
-        self.topic = namespacedTopic(settings.topic, settings.namespace)
+        self.topic = namespaced_topic(settings.topic, settings.namespace)
         self.redis = Redis(
             host=settings.redis.host,
             port=int(self.settings.redis.port) if self.settings.redis.port else 6380,
@@ -232,81 +226,3 @@ class RedisListDestination(DestinationTap):
 
     def close(self) -> None:
         self.redis.close()
-
-
-# class RedisCache(Cache):
-#     """RedisCache reads/writes data from/to Redis
-#
-#     >>> import logging
-#     >>> from unittest.mock import patch
-#     >>> from argparse import ArgumentParser
-#     >>> parser = ArgumentParser()
-#     >>> RedisCache.add_arguments(parser)
-#     >>> config = parser.parse_args(["--in-fields", "text,title"])
-#     >>> with patch('Redis') as c:
-#     ...     RedisCache(config, logger=logging)
-#     RedisCache(localhost:6379):['text', 'title']:[]
-#     """
-#
-#     kind = "REDIS"
-#
-#     def __init__(self, config, logger):
-#         super().__init__(config, logger)
-#         self.setup()
-#
-#     def __repr__(self):
-#         return "RedisCache({}:{}):{}:{}".format(
-#             self.redisConfig.host,
-#             self.redisConfig.port,
-#             self.in_fields,
-#             self.out_fields,
-#         )
-#
-#     @classmethod
-#     def add_arguments(cls, parser):
-#         super().add_arguments(parser)
-#         parser.add_argument(
-#             "--redis",
-#             type=str,
-#             default=os.environ.get("REDIS", "localhost:6379"),
-#             help="redis host:port",
-#         )
-#         parser.add_argument(
-#             "--expire",
-#             type=int,
-#             default=os.environ.get("REDISEXPIRE", 7 * 86400),
-#             help="expire time for database (default: 7 days)",
-#         )
-#
-#     def setup(self):
-#         self.redisConfig = parse_connection_string(self.config.redis, no_username=True)
-#         self.redis = Redis(
-#             host=self.redisConfig.host,
-#             port=self.redisConfig.port,
-#             password=self.redisConfig.password,
-#         )
-#
-#     def read(self, key):
-#         """entries are stored as following in redis:
-#         a set is managed for each key to contain fields available
-#         a key:field -> value for accessing field for each key
-#
-#         TODO: raise error if fields are not available
-#         """
-#         results = self.redis.mget(
-#             ["{}:{}".format(key, field) for field in self.in_fields]
-#         )
-#         return dict(zip(self.fields, results))
-#
-#     def write(self, key, kvs):
-#         """entries are stored as following in redis:
-#         a set is managed for each key to contain fields available
-#         a key:field -> value for accessing field for each key
-#
-#         TODO: check error after mset
-#         """
-#         self.redis.mset(
-#             dict([(key, k) for k, v in kvs.items()]),
-#         )
-#         for key in kvs.keys():
-#             self.redis.expire(key, self.config.expire)

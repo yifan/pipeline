@@ -45,9 +45,9 @@ class Pipeline(object):
 
     settings: ProcessorSettings
     sources: Dict[str, SourceTap]
-    sourceClassAndSettings: SourceAndSettingsClasses
+    source_and_settings_classes: SourceAndSettingsClasses
     destinations: Dict[str, DestinationTap]
-    destinationClassAndSettings: DestinationAndSettingsClasses
+    destination_and_settings_classes: DestinationAndSettingsClasses
 
     def __init__(
         self,
@@ -81,47 +81,53 @@ class Pipeline(object):
 
         if self.settings.in_kind:
             self.sources = {}
-            self.sourceClassAndSettings = SourceTap.of(self.settings.in_kind)
-            self.sourceSettings = self.sourceClassAndSettings.settingsClass()
-            self.sourceSettings.parse_args(args)
+            self.source_and_settings_classes = SourceTap.of(self.settings.in_kind)
+            self.source_settings = self.source_and_settings_classes.settingsClass()
+            self.source_settings.parse_args(args)
 
         if self.settings.out_kind:
             self.destinations = {}
-            self.destinationClassAndSettings = DestinationTap.of(self.settings.out_kind)
-            self.destinationSettings = self.destinationClassAndSettings.settingsClass()
-            self.destinationSettings.parse_args(args)
+            self.destination_and_settings_classes = DestinationTap.of(
+                self.settings.out_kind
+            )
+            self.destination_settings = (
+                self.destination_and_settings_classes.settingsClass()
+            )
+            self.destination_settings.parse_args(args)
 
         if self.settings.in_kind is None and self.settings.out_kind is None:
             raise PipelineError("Either in_kind or out_kind needs to be set")
 
         self.logger = logger
 
-    def addSourceTopic(self, name: str) -> None:
+    def add_source_topic(self, name: str) -> None:
         """Add a new :class:`SourceTap` with a defined topic(queue) name
 
         :param name: a name given for the source topic
         """
-        settings = copy(self.sourceSettings)
+        settings = copy(self.source_settings)
         settings.topic = name
-        self.sources[name] = self.sourceClassAndSettings.sourceClass(
+        self.sources[name] = self.source_and_settings_classes.sourceClass(
             settings=settings, logger=self.logger
         )
 
-    def addDestinationTopic(self, name: str) -> None:
+    def add_destination_topic(self, name: str) -> None:
         """Add a new :class:`DestinationTap` with a defined topic(queue) name
 
         :param name: a name given for the destination topic
         """
-        settings = copy(self.destinationSettings)
+        settings = copy(self.destination_settings)
         settings.topic = name
-        self.destinations[name] = self.destinationClassAndSettings.destinationClass(
+        self.destinations[
+            name
+        ] = self.destination_and_settings_classes.destinationClass(
             settings=settings, logger=self.logger
         )
 
-    def sourceOf(self, name: str) -> SourceTap:
+    def source_of(self, name: str) -> SourceTap:
         """Return the :class:`SourceTap` of specified topic(queue) name"""
         return self.sources[name]
 
-    def destinationOf(self, name: str) -> DestinationTap:
+    def destination_of(self, name: str) -> DestinationTap:
         """Return the :class:`DestinationTap` of specified topic(queue) name"""
         return self.destinations[name]

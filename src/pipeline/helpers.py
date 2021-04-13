@@ -6,6 +6,13 @@ from logging import Logger
 from pydantic import BaseSettings
 
 
+def namespaced_topic(topic: str, namespace: str = None) -> str:
+    if namespace:
+        return "{}/{}".format(namespace, topic)
+    else:
+        return topic
+
+
 class Settings(BaseSettings):
     """Settings can read from environment variable and parse
     command line arguments as well.
@@ -24,18 +31,18 @@ class Settings(BaseSettings):
     """
 
     def parse_args(self, args: List[str]) -> None:
-        settingsRef: Settings = self
+        settings_ref: Settings = self
 
         class SetSettingsAction(Action):
-            settings = settingsRef
+            settings = settings_ref
 
             def __call__(self, parser, namespace, values, option_string=None):  # type: ignore
-                if settingsRef.Config.env_prefix:
+                if self.settings.Config.env_prefix:
                     dest = self.dest[len(self.settings.Config.env_prefix) :]
                 else:
                     dest = self.dest
-                if hasattr(settingsRef, dest):
-                    setattr(settingsRef, dest, values)
+                if hasattr(self.settings, dest):
+                    setattr(self.settings, dest, values)
 
         parser = ArgumentParser(add_help=True)
         for name, field in self.__fields__.items():

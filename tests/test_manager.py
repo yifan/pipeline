@@ -7,8 +7,8 @@ from pipeline import TapKind, Pipeline, Message, PipelineError
 class TestPipeline(TestCase):
     def test_pipeline(self):
         pipeline = Pipeline(in_kind=TapKind.MEM, out_kind=TapKind.MEM)
-        pipeline.addDestinationTopic("test")
-        destination = pipeline.destinationOf("test")
+        pipeline.add_destination_topic("test")
+        destination = pipeline.destination_of("test")
         destination.write(Message(content={"key": "dummy", "test": "value"}))
         self.assertEqual(len(destination.results), 1)
 
@@ -18,10 +18,10 @@ class TestPipeline(TestCase):
         pipeline = Pipeline()
         del os.environ["IN_KIND"]
         del os.environ["OUT_KIND"]
-        pipeline.addSourceTopic("test")
-        assert pipeline.sourceOf("test") is not None
-        pipeline.addDestinationTopic("test")
-        destination = pipeline.destinationOf("test")
+        pipeline.add_source_topic("test")
+        assert pipeline.source_of("test") is not None
+        pipeline.add_destination_topic("test")
+        destination = pipeline.destination_of("test")
         destination.write(Message(content={"key": "dummy", "test": "value"}))
         self.assertEqual(len(destination.results), 1)
 
@@ -31,10 +31,10 @@ class TestPipeline(TestCase):
         pipeline = Pipeline()
         del os.environ["IN_KIND"]
         del os.environ["OUT_KIND"]
-        pipeline.addSourceTopic("test")
-        assert pipeline.sourceOf("test") is not None
-        pipeline.addDestinationTopic("test")
-        destination = pipeline.destinationOf("test")
+        pipeline.add_source_topic("test")
+        assert pipeline.source_of("test") is not None
+        pipeline.add_destination_topic("test")
+        destination = pipeline.destination_of("test")
         destination.redis = mock.MagicMock()
         destination.write(Message(content={"key": "dummy", "test": "value"}))
 

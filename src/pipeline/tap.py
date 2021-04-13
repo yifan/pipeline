@@ -57,23 +57,25 @@ class SourceTap(ABC):
         >>> source = SourceTap.of(TapKind.MEM)
         """
         try:
-            classesOrStrings, _ = tap_kinds()[kind.value]
+            classes_or_strings, _ = tap_kinds()[kind.value]
         except IndexError:
             raise TypeError(f"Source type '{kind}' is invalid") from None
 
-        if isinstance(classesOrStrings, TapAndSettingsImportStrings):
-            tapAndSettingsImportStrings = classesOrStrings
+        if isinstance(classes_or_strings, TapAndSettingsImportStrings):
+            import_strings = classes_or_strings
             return SourceAndSettingsClasses(
-                sourceClass=import_class(tapAndSettingsImportStrings.tapClass),
-                settingsClass=import_class(tapAndSettingsImportStrings.settingsClass),
+                sourceClass=import_class(import_strings.tapClass),
+                settingsClass=import_class(import_strings.settingsClass),
             )
         else:
-            return classesOrStrings
+            return classes_or_strings
 
     def close(self) -> None:
+        """ implementation needed when subclassing """
         pass
 
     def acknowledge(self) -> None:
+        """ implementation needed when subclassing """
         pass
 
 
@@ -102,20 +104,21 @@ class DestinationTap(ABC):
     @classmethod
     def of(cls, kind: "TapKind") -> "DestinationAndSettingsClasses":
         try:
-            _, classesOrStrings = tap_kinds()[kind.value]
+            _, classes_or_strings = tap_kinds()[kind.value]
         except IndexError:
             raise TypeError(f"Destination type '{kind}' is invalid") from None
 
-        if isinstance(classesOrStrings, TapAndSettingsImportStrings):
-            tapAndSettingsImportStrings = classesOrStrings
+        if isinstance(classes_or_strings, TapAndSettingsImportStrings):
+            import_strings = classes_or_strings
             return DestinationAndSettingsClasses(
-                destinationClass=import_class(tapAndSettingsImportStrings.tapClass),
-                settingsClass=import_class(tapAndSettingsImportStrings.settingsClass),
+                destinationClass=import_class(import_strings.tapClass),
+                settingsClass=import_class(import_strings.settingsClass),
             )
         else:
-            return classesOrStrings
+            return classes_or_strings
 
     def close(self) -> None:
+        """ implementation needed when subclassing """
         pass
 
 

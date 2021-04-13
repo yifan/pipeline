@@ -7,13 +7,7 @@ from pydantic import AnyUrl, Field
 
 from ..tap import SourceTap, SourceSettings, DestinationTap, DestinationSettings
 from ..message import Message
-
-
-def namespacedTopic(topic: str, namespace: str = None) -> str:
-    if namespace:
-        return "{}/{}".format(namespace, topic)
-    else:
-        return topic
+from ..helpers import namespaced_topic
 
 
 class RabbitMQDsn(AnyUrl):
@@ -53,7 +47,7 @@ class RabbitMQSource(SourceTap):
         super().__init__(settings, logger)
         self.settings = settings
         self.topic = settings.topic
-        self.name = namespacedTopic(settings.topic, settings.namespace)
+        self.name = namespaced_topic(settings.topic, settings.namespace)
         self.timeout = settings.timeout
         parameters = pika.ConnectionParameters(settings.rabbitmq)
         self.rabbit = pika.BlockingConnection(parameters)
@@ -134,7 +128,7 @@ class RabbitMQDestination(DestinationTap):
         super().__init__(settings, logger)
         self.settings = settings
         self.topic = settings.topic
-        self.name = namespacedTopic(settings.topic, settings.namespace)
+        self.name = namespaced_topic(settings.topic, settings.namespace)
         parameters = pika.ConnectionParameters(settings.rabbitmq, heartbeat=5)
         self.rabbit = pika.BlockingConnection(parameters)
         self.channel = self.rabbit.channel()
