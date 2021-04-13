@@ -192,8 +192,10 @@ class Producer(Worker):
                 self.timer.start()
                 output = self._step()
                 self.timer.log(self.logger)
-                # FIXME message id????
-                msg = Message(content=output.dict())
+                if hasattr(output, "id"):
+                    msg = Message(id=output.id, content=output.dict())
+                else:
+                    msg = Message(content=output.dict())
                 self.logger.info("Generated %d-th message %s", i, msg)
                 log.updated.update(output.dict().keys())
                 msg.logs.append(log)

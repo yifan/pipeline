@@ -48,6 +48,25 @@ class TestWorkerCore(TestCase):
         producer.start()
         assert len(producer.destination.results) == 3
 
+    def test_mem_producer_id(self):
+        class Output(BaseModel):
+            id: str
+
+        class MyProducer(Producer):
+            def generate(self):
+                for i in range(3):
+                    yield Output(id=str(i))
+
+        settings = ProducerSettings(
+            name="producer", version="0.1.0", description="", out_kind=TapKind.MEM
+        )
+        producer = MyProducer(settings, output_class=Output)
+        producer.parse_args(args=["--out-topic", "test"])
+        producer.start()
+        assert len(producer.destination.results) == 3
+        for i, result in enumerate(producer.destination.results):
+            assert result.id == str(i)
+
     def test_processor_invalid_output(self):
         class Output(BaseModel):
             language: str
