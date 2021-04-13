@@ -49,7 +49,7 @@ class SourceTap(ABC):
 
     def rewind(self) -> None:
         """ rewind to earliest message. """
-        pass
+        raise NotImplementedError("rewind is not implemented")
 
     @classmethod
     def of(cls, kind: "TapKind") -> "SourceAndSettingsClasses":

@@ -2,6 +2,7 @@ import tempfile
 from unittest import TestCase, mock
 
 from pydantic import BaseModel
+import pytest
 
 from pipeline import (
     TapKind,
@@ -11,6 +12,7 @@ from pipeline import (
     Processor,
     SplitterSettings,
     Splitter,
+    PipelineOutputError,
 )
 
 
@@ -74,9 +76,11 @@ class TestWorkerCore(TestCase):
         class Input(BaseModel):
             key: int
 
+        outputs = [Output(language="en"), Input(key=1), Output(language="en")]
+
         class MyProcessor(Processor):
             def process(self, msg):
-                return Input()
+                return outputs.pop(0)
 
         settings = ProcessorSettings(
             name="processor",
@@ -86,11 +90,11 @@ class TestWorkerCore(TestCase):
             out_kind=TapKind.MEM,
         )
         processor = MyProcessor(settings, input_class=Input, output_class=Output)
-        msgs = [{"key": 1}, {"key": 2}]
+        msgs = [{"key": 1}, {"key": 2}, {"key": 3}]
         processor.parse_args()
         processor.source.data = msgs
-        processor.start()
-        assert len(processor.destination.results) == 0
+        with pytest.raises(PipelineOutputError):
+            processor.start()
 
     def test_processor_invalid_input(self):
         class Output(BaseModel):
@@ -111,11 +115,11 @@ class TestWorkerCore(TestCase):
             out_kind=TapKind.MEM,
         )
         processor = MyProcessor(settings, input_class=Input, output_class=Output)
-        msgs = [{"key": 1}, {"key": 2}]
+        msgs = [{"language": "en"}, {"key": 1}, {"key": 2}, {"language": "en"}]
         processor.parse_args()
         processor.source.data = msgs
         processor.start()
-        assert len(processor.destination.results) == 0
+        assert len(processor.destination.results) == 2
 
     # def test_processor_invalid_message(self):
     #     class InvalidMessage(Message):

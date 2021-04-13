@@ -10,8 +10,8 @@ from logging import Logger
 
 from pydantic import BaseModel, ByteSize, Field, ValidationError
 
-from .exception import PipelineError
-from .message import Message
+from .exception import PipelineError, PipelineInputError, PipelineOutputError
+from .message import Message, DescribeMessage
 from .monitor import Monitor
 from .tap import DestinationTap, SourceTap
 from .tap import TapKind, SourceSettings, DestinationSettings  # noqa: F401
@@ -367,43 +367,40 @@ class Processor(Worker):
 
     def _step(self, msg: Message) -> None:
         """ process one message """
+
+        self.logger.info(f"Receive message {msg}")
+        log = Log(
+            name=self.name,
+            version=self.version,
+            updated=set(),
+            received=datetime.now(),
+        )
         try:
-            # each worker to append a log
-            log = Log(
-                name=self.name,
-                version=self.version,
-                updated=set(),
-                received=datetime.now(),
-            )
-            self.logger.info(f"Receive message {msg}")
             input_data = msg.as_model(self.input_class)
             self.logger.info(f"Prepared input {input_data}")
-            output_data = self.process(input_data)
-            # force validation on output
-            output_model = self.output_class(**output_data.dict())
-            self.logger.info(f"Processed message {msg}")
-            if output_model:
-                updated = msg.update_content(output_model)
-                log.updated.update(updated)
-            log.processed = datetime.now()
-            log.elapsed = 0.0
-            msg.logs.append(log)
         except ValidationError as e:
-            # When input error, we don't expect to rerun with same input,
-            # it is okay to print error and skip to next input
             self.logger.error(f"Input validation failed for message {msg}")
             self.logger.error(e.json())
-            return
-        except Exception as e:
-            self.logger.error(traceback.format_exc())
-            self.logger.error(e)
-            # self.logger.error(
-            #     "message is sent to retry topic %s",
-            #     self.retryDestination.config.out_topic,
-            # )
-            # self.retryDestination.write(msg)
-            # self.monitor.record_write(self.retryDestination.topic)
-            return
+            raise PipelineInputError(f"Input validation failed for message {msg}")
+
+        output_data = self.process(input_data)
+        self.logger.info(f"Processed message {msg}")
+
+        try:
+            output_model = self.output_class(**output_data.dict())
+            self.logger.info(f"Validated output {output_model}")
+        except ValidationError as e:
+            self.logger.error(f"Output validation failed for message {msg}")
+            self.logger.error(e.json())
+            raise PipelineOutputError(f"Output validation failed for message {msg}")
+
+        if output_model:
+            updated = msg.update_content(output_model)
+            log.updated.update(updated)
+
+        log.processed = datetime.now()
+        log.elapsed = self.timer.elapsed_time()
+        msg.logs.append(log)
 
         if self.has_output():
             size = self.destination.write(msg)
@@ -460,23 +457,43 @@ class Processor(Worker):
         self.setup()
 
         self.logger.info("start listening on topic %s", self.source.topic)
-        # if batch_mode:
-        #  self._run_batch()
-        # else:
 
         if self.settings.monitoring:
             self.monitor.expose()
 
         self.monitor.record_start()
 
-        try:
-            self._run_streaming()
-        except PipelineError as e:
-            e.log(self.logger)
-            self.logger.error(traceback.format_exc())
-        except Exception as e:
-            self.logger.error(traceback.format_exc())
-            self.monitor.record_error(str(e))
+        for i, msg in enumerate(self.source.read()):
+
+            if isinstance(msg, DescribeMessage):
+                pass
+                # TODO describe worker input and output
+            else:
+                self.monitor.record_read(self.source.topic)
+                self.logger.info("Received %d-th message '%s'", i, str(msg))
+
+                self.timer.start()
+                with self.monitor.process_timer.time():
+                    try:
+                        self._step(msg)
+                    except PipelineInputError as e:
+                        # If input error, upstream worker should act
+                        self.monitor.record_error(str(e))
+                    except PipelineOutputError as e:
+                        # If output error, worker needs to exit without acknowldgement
+                        self.monitor.record_error(str(e))
+                        raise
+                    except Exception as e:
+                        self.logger.error(traceback.format_exc())
+                        self.monitor.record_error(str(e))
+
+                self.timer.log(self.logger)
+
+                self.source.acknowledge()
+
+                if i == self.limit:
+                    self.logger.info(f"Limit {self.limit} reached, exiting")
+                    break
 
         self.shutdown()
         self.source.close()

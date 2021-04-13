@@ -2,7 +2,7 @@ from unittest import TestCase
 
 import pytest
 
-from pipeline import Message, DescribeMessage, MessageParsingError
+from pipeline import Message, DescribeMessage, PipelineMessageError
 
 
 class TestMessage(TestCase):
@@ -46,7 +46,7 @@ class TestMessage(TestCase):
         assert message.id == "m"
 
     def test_parsing_exception(self):
-        with pytest.raises(MessageParsingError):
+        with pytest.raises(PipelineMessageError):
             Message.deserialize(b"HFHGKDJFHG")
 
     def test_describe(self):

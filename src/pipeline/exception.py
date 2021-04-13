@@ -18,5 +18,13 @@ class PipelineError(Exception):
             logger.warning(self.traceback)
 
 
-class PipelineInvalidInputError(PipelineError):
+class PipelineInputError(PipelineError):
+    pass
+
+
+class PipelineOutputError(PipelineError):
+    pass
+
+
+class PipelineMessageError(PipelineError):
     pass
