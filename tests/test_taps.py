@@ -10,23 +10,19 @@ BASE_DIR = "./"
 class TestTaps(TestCase):
     def test_file(self):
         destination_and_settings_classes = DestinationTap.of(TapKind.FILE)
-        FileDestination = destination_and_settings_classes.destinationClass
-        FileDestinationSettings = destination_and_settings_classes.settingsClass
         with tempfile.NamedTemporaryFile() as tmpfile:
             out_filename = tmpfile.name
-            settings = FileDestinationSettings()
+            settings = destination_and_settings_classes.settingsClass()
             settings.parse_args(f"--out-filename {out_filename}".split())
-            destination = FileDestination(settings)
+            destination = destination_and_settings_classes.destinationClass(settings)
             message_written = Message(content={"key": "written"})
             destination.write(message_written)
             destination.close()
 
             source_and_settings_classes = SourceTap.of(TapKind.FILE)
-            FileSource = source_and_settings_classes.sourceClass
-            FileSourceSettings = source_and_settings_classes.settingsClass
-            settings = FileSourceSettings()
+            settings = source_and_settings_classes.settingsClass()
             settings.parse_args(f"--in-filename {out_filename}".split())
-            source = FileSource(settings)
+            source = source_and_settings_classes.sourceClass(settings)
             message_read = next(source.read())
 
         self.assertEqual(
@@ -35,57 +31,47 @@ class TestTaps(TestCase):
 
     def test_csv_file(self):
         destination_and_settings_classes = DestinationTap.of(TapKind.CSV)
-        FileDestination = destination_and_settings_classes.destinationClass
-        FileDestinationSettings = destination_and_settings_classes.settingsClass
         with tempfile.NamedTemporaryFile() as tmpfile:
             out_filename = tmpfile.name
-            settings = FileDestinationSettings()
+            settings = destination_and_settings_classes.settingsClass()
             settings.parse_args(f"--out-filename {out_filename}".split())
-            destination = FileDestination(settings)
+            destination = destination_and_settings_classes.destinationClass(settings)
             message_written = Message(content={"key": "written"})
             destination.write(message_written)
             destination.close()
 
             source_and_settings_classes = SourceTap.of(TapKind.CSV)
-            FileSource = source_and_settings_classes.sourceClass
-            FileSourceSettings = source_and_settings_classes.settingsClass
-            settings = FileSourceSettings()
+            settings = source_and_settings_classes.settingsClass()
             settings.parse_args(f"--in-filename {out_filename}".split())
-            source = FileSource(settings)
+            source = source_and_settings_classes.sourceClass(settings)
             message_read = next(source.read())
 
         assert message_written == message_read
 
     def test_file_stdout(self):
         destination_and_settings_classes = DestinationTap.of(TapKind.FILE)
-        FileDestination = destination_and_settings_classes.destinationClass
-        FileDestinationSettings = destination_and_settings_classes.settingsClass
-        settings = FileDestinationSettings()
+        settings = destination_and_settings_classes.settingsClass()
         settings.parse_args("--out-filename -".split())
-        destination = FileDestination(settings)
+        destination = destination_and_settings_classes.destinationClass(settings)
         message_written = Message(content={"key": "written"})
         destination.write(message_written)
         destination.close()
 
     def test_file_gz(self):
         destination_and_settings_classes = DestinationTap.of(TapKind.FILE)
-        FileDestination = destination_and_settings_classes.destinationClass
-        FileDestinationSettings = destination_and_settings_classes.settingsClass
-        settings = FileDestinationSettings()
+        settings = destination_and_settings_classes.settingsClass()
         with tempfile.NamedTemporaryFile(suffix=".gz") as tmpfile:
             out_filename = tmpfile.name
             settings.parse_args(f"--out-filename {out_filename} --overwrite".split())
-            destination = FileDestination(settings)
+            destination = destination_and_settings_classes.destinationClass(settings)
             message_written = Message(content={"key": "written"})
             destination.write(message_written)
             destination.close()
 
             source_and_settings_classes = SourceTap.of(TapKind.FILE)
-            FileSource = source_and_settings_classes.sourceClass
-            FileSourceSettings = source_and_settings_classes.settingsClass
-            settings = FileSourceSettings()
+            settings = source_and_settings_classes.settingsClass()
             settings.parse_args(f"--in-filename {out_filename}".split())
-            source = FileSource(settings)
+            source = source_and_settings_classes.sourceClass(settings)
             message_read = next(source.read())
 
         self.assertEqual(
