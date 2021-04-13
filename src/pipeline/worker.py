@@ -377,9 +377,9 @@ class Processor(Worker):
             )
             self.logger.info(f"Receive message {msg}")
             input_data = msg.as_model(self.input_class)
-            self.logger.info(f"Prepared input {input}")
+            self.logger.info(f"Prepared input {input_data}")
             output_data = self.process(input_data)
-            # force validate output
+            # force validation on output
             output_model = self.output_class(**output_data.dict())
             self.logger.info(f"Processed message {msg}")
             if output_model:
