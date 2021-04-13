@@ -64,8 +64,8 @@ class SourceTap(ABC):
         if isinstance(classes_or_strings, TapAndSettingsImportStrings):
             import_strings = classes_or_strings
             return SourceAndSettingsClasses(
-                sourceClass=import_class(import_strings.tapClass),
-                settingsClass=import_class(import_strings.settingsClass),
+                source_class=import_class(import_strings.tap_class),
+                settings_class=import_class(import_strings.settings_class),
             )
         else:
             return classes_or_strings
@@ -111,8 +111,8 @@ class DestinationTap(ABC):
         if isinstance(classes_or_strings, TapAndSettingsImportStrings):
             import_strings = classes_or_strings
             return DestinationAndSettingsClasses(
-                destinationClass=import_class(import_strings.tapClass),
-                settingsClass=import_class(import_strings.settingsClass),
+                destination_class=import_class(import_strings.tap_class),
+                settings_class=import_class(import_strings.settings_class),
             )
         else:
             return classes_or_strings
@@ -237,8 +237,8 @@ class FileDestination(DestinationTap):
     """FileDestination writes items to an output file, one item per line in json format.
 
     >>> import os, tempfile
-    >>> FileDestination(FileDestinationSettings(filename="out-topic.json"))
-    FileDestination("out-topic.json")
+    >>> FileDestination(FileDestinationSettings(filename="/tmp/out-topic.json"))
+    FileDestination("/tmp/out-topic.json")
     """
 
     kind = "FILE"
@@ -384,18 +384,18 @@ class CsvDestination(DestinationTap):
 
 
 class TapAndSettingsImportStrings(BaseModel):
-    tapClass: str
-    settingsClass: str
+    tap_class: str
+    settings_class: str
 
 
 class SourceAndSettingsClasses(BaseModel):
-    sourceClass: Type[SourceTap]
-    settingsClass: Type[SourceSettings]
+    source_class: Type[SourceTap]
+    settings_class: Type[SourceSettings]
 
 
 class DestinationAndSettingsClasses(BaseModel):
-    destinationClass: Type[DestinationTap]
-    settingsClass: Type[DestinationSettings]
+    destination_class: Type[DestinationTap]
+    settings_class: Type[DestinationSettings]
 
 
 def tap_kinds() -> Dict[
@@ -408,77 +408,78 @@ def tap_kinds() -> Dict[
     return {
         "MEM": (
             SourceAndSettingsClasses(
-                sourceClass=MemorySource, settingsClass=MemorySourceSettings
+                source_class=MemorySource, settings_class=MemorySourceSettings
             ),
             DestinationAndSettingsClasses(
-                destinationClass=MemoryDestination,
-                settingsClass=MemoryDestinationSettings,
+                destination_class=MemoryDestination,
+                settings_class=MemoryDestinationSettings,
             ),
         ),
         "FILE": (
             SourceAndSettingsClasses(
-                sourceClass=FileSource, settingsClass=FileSourceSettings
+                source_class=FileSource, settings_class=FileSourceSettings
             ),
             DestinationAndSettingsClasses(
-                destinationClass=FileDestination, settingsClass=FileDestinationSettings
+                destination_class=FileDestination,
+                settings_class=FileDestinationSettings,
             ),
         ),
         "CSV": (
             SourceAndSettingsClasses(
-                sourceClass=CsvSource, settingsClass=CsvSourceSettings
+                source_class=CsvSource, settings_class=CsvSourceSettings
             ),
             DestinationAndSettingsClasses(
-                destinationClass=CsvDestination, settingsClass=CsvDestinationSettings
+                destination_class=CsvDestination, settings_class=CsvDestinationSettings
             ),
         ),
         "REDIS": (
             TapAndSettingsImportStrings(
-                tapClass="pipeline.backends.redis:RedisStreamSource",
-                settingsClass="pipeline.backends.redis:RedisSourceSettings",
+                tap_class="pipeline.backends.redis:RedisStreamSource",
+                settings_class="pipeline.backends.redis:RedisSourceSettings",
             ),
             TapAndSettingsImportStrings(
-                tapClass="pipeline.backends.redis:RedisStreamDestination",
-                settingsClass="pipeline.backends.redis:RedisDestinationSettings",
+                tap_class="pipeline.backends.redis:RedisStreamDestination",
+                settings_class="pipeline.backends.redis:RedisDestinationSettings",
             ),
         ),
         "LREDIS": (
             TapAndSettingsImportStrings(
-                tapClass="pipeline.backends.redis:RedisListSource",
-                settingsClass="pipeline.backends.redis:RedisSourceSettings",
+                tap_class="pipeline.backends.redis:RedisListSource",
+                settings_class="pipeline.backends.redis:RedisSourceSettings",
             ),
             TapAndSettingsImportStrings(
-                tapClass="pipeline.backends.redis:RedisListDestination",
-                settingsClass="pipeline.backends.redis:RedisDestinationSettings",
+                tap_class="pipeline.backends.redis:RedisListDestination",
+                settings_class="pipeline.backends.redis:RedisDestinationSettings",
             ),
         ),
         "KAFKA": (
             TapAndSettingsImportStrings(
-                tapClass="pipeline.backends.kafka:KafkaSource",
-                settingsClass="pipeline.backends.kafka:KafkaSourceSettings",
+                tap_class="pipeline.backends.kafka:KafkaSource",
+                settings_class="pipeline.backends.kafka:KafkaSourceSettings",
             ),
             TapAndSettingsImportStrings(
-                tapClass="pipeline.backends.kafka:KafkaDestination",
-                settingsClass="pipeline.backends.kafka:KafkaDestinationSettings",
+                tap_class="pipeline.backends.kafka:KafkaDestination",
+                settings_class="pipeline.backends.kafka:KafkaDestinationSettings",
             ),
         ),
         "PULSAR": (
             TapAndSettingsImportStrings(
-                tapClass="pipeline.backends.pulsar:PulsarSource",
-                settingsClass="pipeline.backends.pulsar:PulsarSourceSettings",
+                tap_class="pipeline.backends.pulsar:PulsarSource",
+                settings_class="pipeline.backends.pulsar:PulsarSourceSettings",
             ),
             TapAndSettingsImportStrings(
-                tapClass="pipeline.backends.pulsar:PulsarDestination",
-                settingsClass="pipeline.backends.pulsar:PulsarDestinationSettings",
+                tap_class="pipeline.backends.pulsar:PulsarDestination",
+                settings_class="pipeline.backends.pulsar:PulsarDestinationSettings",
             ),
         ),
         "RABBITMQ": (
             TapAndSettingsImportStrings(
-                tapClass="pipeline.backends.rabbitmq:RabbitMQSource",
-                settingsClass="pipeline.backends.rabbitmq:RabbitMQSourceSettings",
+                tap_class="pipeline.backends.rabbitmq:RabbitMQSource",
+                settings_class="pipeline.backends.rabbitmq:RabbitMQSourceSettings",
             ),
             TapAndSettingsImportStrings(
-                tapClass="pipeline.backends.rabbitmq:RabbitMQDestination",
-                settingsClass="pipeline.backends.rabbitmq:RabbitMQDestinationSettings",
+                tap_class="pipeline.backends.rabbitmq:RabbitMQDestination",
+                settings_class="pipeline.backends.rabbitmq:RabbitMQDestinationSettings",
             ),
         ),
     }

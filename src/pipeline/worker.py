@@ -95,9 +95,9 @@ class Worker(ABC):
                 )
 
             self.source_and_settings_classes = SourceTap.of(self.settings.in_kind)
-            source_settings = self.source_and_settings_classes.settingsClass()
+            source_settings = self.source_and_settings_classes.settings_class()
             source_settings.parse_args(args)
-            self.source = self.source_and_settings_classes.sourceClass(
+            self.source = self.source_and_settings_classes.source_class(
                 settings=source_settings, logger=self.logger
             )
 
@@ -105,9 +105,11 @@ class Worker(ABC):
             self.destination_and_settings_classes = DestinationTap.of(
                 self.settings.out_kind
             )
-            destination_settings = self.destination_and_settings_classes.settingsClass()
+            destination_settings = (
+                self.destination_and_settings_classes.settings_class()
+            )
             destination_settings.parse_args(args)
-            self.destination = self.destination_and_settings_classes.destinationClass(
+            self.destination = self.destination_and_settings_classes.destination_class(
                 settings=destination_settings, logger=self.logger
             )
         else:
@@ -254,7 +256,7 @@ class Splitter(Worker):
                 settings.topic = topic
                 self.destinations[
                     topic
-                ] = self.destination_and_settings_classes.destinationClass(
+                ] = self.destination_and_settings_classes.destination_class(
                     settings, logger=self.logger
                 )
 

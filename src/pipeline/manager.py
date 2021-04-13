@@ -82,7 +82,7 @@ class Pipeline(object):
         if self.settings.in_kind:
             self.sources = {}
             self.source_and_settings_classes = SourceTap.of(self.settings.in_kind)
-            self.source_settings = self.source_and_settings_classes.settingsClass()
+            self.source_settings = self.source_and_settings_classes.settings_class()
             self.source_settings.parse_args(args)
 
         if self.settings.out_kind:
@@ -91,7 +91,7 @@ class Pipeline(object):
                 self.settings.out_kind
             )
             self.destination_settings = (
-                self.destination_and_settings_classes.settingsClass()
+                self.destination_and_settings_classes.settings_class()
             )
             self.destination_settings.parse_args(args)
 
@@ -107,7 +107,7 @@ class Pipeline(object):
         """
         settings = copy(self.source_settings)
         settings.topic = name
-        self.sources[name] = self.source_and_settings_classes.sourceClass(
+        self.sources[name] = self.source_and_settings_classes.source_class(
             settings=settings, logger=self.logger
         )
 
@@ -120,7 +120,7 @@ class Pipeline(object):
         settings.topic = name
         self.destinations[
             name
-        ] = self.destination_and_settings_classes.destinationClass(
+        ] = self.destination_and_settings_classes.destination_class(
             settings=settings, logger=self.logger
         )
 
