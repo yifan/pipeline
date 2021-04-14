@@ -1,5 +1,6 @@
 import logging
-from pipeline import ProcessorConfig, Processor
+from pydantic import BaseModel
+from pipeline import ProcessorSettings, Processor
 from version import __worker__, __version__
 
 
@@ -8,25 +9,37 @@ logging.basicConfig(format=FORMAT)
 logger = logging.getLogger("worker")
 
 
+class Input(BaseModel):
+    id: str
+    value: int
+    text: str
+
+
+class Output(BaseModel):
+    id: str
+    flag: bool
+    additional: int
+
+
 class TestProcessor(Processor):
     def __init__(self):
-        config = ProcessorConfig()
-        super().__init__(
-            __worker__,
-            __version__,
-            "Test Processor",
-            config,
+        settings = ProcessorSettings(
+            name=__worker__, version=__version__, description="Test Processor"
         )
+        super().__init__(
+            settings,
+            input_class=Input,
+            output_class=Output,
+        )
+        self.counter = 0
 
     def process(self, msg):
-        i = msg.get("value")
-        msg.update(
-            {
-                "existingKey": i,
-                "newKey": True,
-            }
+        self.counter += 1
+        return Output(
+            id=msg.id,
+            flag=True,
+            additional=self.counter,
         )
-        return None
 
 
 if __name__ == "__main__":
