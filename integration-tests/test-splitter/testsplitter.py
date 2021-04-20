@@ -16,7 +16,7 @@ class TestSplitter(Splitter):
             version=__version__,
             description="Test Splitter",
         )
-        self.__init__(settings)
+        super().__init__(settings)
 
     def get_topic(self, msg):
         return random.choice(["test-q-processor-a", "test-q-processor-b"])

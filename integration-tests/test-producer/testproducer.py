@@ -27,7 +27,6 @@ class TestProducer(Producer):
 
     def generate(self):
         for i in range(0, 1000):
-            time.sleep(1)
             yield Output(
                 id=f"message-{i}",
                 value=i,

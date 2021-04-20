@@ -35,11 +35,13 @@ class TestProcessor(Processor):
 
     def process(self, msg):
         self.counter += 1
-        return Output(
+        o = Output(
             id=msg.id,
             flag=True,
             additional=self.counter,
         )
+        self.logger.info(o)
+        return o
 
 
 if __name__ == "__main__":
