@@ -139,7 +139,7 @@ class Producer(Worker):
     >>> #producer.start()
     """
 
-    generator: Iterator[Message]
+    generator: Iterator[BaseModel]
 
     def __init__(
         self,
@@ -317,14 +317,14 @@ class ProcessorSettings(WorkerSettings):
 class Processor(Worker):
     settings: ProcessorSettings
     input_class: Type[BaseModel]
-    output_class: Optional[Type[BaseModel]]
+    output_class: Type[BaseModel]
     destination_class: Optional[Type[DestinationTap]]
 
     def __init__(
         self,
         settings: ProcessorSettings,
         input_class: Type[BaseModel],
-        output_class: Optional[Type[BaseModel]] = None,
+        output_class: Type[BaseModel],
         logger: Logger = pipelineLogger,
     ) -> None:
         super().__init__(settings, logger=logger)
@@ -365,7 +365,7 @@ class Processor(Worker):
         """
         raise NotImplementedError("You need to implement .process()")
 
-    def _step(self, msg: Message) -> Message:
+    def _step(self, msg: Message) -> None:
         """ process one message """
 
         self.logger.info(f"Receive message {msg}")
@@ -407,7 +407,7 @@ class Processor(Worker):
             self.logger.info(f"Wrote message {msg}(size:{size})")
             self.monitor.record_write(self.destination.topic)
 
-    def _process_describe_message(self, msg) -> None:
+    def _process_describe_message(self, msg: DescribeMessage) -> None:
         self.logger.info(f"Receive message {msg}")
         log = Log(
             name=self.name,
