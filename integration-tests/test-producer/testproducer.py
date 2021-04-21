@@ -1,12 +1,11 @@
 import logging
-import time
 from pydantic import BaseModel
 from pipeline import ProducerSettings, Producer
 from version import __worker__, __version__
 
 
 FORMAT = "%(asctime)-15s %(levelno)s %(message)s"
-logging.basicConfig(format=FORMAT)
+logging.basicConfig(level=logging.INFO, format=FORMAT)
 logger = logging.getLogger("worker")
 
 

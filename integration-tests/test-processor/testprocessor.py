@@ -5,7 +5,7 @@ from version import __worker__, __version__
 
 
 FORMAT = "%(asctime)-15s %(levelno)s %(message)s"
-logging.basicConfig(format=FORMAT)
+logging.basicConfig(level=logging.INFO, format=FORMAT)
 logger = logging.getLogger("worker")
 
 
