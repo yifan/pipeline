@@ -5,6 +5,10 @@
 .. image:: https://readthedocs.org/projects/tanbih-pipeline/badge/?version=latest
     :target: https://tanbih-pipeline.readthedocs.io/en/latest/?badge=latest
     :alt: Documentation Status
+.. image:: https://sonarcloud.io/api/project_badges/measure?project=yifan_pipeline&metric=sqale_rating
+    :target: https://sonarcloud.io/api/project_badges/measure?project=yifan_pipeline&metric=sqale_rating
+    :alt: Maintainability Score
+
 
 a flexible stream processing framework supporting RabbitMQ, Pulsar, Kafka and Redis.
 
