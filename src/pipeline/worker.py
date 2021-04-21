@@ -407,37 +407,26 @@ class Processor(Worker):
             self.logger.info(f"Wrote message {msg}(size:{size})")
             self.monitor.record_write(self.destination.topic)
 
-    def _run_streaming(self) -> None:
-        """streaming processing messages from source and write resulted messages to destination
+    def _process_describe_message(self, msg) -> None:
+        self.logger.info(f"Receive message {msg}")
+        log = Log(
+            name=self.name,
+            version=self.version,
+            updated=set(),
+            received=datetime.now(),
+        )
+        if self.input_class:
+            msg.input_schema = self.input_class.schema_json(indent=2)
+        if self.output_class:
+            msg.output_schema = self.output_class.schema_json(indent=2)
+        log.processed = datetime.now()
+        log.elapsed = 0.0
+        msg.logs.append(log)
 
-
-        1. error indicated by .process returning non-None value
-
-            message will be written to retry topic if retry topic is enabled.
-            WARNING: The message may have been modified during process().
-
-        2. the result message is invalid
-
-            the result message will be written to retry topic if retry topic is enabled.
-            The message is processed, and invalid.
-            WARNING: Processor will not re-process message unless the version of processor
-            is higher than the version stored in message info.
-        """
-        for i, msg in enumerate(self.source.read()):
-            self.monitor.record_read(self.source.topic)
-            self.logger.info("Received %d-th message '%s'", i, str(msg))
-
-            self.timer.start()
-            with self.monitor.process_timer.time():
-                self._step(msg)
-            self.timer.log(self.logger)
-
-            self.source.acknowledge()
-
-            self.logger.info(f"{i} == {self.limit}")
-            if i == self.limit:
-                self.logger.info(f"Limit {self.limit} reached, exiting")
-                break
+        if self.has_output():
+            size = self.destination.write(msg)
+            self.logger.info(f"Wrote message {msg}(size:{size})")
+            self.monitor.record_write(self.destination.topic)
 
     def start(self) -> None:
         """ start processing. """
@@ -466,27 +455,8 @@ class Processor(Worker):
         for i, msg in enumerate(self.source.read()):
 
             if isinstance(msg, DescribeMessage):
-                self.logger.info(f"Receive message {msg}")
-                log = Log(
-                    name=self.name,
-                    version=self.version,
-                    updated=set(),
-                    received=datetime.now(),
-                )
-                if self.input_class:
-                    msg.input_schema = self.input_class.schema_json(indent=2)
-                if self.output_class:
-                    msg.output_schema = self.output_class.schema_json(indent=2)
-                log.processed = datetime.now()
-                log.elapsed = 0.0
-                msg.logs.append(log)
-
-                if self.has_output():
-                    size = self.destination.write(msg)
-                    self.logger.info(f"Wrote message {msg}(size:{size})")
-                    self.monitor.record_write(self.destination.topic)
-
-            else:
+                self._process_describe_message(msg)
+            else:  # normal message
                 self.monitor.record_read(self.source.topic)
                 self.logger.info("Received %d-th message '%s'", i, str(msg))
 
