@@ -1,23 +1,22 @@
 import logging
 import random
-from pipeline import SplitterConfig, Splitter
+from pipeline import SplitterSettings, Splitter
 from version import __worker__, __version__
 
 
 FORMAT = "%(asctime)-15s %(levelno)s %(message)s"
-logging.basicConfig(format=FORMAT)
+logging.basicConfig(level=logging.INFO, format=FORMAT)
 logger = logging.getLogger("worker")
 
 
 class TestSplitter(Splitter):
     def __init__(self):
-        config = SplitterConfig()
-        super().__init__(
-            __worker__,
-            __version__,
-            "test splitter",
-            config,
+        settings = SplitterSettings(
+            name=__worker__,
+            version=__version__,
+            description="Test Splitter",
         )
+        super().__init__(settings)
 
     def get_topic(self, msg):
         return random.choice(["test-q-processor-a", "test-q-processor-b"])

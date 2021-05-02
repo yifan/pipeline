@@ -1,9 +1,24 @@
-import os
 import time
+from logging import Logger
+from typing import ClassVar, Iterator
 
 import pulsar
+from pydantic import AnyUrl, Field
 
-from ..tap import SourceTap, DestinationTap
+from ..tap import SourceTap, DestinationTap, SourceSettings, DestinationSettings
+from ..message import Message
+
+
+class PulsarDsn(AnyUrl):
+    allowed_schemes = {
+        "pulsar",
+    }
+
+
+class PulsarSourceSettings(SourceSettings):
+    pulsar: PulsarDsn = Field("pulsar://localhost:6650", title="pulsar url")
+    tenant: str = Field(None, title="pulsar tenant, always is meganews")
+    subscription: str = Field(None, title="subscription to read")
 
 
 class PulsarSource(SourceTap):
@@ -11,25 +26,24 @@ class PulsarSource(SourceTap):
 
     >>> import logging
     >>> from unittest.mock import patch
-    >>> from argparse import ArgumentParser
-    >>> parser = ArgumentParser(conflict_handler='resolve')
-    >>> PulsarSource.add_arguments(parser)
-    >>> config = parser.parse_args([])
+    >>> settings = PulsarSourceSettings(namespace='test', tenant='tenant', subscription='subscription')
     >>> with patch('pulsar.Client') as c:
-    ...     PulsarSource(config, logger=logging)
-    PulsarSource(host="pulsar://pulsar.pulsar.svc.cluster.local:6650",name="persistent://meganews/test/in-topic",subscription="subscription")
+    ...     PulsarSource(settings=settings, logger=logging)
+    PulsarSource(host="pulsar://localhost:6650",name="persistent://tenant/test/in-topic",subscription="subscription")
     """
 
-    kind = "PULSAR"
+    settings: PulsarSourceSettings
 
-    def __init__(self, config, logger):
-        super().__init__(config, logger)
-        self.config = config
-        self.client = pulsar.Client(config.pulsar)
-        self.tenant = config.tenant
-        self.namespace = config.namespace
-        self.topic = config.in_topic
-        self.subscription = config.subscription
+    kind: ClassVar[str] = "PULSAR"
+
+    def __init__(self, settings: PulsarSourceSettings, logger: Logger) -> None:
+        super().__init__(settings, logger)
+        self.settings = settings
+        self.client = pulsar.Client(settings.pulsar)
+        self.tenant = settings.tenant
+        self.namespace = settings.namespace
+        self.topic = settings.topic
+        self.subscription = settings.subscription
         self.name = "persistent://{}/{}/{}".format(
             self.tenant, self.namespace, self.topic
         )
@@ -41,58 +55,33 @@ class PulsarSource(SourceTap):
         )
         self.last_msg = None
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return 'PulsarSource(host="{}",name="{}",subscription="{}")'.format(
-            self.config.pulsar,
+            self.settings.pulsar,
             self.name,
             self.subscription,
         )
 
-    @classmethod
-    def add_arguments(cls, parser):
-        super().add_arguments(parser)
-        parser.add_argument(
-            "--pulsar",
-            type=str,
-            default=os.environ.get(
-                "PULSAR", "pulsar://pulsar.pulsar.svc.cluster.local:6650"
-            ),
-            help="pulsar address",
-        )
-        parser.add_argument(
-            "--tenant",
-            type=str,
-            default=os.environ.get("TENANT", "meganews"),
-            help="pulsar tenant, always is meganews",
-        )
-        parser.add_argument(
-            "--namespace",
-            type=str,
-            default=os.environ.get("NAMESPACE", "test"),
-            help="pulsar namespace (default: test",
-        )
-        parser.add_argument(
-            "--subscription",
-            type=str,
-            default=os.environ.get("SUBSCRIPTION", "subscription"),
-            help="subscription to read",
-        )
-
-    def read(self):
-        timeout_ms = self.timeout * 1000 if self.timeout else None
+    def read(self) -> Iterator[Message]:
+        timeout_ms = self.settings.timeout * 1000 if self.settings.timeout else None
         msg = self.consumer.receive(timeout_millis=timeout_ms)
         while msg:
             msg = self.consumer.receive(timeout_millis=timeout_ms)
             self.last_msg = msg
             if msg:
-                yield self.messageClass.deserialize(msg.data(), config=self.config)
+                yield Message.deserialize(msg.data())
             time.sleep(0.01)
 
-    def acknowledge(self):
+    def acknowledge(self) -> None:
         self.consumer.acknowledge(self.last_msg)
 
-    def close(self):
+    def close(self) -> None:
         self.client.close()
+
+
+class PulsarDestinationSettings(DestinationSettings):
+    pulsar: PulsarDsn = Field("pulsar://localhost:6650", title="pulsar url")
+    tenant: str = Field(None, title="pulsar tenant, always is meganews")
 
 
 class PulsarDestination(DestinationTap):
@@ -100,63 +89,38 @@ class PulsarDestination(DestinationTap):
 
     >>> import logging
     >>> from unittest.mock import patch
-    >>> from argparse import ArgumentParser
-    >>> parser = ArgumentParser(conflict_handler='resolve')
-    >>> PulsarDestination.add_arguments(parser)
-    >>> config = parser.parse_args([])
+    >>> settings = PulsarDestinationSettings(namespace='test', tenant='tenant')
     >>> with patch('pulsar.Client') as c:
-    ...     PulsarDestination(config, logger=logging)
-    PulsarDestination(host="pulsar://pulsar.pulsar.svc.cluster.local:6650",name="persistent://meganews/test/out-topic")
+    ...     PulsarDestination(settings=settings, logger=logging)
+    PulsarDestination(host="pulsar://localhost:6650",name="persistent://tenant/test/out-topic")
     """
 
-    kind = "PULSAR"
+    settings: PulsarDestinationSettings
 
-    def __init__(self, config, logger):
-        super().__init__(config, logger)
-        self.config = config
-        self.client = pulsar.Client(config.pulsar)
-        self.tenant = config.tenant
-        self.namespace = config.namespace
-        self.topic = config.out_topic
+    kind: ClassVar[str] = "PULSAR"
+
+    def __init__(self, settings: PulsarDestinationSettings, logger: Logger) -> None:
+        super().__init__(settings, logger)
+        self.settings = settings
+        self.client = pulsar.Client(settings.pulsar)
+        self.tenant = settings.tenant
+        self.namespace = settings.namespace
+        self.topic = settings.topic
         self.name = "persistent://{}/{}/{}".format(
             self.tenant, self.namespace, self.topic
         )
         self.producer = self.client.create_producer(self.name)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return 'PulsarDestination(host="{}",name="{}")'.format(
-            self.config.pulsar,
+            self.settings.pulsar,
             self.name,
         )
 
-    @classmethod
-    def add_arguments(cls, parser):
-        super().add_arguments(parser)
-        parser.add_argument(
-            "--pulsar",
-            type=str,
-            default=os.environ.get(
-                "PULSAR", "pulsar://pulsar.pulsar.svc.cluster.local:6650"
-            ),
-            help="pulsar address",
-        )
-        parser.add_argument(
-            "--tenant",
-            type=str,
-            default=os.environ.get("TENANT", "meganews"),
-            help="pulsar tenant, always is meganews",
-        )
-        parser.add_argument(
-            "--namespace",
-            type=str,
-            default=os.environ.get("NAMESPACE", "test"),
-            help="pulsar namespace (default: test)",
-        )
-
-    def write(self, message):
-        serialized = message.serialize()
+    def write(self, message: Message) -> int:
+        serialized = message.serialize(compress=self.settings.compress)
         self.producer.send(serialized)
         return len(serialized)
 
-    def close(self):
+    def close(self) -> None:
         self.client.close()

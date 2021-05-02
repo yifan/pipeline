@@ -1,32 +1,31 @@
-from .exception import PipelineError
-from .message import Message
-from .tap import DestinationTap, SourceTap, SourceOf, DestinationOf
+from .exception import PipelineError, PipelineOutputError, PipelineMessageError
+from .message import Message, DescribeMessage
+from .tap import DestinationTap, SourceTap, TapKind
 from .worker import (
-    GeneratorConfig,
-    Generator,
-    ProcessorConfig,
+    ProducerSettings,
+    Producer,
+    ProcessorSettings,
     Processor,
-    SplitterConfig,
+    SplitterSettings,
     Splitter,
 )
-from .cache import CacheOf, CachedMessageClass
-from .utils import Pipeline
+from .manager import Pipeline
 
 
 __all__ = [
     "PipelineError",
-    "SourceOf",
-    "DestinationOf",
+    "PipelineOutputError",
+    "PipelineMessageError",
     "SourceTap",
     "DestinationTap",
-    "GeneratorConfig",
-    "Generator",
-    "ProcessorConfig",
+    "TapKind",
+    "ProducerSettings",
+    "Producer",
+    "ProcessorSettings",
     "Processor",
-    "SplitterConfig",
+    "SplitterSettings",
     "Splitter",
     "Message",
-    "CacheOf",
-    "CachedMessageClass",
+    "DescribeMessage",
     "Pipeline",
 ]

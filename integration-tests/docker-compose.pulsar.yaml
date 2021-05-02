@@ -3,7 +3,7 @@ services:
   generator:
     build:  
       context: .
-      dockerfile: test-generator/Dockerfile
+      dockerfile: test-producer/Dockerfile
     links:
      - pulsar
     environment:

@@ -1,16 +1,23 @@
-import os
 import time
+from logging import Logger
+from typing import ClassVar, Iterator
 
 import pika
+from pydantic import AnyUrl, Field
 
-from ..tap import SourceTap, DestinationTap
+from ..tap import SourceTap, SourceSettings, DestinationTap, DestinationSettings
+from ..message import Message
+from ..helpers import namespaced_topic
 
 
-def namespacedTopic(topic, namespace=None):
-    if namespace:
-        return "{}/{}".format(namespace, topic)
-    else:
-        return topic
+class RabbitMQDsn(AnyUrl):
+    allowed_schemes = {
+        "amqp",
+    }
+
+
+class RabbitMQSourceSettings(SourceSettings):
+    rabbitmq: RabbitMQDsn = Field("amqp://localhost", title="RabbitMQ host")
 
 
 class RabbitMQSource(SourceTap):
@@ -25,25 +32,24 @@ class RabbitMQSource(SourceTap):
 
     >>> import logging
     >>> from unittest.mock import patch
-    >>> from argparse import ArgumentParser
-    >>> parser = ArgumentParser(conflict_handler='resolve')
-    >>> RabbitMQSource.add_arguments(parser)
-    >>> config = parser.parse_args([])
+    >>> settings = RabbitMQSourceSettings()
     >>> with patch('pika.ConnectionParameters') as c1:
     ...     with patch('pika.BlockingConnection') as c2:
-    ...         RabbitMQSource(config, logger=logging)
+    ...         RabbitMQSource(settings=settings, logger=logging)
     RabbitMQSource(queue="in-topic")
     """
 
-    kind = "RABBITMQ"
+    settings: RabbitMQSourceSettings
 
-    def __init__(self, config, logger):
-        super().__init__(config, logger)
-        self.config = config
-        self.topic = config.in_topic
-        self.name = namespacedTopic(config.in_topic, config.namespace)
-        self.timeout = config.timeout
-        parameters = pika.ConnectionParameters(config.rabbitmq)
+    kind: ClassVar[str] = "RABBITMQ"
+
+    def __init__(self, settings: RabbitMQSourceSettings, logger: Logger) -> None:
+        super().__init__(settings, logger)
+        self.settings = settings
+        self.topic = settings.topic
+        self.name = namespaced_topic(settings.topic, settings.namespace)
+        self.timeout = settings.timeout
+        parameters = pika.ConnectionParameters(settings.rabbitmq)
         self.rabbit = pika.BlockingConnection(parameters)
         self.channel = self.rabbit.channel()
         self.channel.queue_declare(queue=self.name)
@@ -51,22 +57,10 @@ class RabbitMQSource(SourceTap):
         self.msg = None
         self.logger.info("RabbitMQSource initialized.")
 
-    def __repr__(self):
-        return 'RabbitMQSource(queue="{}")'.format(
-            self.name,
-        )
+    def __repr__(self) -> str:
+        return f'RabbitMQSource(queue="{self.name}")'
 
-    @classmethod
-    def add_arguments(cls, parser):
-        super().add_arguments(parser)
-        parser.add_argument(
-            "--rabbitmq",
-            type=str,
-            default=os.environ.get("RABBITMQ", "localhost"),
-            help="RabbitMQ host",
-        )
-
-    def read(self):
+    def read(self) -> Iterator[Message]:
         timedOut = False
         lastMessageTime = time.time()
 
@@ -75,7 +69,7 @@ class RabbitMQSource(SourceTap):
                 method, header, body = self.channel.basic_get(self.name)
             except pika.exceptions.AMQPConnectionError:
                 self.logger.warning("Trying to restore connection to RabbitMQ...")
-                parameters = pika.ConnectionParameters(self.config.rabbitmq)
+                parameters = pika.ConnectionParameters(self.settings.rabbitmq)
                 self.rabbit = pika.BlockingConnection(parameters)
                 self.channel = self.rabbit.channel()
                 self.logger.warning("Connection to RabbitMQ restored.")
@@ -87,21 +81,25 @@ class RabbitMQSource(SourceTap):
             if method:
                 self.delivery_tag = method.delivery_tag
                 self.logger.info("Read message %s", self.delivery_tag)
-                yield self.messageClass.deserialize(body, config=self.config)
+                yield Message.deserialize(body)
                 lastMessageTime = time.time()
             time.sleep(0.01)
             if self.timeout > 0 and time.time() - lastMessageTime > self.timeout:
                 self.logger.info("RabbitMQSource timed out.")
                 timedOut = True
 
-    def acknowledge(self):
+    def acknowledge(self) -> None:
         self.logger.info("acknowledged message %s", self.delivery_tag)
         self.channel.basic_ack(self.delivery_tag)
 
-    def close(self):
+    def close(self) -> None:
         self.logger.info("RabbitMQSource closed.")
         self.channel.close()
         self.rabbit.close()
+
+
+class RabbitMQDestinationSettings(DestinationSettings):
+    rabbitmq: RabbitMQDsn = Field("amqp://localhost", title="RabbitMQ host")
 
 
 class RabbitMQDestination(DestinationTap):
@@ -115,63 +113,52 @@ class RabbitMQDestination(DestinationTap):
 
     >>> import logging
     >>> from unittest.mock import patch
-    >>> from argparse import ArgumentParser
-    >>> parser = ArgumentParser(conflict_handler='resolve')
-    >>> RabbitMQDestination.add_arguments(parser)
-    >>> config = parser.parse_args([])
+    >>> settings = RabbitMQDestinationSettings()
     >>> with patch('pika.ConnectionParameters') as c1:
     ...     with patch('pika.BlockingConnection') as c2:
-    ...        RabbitMQDestination(config, logger=logging)
+    ...        RabbitMQDestination(settings=settings, logger=logging)
     RabbitMQDestination(queue="out-topic")
     """
 
-    kind = "RABBITMQ"
+    settings: RabbitMQDestinationSettings
 
-    def __init__(self, config, logger):
-        super().__init__(config, logger)
-        self.config = config
-        self.topic = config.out_topic
-        self.name = namespacedTopic(config.out_topic, config.namespace)
-        parameters = pika.ConnectionParameters(config.rabbitmq, heartbeat=5)
+    kind: ClassVar[str] = "RABBITMQ"
+
+    def __init__(self, settings: RabbitMQDestinationSettings, logger: Logger) -> None:
+        super().__init__(settings, logger)
+        self.settings = settings
+        self.topic = settings.topic
+        self.name = namespaced_topic(settings.topic, settings.namespace)
+        parameters = pika.ConnectionParameters(settings.rabbitmq, heartbeat=5)
         self.rabbit = pika.BlockingConnection(parameters)
         self.channel = self.rabbit.channel()
         self.channel.queue_declare(queue=self.name)
         self.logger.info("RabbitMQDestination initialized.")
 
-    def __repr__(self):
-        return 'RabbitMQDestination(queue="{}")'.format(
-            self.name,
-        )
+    def __repr__(self) -> str:
+        return f'RabbitMQDestination(queue="{self.name}")'
 
-    @classmethod
-    def add_arguments(cls, parser):
-        super().add_arguments(parser)
-        parser.add_argument(
-            "--rabbitmq",
-            type=str,
-            default=os.environ.get("RABBITMQ", "localhost"),
-            help="RabbitMQ host",
-        )
-
-    def write(self, message):
+    def write(self, message: Message) -> int:
+        serialized = message.serialize()
         try:
-            serialized = message.serialize()
             self.channel.basic_publish(
                 exchange="", routing_key=self.name, body=serialized
             )
-            return len(serialized)
         except pika.exceptions.StreamLostError:
             self.logger.warning("Trying to restore connection to RabbitMQ...")
             self.rabbit = pika.BlockingConnection(
-                pika.ConnectionParameters(self.config.rabbitmq)
+                pika.ConnectionParameters(self.settings.rabbitmq)
             )
             self.channel = self.rabbit.channel()
             self.logger.warning("Connection to RabbitMQ restored.")
             self.channel.basic_publish(
-                exchange="", routing_key=self.name, body=message.serialize()
+                exchange="",
+                routing_key=self.name,
+                body=message.serialize(compress=self.settings.compress),
             )
+        return len(serialized)
 
-    def close(self):
+    def close(self) -> None:
         self.logger.info("RabbitMQDestination closed.")
         self.channel.close()
         self.rabbit.close()
