@@ -1,6 +1,6 @@
 from .exception import PipelineError, PipelineOutputError, PipelineMessageError
 from .message import Message, DescribeMessage
-from .tap import DestinationTap, SourceTap, TapKind
+from .tap import Settings, DestinationTap, SourceTap, TapKind
 from .worker import (
     ProducerSettings,
     Producer,
@@ -13,6 +13,7 @@ from .manager import Pipeline
 
 
 __all__ = [
+    "Settings",
     "PipelineError",
     "PipelineOutputError",
     "PipelineMessageError",
