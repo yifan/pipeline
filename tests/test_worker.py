@@ -52,7 +52,7 @@ class TestWorkerCore:
             monitoring=True,
         )
         producer = MyProducer(settings, output_class=Output)
-        producer.parse_args(args=["--out-topic", "test"])
+        producer.parse_args(args=["--out-topic", "test", "--debug"])
         monkeypatch.setattr(producer, "monitor", mock.MagicMock())
         producer.start()
         assert len(producer.destination.results) == 3
