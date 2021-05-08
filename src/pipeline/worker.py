@@ -128,15 +128,15 @@ class Producer(Worker):
     be a producer. It reads no input, and produce outputs until it exits.
 
     Usage:
-    >>> from pydantic import BaseModel
-    >>>
-    >>> class Output(BaseModel):
-    ...     pass
-    >>>
-    >>> settings = ProducerSettings(name='', version='', description='', out_kind='MEM')
-    >>> producer = Producer(settings, output_class=Output)
-    >>> producer.parse_args()
-    >>> #producer.start()
+        >>> from pydantic import BaseModel
+        >>>
+        >>> class Output(BaseModel):
+        ...     pass
+        >>>
+        >>> settings = ProducerSettings(name='', version='', description='', out_kind='MEM')
+        >>> producer = Producer(settings, output_class=Output)
+        >>> producer.parse_args()
+        >>> #producer.start()
     """
 
     generator: Iterator[BaseModel]
