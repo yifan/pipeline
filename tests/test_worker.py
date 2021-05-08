@@ -1,5 +1,5 @@
 import tempfile
-from unittest import TestCase, mock
+from unittest import mock
 
 from pydantic import BaseModel
 import pytest
@@ -33,8 +33,8 @@ def make_output(filename):
     producer.start()
 
 
-class TestWorkerCore(TestCase):
-    def test_mem_producer(self):
+class TestWorkerCore:
+    def test_mem_producer(self, monkeypatch):
         class Output(BaseModel):
             key: int
 
@@ -44,10 +44,16 @@ class TestWorkerCore(TestCase):
                     yield Output(key=i)
 
         settings = ProducerSettings(
-            name="producer", version="0.1.0", description="", out_kind=TapKind.MEM
+            name="producer",
+            version="0.1.0",
+            description="",
+            out_kind=TapKind.MEM,
+            debug=True,
+            monitoring=True,
         )
         producer = MyProducer(settings, output_class=Output)
         producer.parse_args(args=["--out-topic", "test"])
+        monkeypatch.setattr(producer, "monitor", mock.MagicMock())
         producer.start()
         assert len(producer.destination.results) == 3
 
@@ -325,6 +331,26 @@ class TestWorkerCore(TestCase):
         class Output(BaseModel):
             pass
 
+        class MyProcessor(Processor):
+            def process(self, msg: Input) -> Output:
+                raise NotImplementedError
+                return Output()
+
+        msgs = [{}, {}, {}]
+        settings = ProcessorSettings(name="processor", version="0.0.0", description="")
+        processor = MyProcessor(settings, input_class=Input, output_class=Output)
+        processor.parse_args(args="--in-kind MEM --out-kind MEM".split())
+        processor.source.data = msgs
+        processor.start()
+        assert len(processor.destination.results) == 0
+
+    def test_mem_processor_raise(self):
+        class Input(BaseModel):
+            pass
+
+        class Output(BaseModel):
+            pass
+
         settings = ProcessorSettings(name="processor", version="0.0.0", description="")
         processor = Processor(settings, input_class=Input, output_class=Output)
         processor.parse_args(args=["--in-kind", "MEM"])
@@ -428,7 +454,7 @@ class TestWorkerCore(TestCase):
                 splitter.start()
                 assert len(splitter.destinations) == 3
 
-    def test_logging(self):
+    def test_logging(self, monkeypatch):
         class Input(BaseModel):
             key: int
 
@@ -448,12 +474,15 @@ class TestWorkerCore(TestCase):
             description="",
             in_kind=TapKind.MEM,
             out_kind=TapKind.MEM,
+            debug=True,
+            monitoring=True,
         )
         processor = MyProcessor(
             settings, input_class=Input, output_class=Output, logger=logger
         )
         processor.parse_args(args="--out-topic test".split())
         processor.source.data = msgs
+        monkeypatch.setattr(processor, "monitor", mock.MagicMock())
         processor.start()
         assert len(processor.destination.results) == 3
         logger.info.assert_any_call("logging")
