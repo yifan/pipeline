@@ -128,56 +128,6 @@ class TestWorkerCore:
         processor.start()
         assert len(processor.destination.results) == 2
 
-    # def test_processor_invalid_message(self):
-    #     class InvalidMessage(Message):
-    #         def is_valid(self):
-    #             return False
-    #
-    #     msgs = [{}, {}, {}]
-    #     config = ProcessorConfig(messageClass=InvalidMessage)
-    #     pro1 = Processor("tester1", "0.1.0", config=config)
-    #     pro1.parse_args(
-    #         args=["--kind", "MEM", "--out-topic", "test"],
-    #         config={"data": msgs},
-    #     )
-    #     pro1.use_retry_topic("optional-retry-topic")
-    #     pro1.start()
-    #     assert len(pro1.destination.results) == 0
-    #     assert len(pro1.retryDestination.results) == 3
-
-    # def test_processor_retry(self):
-    #     class RetryProcessor(Processor):
-    #         def process(self, msg):
-    #             return "Error"
-    #
-    #     msgs = [{"key": "1"}, {"key": "2"}, {"key": "3"}]
-    #     pro1 = RetryProcessor("tester1", "0.1.0")
-    #     pro1.parse_args(
-    #         args=["--kind", "MEM", "--out-topic", "test"],
-    #         config={"data": msgs},
-    #     )
-    #     pro1.use_retry_topic("optional-retry-topic")
-    #     pro1.start()
-    #     assert len(pro1.destination.results) == 0
-    #     assert len(pro1.retryDestination.results) == 3
-
-    # def test_processor_terminated_messages(self):
-    #     class RetryProcessor(Processor):
-    #         def process(self, msg):
-    #             msg.terminates()
-    #             return None
-    #
-    #     msgs = [{"key": "1"}, {"key": "2"}, {"key": "3"}]
-    #     pro1 = RetryProcessor("tester1", "0.1.0")
-    #     pro1.parse_args(
-    #         args=["--kind", "MEM", "--out-topic", "test"],
-    #         config={"data": msgs},
-    #     )
-    #     pro1.use_retry_topic("optional-retry-topic")
-    #     pro1.start()
-    #     assert len(pro1.destination.results) == 0
-    #     assert len(pro1.retryDestination.results) == 0
-
     def test_processor(self):
         class Input(BaseModel):
             key: str
@@ -201,34 +151,6 @@ class TestWorkerCore:
         assert len(processor.destination.results) == 3
         m = processor.destination.results[0]
         assert m.get("newkey") == "newval"
-
-    # def test_processor_with_cache(self):
-    #     class MyProcessor(Processor):
-    #         def process(self, msg):
-    #             self.logger.info("%s, %s", msg.dct.get("key", None), msg.get("key"))
-    #             msg.update_content({"key3": msg.get("key1")})
-    #             return None
-    #
-    #     msgs = [{"key": "m1"}, {"key": "m2"}, {"key": "m3"}]
-    #     memory = {
-    #         "m1": {"key1": "val11", "key2": "val21"},
-    #         "m2": {"key1": "val12", "key2": "val22"},
-    #         "m3": {"key1": "val13", "key2": "val23"},
-    #     }
-    #     config = ProcessorConfig(cacheKind="MEM")
-    #     pro1 = MyProcessor("tester1", "0.1.0", config=config)
-    #     pro1.parse_args(
-    #         args="--kind MEM --out-topic test --in-fields key1,key2 --out-fields key3".split(),
-    #         config={
-    #             "data": msgs,
-    #             "mem": memory,
-    #         },
-    #     )
-    #     pro1.start()
-    #     assert len(pro1.destination.results) == 3
-    #     m = memory.get("m1")
-    #     assert m.get("key3") == "val11"
-    #     assert m.get("key1") == "val11"
 
     def test_file(self):
         class Input(BaseModel):
@@ -334,7 +256,6 @@ class TestWorkerCore:
         class MyProcessor(Processor):
             def process(self, msg: Input) -> Output:
                 raise NotImplementedError
-                return Output()
 
         msgs = [{}, {}, {}]
         settings = ProcessorSettings(name="processor", version="0.0.0", description="")

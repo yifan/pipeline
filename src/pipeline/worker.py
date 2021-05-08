@@ -193,7 +193,7 @@ class Producer(Worker):
                 output = self._step()
                 self.timer.log(self.logger)
                 if hasattr(output, "id"):
-                    msg = Message(id=output.id, content=output.dict())
+                    msg = Message(id=output.id, content=output.dict())  # type: ignore
                 else:
                     msg = Message(content=output.dict())
                 self.logger.info("Generated %d-th message %s", i, msg)
