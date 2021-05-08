@@ -8,7 +8,7 @@ from enum import IntEnum
 from typing import Optional, Set, List, Dict, Iterator, Type
 from logging import Logger
 
-from pydantic import BaseModel, ByteSize, Field, ValidationError
+from pydantic import BaseModel, ByteSize, Field, ValidationError, parse_obj_as
 
 from .exception import PipelineError, PipelineInputError, PipelineOutputError
 from .message import Message, DescribeMessage
@@ -333,21 +333,6 @@ class Processor(Worker):
         self.output_class = output_class
         self.destination_class = None
 
-    def use_retry_topic(self, name: str = None) -> None:
-        """Retry topic is introduced to solve error handling by saving
-        message being processed when error occurs to a separate topic.
-        In this way, these messages can be reprocessed at a later stage.
-        """
-        if self.destination_class:
-            settings = copy(self.destination.settings)
-            settings.topic = name if name else self.name + "-retry"
-            self.retryDestination = self.destination_class(
-                settings=settings, logger=self.logger
-            )
-            self.retryEnabled = True
-        else:
-            raise PipelineError("Please call this function after parse_args")
-
     def process(self, msg: BaseModel) -> BaseModel:
         """process function to be overridden by users, for streaming
         processing, this function needs to do in-place update on msg.dct
@@ -366,7 +351,7 @@ class Processor(Worker):
         raise NotImplementedError("You need to implement .process()")
 
     def _step(self, msg: Message) -> None:
-        """ process one message """
+        """process one message"""
 
         self.logger.info(f"Receive message {msg}")
         log = Log(
@@ -387,7 +372,7 @@ class Processor(Worker):
         self.logger.info(f"Processed message {msg}")
 
         try:
-            output_model = self.output_class(**output_data.dict())
+            output_model = parse_obj_as(self.output_class, output_data)
             self.logger.info(f"Validated output {output_model}")
         except ValidationError as e:
             self.logger.error(f"Output validation failed for message {msg}")
@@ -429,7 +414,7 @@ class Processor(Worker):
             self.monitor.record_write(self.destination.topic)
 
     def start(self) -> None:
-        """ start processing. """
+        """start processing."""
 
         self.logger.setLevel(level=logging.INFO)
         if self.settings.debug:
