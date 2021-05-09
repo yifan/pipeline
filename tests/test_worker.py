@@ -86,7 +86,7 @@ class TestWorkerCore:
         outputs = [Output(language="en"), Input(key=1), Output(language="en")]
 
         class MyProcessor(Processor):
-            def process(self, msg):
+            def process(self, msg, id):
                 return outputs.pop(0)
 
         settings = ProcessorSettings(
@@ -111,7 +111,7 @@ class TestWorkerCore:
             language: str
 
         class MyProcessor(Processor):
-            def process(self, msg: Input) -> Output:
+            def process(self, msg: Input, id: str) -> Output:
                 return Output(language="en")
 
         settings = ProcessorSettings(
@@ -137,7 +137,7 @@ class TestWorkerCore:
             newkey: str
 
         class MyProcessor(Processor):
-            def process(self, input):
+            def process(self, input, id):
                 return Output(key=input.key, newkey="newval")
 
         msgs = [{"key": "1"}, {"key": "2"}, {"key": "3"}]
@@ -162,7 +162,7 @@ class TestWorkerCore:
             language: str
 
         class MyProcessor(Processor):
-            def process(self, msg: Input) -> Output:
+            def process(self, msg: Input, id: str) -> Output:
                 return Output(key=msg.key, language=msg.language)
 
         with tempfile.NamedTemporaryFile() as tmpInFile:
@@ -201,7 +201,7 @@ class TestWorkerCore:
             language: str
 
         class MyProcessor(Processor):
-            def process(self, msg: Input) -> Output:
+            def process(self, msg: Input, id: str) -> Output:
                 return Output(key=msg.key, language=msg.language)
 
         with tempfile.NamedTemporaryFile() as tmpInFile:
@@ -233,7 +233,7 @@ class TestWorkerCore:
             pass
 
         class MyProcessor(Processor):
-            def process(self, msg: Input) -> Output:
+            def process(self, msg: Input, id: str) -> Output:
                 return Output()
 
         msgs = [{}, {}, {}]
@@ -254,7 +254,7 @@ class TestWorkerCore:
             pass
 
         class MyProcessor(Processor):
-            def process(self, msg: Input) -> Output:
+            def process(self, msg: Input, id: str) -> Output:
                 raise NotImplementedError
 
         msgs = [{}, {}, {}]
@@ -286,7 +286,7 @@ class TestWorkerCore:
             pass
 
         class MyProcessor(Processor):
-            def process(self, msg: Input) -> Output:
+            def process(self, msg: Input, id: str) -> Output:
                 return Output()
 
         msgs = [{}, {}, {}]
@@ -383,7 +383,7 @@ class TestWorkerCore:
             key: int
 
         class MyProcessor(Processor):
-            def process(self, msg):
+            def process(self, msg, id):
                 self.logger.info("logging")
                 return msg
 
@@ -417,7 +417,7 @@ class TestWorkerCore:
             key: int
 
         class MyProcessor(Processor):
-            def process(self, msg: Input) -> Output:
+            def process(self, msg: Input, id: str) -> Output:
                 return Output(key=1)
 
         logger = mock.MagicMock()

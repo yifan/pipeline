@@ -120,6 +120,8 @@ class Worker(ABC):
 
 
 class ProducerSettings(WorkerSettings):
+    """Producer settings"""
+
     pass
 
 
@@ -127,7 +129,18 @@ class Producer(Worker):
     """Producer is a worker to generate new messages. For example, a webcrawler can
     be a producer. It reads no input, and produce outputs until it exits.
 
+    Parameters:
+        :param settings: settings
+        :type settings: ProducerSettings
+        :param output_class: output class
+        :type output_class: Type[BaseModel]
+        :param logger: logger
+        :type logger: Logger
+
     Usage:
+
+    .. code-block:: python
+
         >>> from pydantic import BaseModel
         >>>
         >>> class Output(BaseModel):
@@ -315,6 +328,11 @@ class ProcessorSettings(WorkerSettings):
 
 
 class Processor(Worker):
+    """Processor is a worker which will process incoming messages and output
+    new messages
+
+    """
+
     settings: ProcessorSettings
     input_class: Type[BaseModel]
     output_class: Type[BaseModel]
@@ -333,7 +351,9 @@ class Processor(Worker):
         self.output_class = output_class
         self.destination_class = None
 
-    def process(self, msg: BaseModel) -> BaseModel:
+    def process(
+        self, message_content: BaseModel, message_id: Optional[str] = None
+    ) -> BaseModel:
         """process function to be overridden by users, for streaming
         processing, this function needs to do in-place update on msg.dct
         and return an error or a list of errors (for batch processing).
@@ -368,7 +388,7 @@ class Processor(Worker):
             self.logger.error(e.json())
             raise PipelineInputError(f"Input validation failed for message {msg}")
 
-        output_data = self.process(input_data)
+        output_data = self.process(input_data, msg.id)
         self.logger.info(f"Processed message {msg}")
 
         try:
