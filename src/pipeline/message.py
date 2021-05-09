@@ -14,13 +14,16 @@ class Kind(str, Enum):
 
 
 class Message(BaseModel):
-    """Message is a container for data in pipeline. It keeps track of
-    information of workers in meta and the content
+    """:class:`Message` is a container for data in pipeline. Data will be wrapped in
+    :class:`Message` in order to pass through a pipeline constructed with this library.
 
     Usage:
-    >>> msg = Message(id="key", content={"field": "value"})
-    >>> serialized = msg.serialize()
-    >>> deserialized_msg = Message.deserialize(serialized)
+
+    .. code-block:: python
+
+        >>> msg = Message(id="key", content={"field": "value"})
+        >>> serialized = msg.serialize()
+        >>> deserialized_msg = Message.deserialize(serialized)
     """
 
     kind: Optional[Kind] = Kind.Message
@@ -39,6 +42,14 @@ class Message(BaseModel):
 
     @classmethod
     def deserialize(cls, data: bytes) -> "Message":
+        """de-serialize message
+
+        Parameters:
+            :param data: serialized message
+            :type data: bytes
+            :return: a new :class:`Message` object
+            :rtype: Message
+        """
         if data[0] == ord("{"):
             return cls.parse_raw(data.decode("utf-8"))
         elif data[0] == ord("Z"):
@@ -47,30 +58,66 @@ class Message(BaseModel):
             raise PipelineMessageError("Unknown format")
 
     def serialize(self, compress: bool = False) -> bytes:
+        """serialize message with optional compression
+
+        Parameters:
+            :param compress: compression flag
+            :type compress: bool
+            :return: serialized message bytes
+            :rtype: bytes
+        """
         data = self.json().encode("utf-8")
         if compress:
             data = b"Z" + self._compress(data)
         return data
 
     def as_model(self, model_class: Type[BaseModel]) -> BaseModel:
+        """return content as another BaseModel instance
+
+        Parameters:
+            :param model_class: return class type
+            :type model_class: class
+            :return: BaseModel
+            :rtype: BaseModel
+        """
         return model_class(**self.content)
 
     def update_content(self, other: BaseModel) -> KeysView[str]:
+        """add fields from other model to update message's content
+
+        Parameters:
+            :param other: other BaseModel object
+            :type other: BaseModel
+            :return: list of keys updated
+            :rtype: KeysView[str]
+        """
+
         d = other.dict()
         self.content.update(d)
         return d.keys()
 
     def get(self, key: str, default: Any = None) -> Any:
+        """access any field in message content
+
+        Parameters:
+            :param key: field name
+            :type key: str
+            :return: value
+            :rtype: Any
+        """
         return self.content.get(key, default)
 
 
 class DescribeMessage(Message):
-    """DescribeMessage is a special message to be sent to worker as a command
+    """:class:`DescribeMessage` is a special message to be sent to worker as a command
 
     Usage:
-    >>> describe = DescribeMessage()
-    >>> describe.kind == Kind.Describe
-    True
+
+     .. code-block:: python
+
+        >>> describe = DescribeMessage()
+        >>> describe.kind == Kind.Describe
+        True
 
     """
 

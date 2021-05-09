@@ -57,6 +57,7 @@ class Pipeline(object):
 
         :param in_kind: underlining queuing system [MEM, FILE, KAFKA, PULSAR, LREDIS, RABBITMQ]
         :param out_kind: underlining queuing system [MEM, FILE, KAFKA, PULSAR, LREDIS, RABBITMQ]
+
             MEM - Memory based, mostly for unittests
             FILE - File based queueing, for development
             KAFKA - Use Kafka
