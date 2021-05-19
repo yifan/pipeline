@@ -4,7 +4,7 @@ import logging
 from logging import Logger
 from typing import Iterator, ClassVar, Any
 
-from pydantic import RedisDsn, Field
+from pydantic import Field
 from redis import Redis, ResponseError as RedisResponseError
 
 from ..tap import SourceTap, SourceSettings, DestinationTap, DestinationSettings
@@ -19,7 +19,7 @@ pipelineLogger.setLevel(logging.DEBUG)
 
 
 class RedisSourceSettings(SourceSettings):
-    redis: RedisDsn = Field("redis://localhost:6379", title="redis url")
+    redis: str = Field("redis://localhost:6379/0", title="redis url")
     group: str = Field(None, title="redis consumer group name")
 
 
@@ -47,12 +47,7 @@ class RedisStreamSource(SourceTap):
         self.group = settings.group
         self.topic = namespaced_topic(settings.topic, settings.namespace)
         self.timeout = settings.timeout
-        self.redis = Redis(
-            host=self.settings.redis.host,
-            port=int(self.settings.redis.port) if self.settings.redis.port else 6380,
-            password=self.settings.redis.password,
-        )
-
+        self.redis = Redis.from_url(settings.redis)
         self.consumer = str(uuid.uuid1())
         self.last_msg = None
 
@@ -97,7 +92,7 @@ class RedisStreamSource(SourceTap):
 
 
 class RedisDestinationSettings(DestinationSettings):
-    redis: RedisDsn = Field("redis://localhost:6379", title="redis url")
+    redis: str = Field("redis://localhost:6379/0", title="redis url")
 
 
 class RedisStreamDestination(DestinationTap):
@@ -122,11 +117,7 @@ class RedisStreamDestination(DestinationTap):
         self.settings = settings
         self.client = Redis(settings.redis)
         self.topic = namespaced_topic(settings.topic, settings.namespace)
-        self.redis = Redis(
-            host=self.settings.redis.host,
-            port=int(self.settings.redis.port) if self.settings.redis.port else 6380,
-            password=self.settings.redis.password,
-        )
+        self.redis = Redis.from_url(settings.redis)
 
     def __repr__(self) -> str:
         return f'RedisStreamDestination(host="{self.settings.redis}", topic="{self.topic}")'
@@ -166,11 +157,7 @@ class RedisListSource(SourceTap):
         self.group = settings.group
         self.topic = namespaced_topic(settings.topic, settings.namespace)
         self.timeout = settings.timeout
-        self.redis = Redis(
-            host=settings.redis.host,
-            port=int(self.settings.redis.port) if self.settings.redis.port else 6380,
-            password=settings.redis.password,
-        )
+        self.redis = Redis.from_url(settings.redis)
         self.last_msg = None
 
     def __repr__(self) -> str:
@@ -223,11 +210,7 @@ class RedisListDestination(DestinationTap):
         self.settings = settings
         self.client = Redis(settings.redis)
         self.topic = namespaced_topic(settings.topic, settings.namespace)
-        self.redis = Redis(
-            host=settings.redis.host,
-            port=int(self.settings.redis.port) if self.settings.redis.port else 6380,
-            password=settings.redis.password,
-        )
+        self.redis = Redis.from_url(settings.redis)
 
     def __repr__(self) -> str:
         return (
