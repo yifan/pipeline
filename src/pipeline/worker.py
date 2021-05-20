@@ -411,18 +411,19 @@ class Processor(Worker):
         output_data = self.process(input_data, msg.id)
         self.logger.info(f"Processed message {msg}")
 
-        try:
-            output_model = parse_obj_as(self.output_class, output_data)
-            self.logger.info(f"Validated output {output_model}")
-        except ValidationError as e:
-            self.logger.exception(
-                f"Output validation failed for message {msg}", exc_info=e
-            )
-            raise PipelineOutputError(f"Output validation failed for message {msg}")
-
         updated = None
-        if output_model:
-            updated = msg.update_content(output_model)
+        if self.has_output():
+            try:
+                output_model = parse_obj_as(self.output_class, output_data)
+                self.logger.info(f"Validated output {output_model}")
+            except ValidationError as e:
+                self.logger.exception(
+                    f"Output validation failed for message {msg}", exc_info=e
+                )
+                raise PipelineOutputError(f"Output validation failed for message {msg}")
+
+            if output_model:
+                updated = msg.update_content(output_model)
 
         return updated
 
