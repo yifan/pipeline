@@ -5,7 +5,7 @@ from abc import ABC
 from copy import copy
 from datetime import datetime
 from enum import IntEnum
-from typing import Optional, Set, List, Dict, Iterator, Type
+from typing import Optional, Set, List, Dict, Iterator, Type, KeysView
 from logging import Logger
 
 from pydantic import BaseModel, ByteSize, Field, ValidationError, parse_obj_as
@@ -380,28 +380,13 @@ class Processor(Worker):
             updated=set(),
             received=datetime.now(),
         )
-        try:
-            input_data = msg.as_model(self.input_class)
-            self.logger.info(f"Prepared input {input_data}")
-        except ValidationError as e:
-            self.logger.error(f"Input validation failed for message {msg}")
-            self.logger.error(e.json())
-            raise PipelineInputError(f"Input validation failed for message {msg}")
 
-        output_data = self.process(input_data, msg.id)
-        self.logger.info(f"Processed message {msg}")
-
-        try:
-            output_model = parse_obj_as(self.output_class, output_data)
-            self.logger.info(f"Validated output {output_model}")
-        except ValidationError as e:
-            self.logger.error(f"Output validation failed for message {msg}")
-            self.logger.error(e.json())
-            raise PipelineOutputError(f"Output validation failed for message {msg}")
-
-        if output_model:
-            updated = msg.update_content(output_model)
-            log.updated.update(updated)
+        if isinstance(msg, DescribeMessage):
+            updated = self.process_special_message(msg)
+            if updated:
+                log.updated.update(updated)
+        else:
+            self.process_message(msg)
 
         log.processed = datetime.now()
         log.elapsed = self.timer.elapsed_time()
@@ -412,26 +397,40 @@ class Processor(Worker):
             self.logger.info(f"Wrote message {msg}(size:{size})")
             self.monitor.record_write(self.destination.topic)
 
-    def _process_describe_message(self, msg: DescribeMessage) -> None:
-        self.logger.info(f"Receive message {msg}")
-        log = Log(
-            name=self.name,
-            version=self.version,
-            updated=set(),
-            received=datetime.now(),
-        )
+    def process_message(self, msg: Message) -> KeysView[str]:
+        try:
+            input_data = msg.as_model(self.input_class)
+            self.logger.info(f"Prepared input {input_data}")
+        except ValidationError as e:
+            self.logger.exception(
+                f"Input validation failed for message {msg}", exc_info=e
+            )
+            raise PipelineInputError(f"Input validation failed for message {msg}")
+
+        output_data = self.process(input_data, msg.id)
+        self.logger.info(f"Processed message {msg}")
+
+        try:
+            output_model = parse_obj_as(self.output_class, output_data)
+            self.logger.info(f"Validated output {output_model}")
+        except ValidationError as e:
+            self.logger.exception(
+                f"Output validation failed for message {msg}", exc_info=e
+            )
+            raise PipelineOutputError(f"Output validation failed for message {msg}")
+
+        if output_model:
+            updated = msg.update_content(output_model)
+        else:
+            updated = None
+
+        return updated
+
+    def process_special_message(self, msg: DescribeMessage) -> None:
         if self.input_class:
             msg.input_schema = self.input_class.schema_json(indent=2)
         if self.output_class:
             msg.output_schema = self.output_class.schema_json(indent=2)
-        log.processed = datetime.now()
-        log.elapsed = 0.0
-        msg.logs.append(log)
-
-        if self.has_output():
-            size = self.destination.write(msg)
-            self.logger.info(f"Wrote message {msg}(size:{size})")
-            self.monitor.record_write(self.destination.topic)
 
     def start(self) -> None:
         """start processing."""
@@ -459,34 +458,31 @@ class Processor(Worker):
 
         for i, msg in enumerate(self.source.read()):
 
-            if isinstance(msg, DescribeMessage):
-                self._process_describe_message(msg)
-            else:  # normal message
-                self.monitor.record_read(self.source.topic)
-                self.logger.info("Received %d-th message '%s'", i, str(msg))
+            self.monitor.record_read(self.source.topic)
+            self.logger.info("Received %d-th message '%s'", i, str(msg))
 
-                self.timer.start()
-                with self.monitor.process_timer.time():
-                    try:
-                        self._step(msg)
-                    except PipelineInputError as e:
-                        # If input error, upstream worker should act
-                        self.monitor.record_error(str(e))
-                    except PipelineOutputError as e:
-                        # If output error, worker needs to exit without acknowldgement
-                        self.monitor.record_error(str(e))
-                        raise
-                    except Exception as e:
-                        self.logger.error(traceback.format_exc())
-                        self.monitor.record_error(str(e))
+            self.timer.start()
+            with self.monitor.process_timer.time():
+                try:
+                    self._step(msg)
+                except PipelineInputError as e:
+                    # If input error, upstream worker should act
+                    self.monitor.record_error(str(e))
+                except PipelineOutputError as e:
+                    # If output error, worker needs to exit without acknowldgement
+                    self.monitor.record_error(str(e))
+                    raise
+                except Exception as e:
+                    self.logger.error(traceback.format_exc())
+                    self.monitor.record_error(str(e))
 
-                self.timer.log(self.logger)
+            self.timer.log(self.logger)
 
-                self.source.acknowledge()
+            self.source.acknowledge()
 
-                if i == self.limit:
-                    self.logger.info(f"Limit {self.limit} reached, exiting")
-                    break
+            if i == self.limit:
+                self.logger.info(f"Limit {self.limit} reached, exiting")
+                break
 
         self.shutdown()
         self.source.close()
