@@ -5,10 +5,10 @@ from abc import ABC
 from copy import copy
 from datetime import datetime
 from enum import IntEnum
-from typing import Optional, Set, List, Dict, Iterator, Type, KeysView
+from typing import Optional, Set, List, Dict, Iterator, Type, KeysView, Union
 from logging import Logger
 
-from pydantic import BaseModel, ByteSize, Field, ValidationError, parse_obj_as
+from pydantic import BaseModel, ByteSize, Field, ValidationError, parse_obj_as, UUID1
 
 from .exception import PipelineError, PipelineInputError, PipelineOutputError
 from .message import Message, DescribeMessage
@@ -352,7 +352,7 @@ class Processor(Worker):
         self.destination_class = None
 
     def process(
-        self, message_content: BaseModel, message_id: Optional[str] = None
+        self, message_content: BaseModel, message_id: Union[UUID1, str, None]
     ) -> BaseModel:
         """process function to be overridden by users, for streaming
         processing, this function needs to do in-place update on msg.dct
@@ -382,11 +382,11 @@ class Processor(Worker):
         )
 
         if isinstance(msg, DescribeMessage):
-            updated = self.process_special_message(msg)
+            self.process_special_message(msg)
+        else:
+            updated = self.process_message(msg)
             if updated:
                 log.updated.update(updated)
-        else:
-            self.process_message(msg)
 
         log.processed = datetime.now()
         log.elapsed = self.timer.elapsed_time()
@@ -397,9 +397,12 @@ class Processor(Worker):
             self.logger.info(f"Wrote message {msg}(size:{size})")
             self.monitor.record_write(self.destination.topic)
 
-    def process_message(self, msg: Message) -> KeysView[str]:
+    def process_message(self, msg: Message) -> Union[KeysView[str], None]:
         try:
-            input_data = msg.as_model(self.input_class)
+            if isinstance(self.input_class, dict):
+                input_data = msg.content
+            else:
+                input_data = msg.as_model(self.input_class)
             self.logger.info(f"Prepared input {input_data}")
         except ValidationError as e:
             self.logger.exception(
@@ -419,10 +422,9 @@ class Processor(Worker):
             )
             raise PipelineOutputError(f"Output validation failed for message {msg}")
 
+        updated = None
         if output_model:
             updated = msg.update_content(output_model)
-        else:
-            updated = None
 
         return updated
 
