@@ -1,8 +1,8 @@
 import uuid
 from datetime import datetime
 from enum import Enum
-from typing import Any, Type, Dict, List, Optional, Union, KeysView
-from pydantic import BaseModel, UUID1
+from typing import Any, Type, Dict, List, Optional, KeysView
+from pydantic import BaseModel
 import zstandard
 
 from .exception import PipelineMessageError
@@ -27,7 +27,7 @@ class Message(BaseModel):
     """
 
     kind: Optional[Kind] = Kind.Message
-    id: Union[UUID1, str] = uuid.uuid1()
+    id: str = uuid.uuid1()
     created: datetime = datetime.now()
     logs: List[BaseModel] = []
     content: Dict[str, Any] = {}

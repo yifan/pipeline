@@ -8,7 +8,7 @@ from enum import IntEnum
 from typing import Optional, Set, List, Dict, Iterator, Type, KeysView, Union
 from logging import Logger
 
-from pydantic import BaseModel, ByteSize, Field, ValidationError, parse_obj_as, UUID1
+from pydantic import BaseModel, ByteSize, Field, ValidationError, parse_obj_as
 
 from .exception import PipelineError, PipelineInputError, PipelineOutputError
 from .message import Message, DescribeMessage
@@ -351,9 +351,7 @@ class Processor(Worker):
         self.output_class = output_class
         self.destination_class = None
 
-    def process(
-        self, message_content: BaseModel, message_id: Union[UUID1, str, None]
-    ) -> BaseModel:
+    def process(self, message_content: BaseModel, message_id: str) -> BaseModel:
         """process function to be overridden by users, for streaming
         processing, this function needs to do in-place update on msg.dct
         and return an error or a list of errors (for batch processing).
