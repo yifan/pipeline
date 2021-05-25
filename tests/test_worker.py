@@ -276,6 +276,7 @@ class TestWorkerCore:
 
         class MyProcessor(Processor):
             def process(self, msg: Input, id: str) -> Output:
+                assert self.message is not None
                 raise NotImplementedError
 
         msgs = [{}, {}, {}]
@@ -285,6 +286,7 @@ class TestWorkerCore:
         processor.source.data = msgs
         processor.start()
         assert len(processor.destination.results) == 0
+        assert not hasattr(processor, "message")
 
     def test_mem_processor_raise(self):
         class Input(BaseModel):

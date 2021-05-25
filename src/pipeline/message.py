@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 from enum import Enum
-from typing import Any, Type, Dict, List, Optional, KeysView
+from typing import Any, Type, Dict, List, Optional, KeysView, Set
 from pydantic import BaseModel
 import zstandard
 
@@ -11,6 +11,15 @@ from .exception import PipelineMessageError
 class Kind(str, Enum):
     Message = "MESG"
     Describe = "DESC"
+
+
+class Log(BaseModel):
+    name: str
+    version: str
+    updated: Set[str]
+    received: datetime = datetime.now()
+    processed: Optional[datetime] = None
+    elapsed: Optional[float] = None
 
 
 class Message(BaseModel):
@@ -29,7 +38,7 @@ class Message(BaseModel):
     kind: Optional[Kind] = Kind.Message
     id: str = uuid.uuid1()
     created: datetime = datetime.now()
-    logs: List[BaseModel] = []
+    logs: List[Log] = []
     content: Dict[str, Any] = {}
 
     @classmethod

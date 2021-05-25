@@ -16,3 +16,4 @@ html
 **.swp
 .python-version
 .DS_Store
+pip-wheel-metadata

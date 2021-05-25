@@ -5,13 +5,13 @@ from abc import ABC
 from copy import copy
 from datetime import datetime
 from enum import IntEnum
-from typing import Optional, Set, List, Dict, Iterator, Type, KeysView, Union
+from typing import Optional, List, Dict, Iterator, Type, KeysView, Union
 from logging import Logger
 
 from pydantic import BaseModel, ByteSize, Field, ValidationError, parse_obj_as
 
 from .exception import PipelineError, PipelineInputError, PipelineOutputError
-from .message import Message, DescribeMessage
+from .message import Message, DescribeMessage, Log
 from .monitor import Monitor
 from .tap import DestinationTap, SourceTap
 from .tap import TapKind, SourceSettings, DestinationSettings  # noqa: F401
@@ -20,15 +20,6 @@ from .helpers import Settings, Timer
 
 pipelineLogger = logging.getLogger("pipeline")
 pipelineLogger.setLevel(logging.INFO)
-
-
-class Log(BaseModel):
-    name: str
-    version: str
-    updated: Set[str]
-    received: datetime = datetime.now()
-    processed: Optional[datetime] = None
-    elapsed: Optional[float] = None
 
 
 class WorkerType(IntEnum):
@@ -408,8 +399,12 @@ class Processor(Worker):
             )
             raise PipelineInputError(f"Input validation failed for message {msg}")
 
-        output_data = self.process(input_data, msg.id)
-        self.logger.info(f"Processed message {msg}")
+        try:
+            setattr(self, "message", msg)
+            output_data = self.process(input_data, msg.id)
+            self.logger.info(f"Processed message {msg}")
+        finally:
+            delattr(self, "message")
 
         updated = None
         if self.has_output():
