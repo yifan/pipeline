@@ -1,8 +1,9 @@
 import uuid
+import json
 from datetime import datetime
 from enum import Enum
-from typing import Any, Type, Dict, List, Optional, KeysView, Set
-from pydantic import BaseModel
+from typing import Any, Type, Dict, List, Optional, KeysView, Set, Union
+from pydantic import BaseModel, parse_obj_as
 import zstandard
 
 from .exception import PipelineMessageError
@@ -36,49 +37,17 @@ class Message(BaseModel):
     """
 
     kind: Optional[Kind] = Kind.Message
-    id: str = uuid.uuid1()
+    id: str = uuid.uuid1().hex
     created: datetime = datetime.now()
     logs: List[Log] = []
     content: Dict[str, Any] = {}
 
-    @classmethod
-    def _compress(cls, data: bytes) -> bytes:
-        return zstandard.compress(data)
-
-    @classmethod
-    def _decompress(cls, data: bytes) -> bytes:
-        return zstandard.decompress(data)
-
-    @classmethod
-    def deserialize(cls, data: bytes) -> "Message":
-        """de-serialize message
-
-        Parameters:
-            :param data: serialized message
-            :type data: bytes
-            :return: a new :class:`Message` object
-            :rtype: Message
-        """
-        if data[0] == ord("{"):
-            return cls.parse_raw(data.decode("utf-8"))
-        elif data[0] == ord("Z"):
-            return cls.parse_raw(cls._decompress(data[1:]).decode("utf-8"))
-        else:
-            raise PipelineMessageError("Unknown format")
-
     def serialize(self, compress: bool = False) -> bytes:
-        """serialize message with optional compression
+        return serialize_message(self, compress)
 
-        Parameters:
-            :param compress: compression flag
-            :type compress: bool
-            :return: serialized message bytes
-            :rtype: bytes
-        """
-        data = self.json().encode("utf-8")
-        if compress:
-            data = b"Z" + self._compress(data)
-        return data
+    @classmethod
+    def deserialize(self, raw: bytes) -> "Message":
+        return deserialize_message(raw)
 
     def as_model(self, model_class: Type[BaseModel]) -> BaseModel:
         """return content as another BaseModel instance
@@ -130,10 +99,29 @@ class DescribeMessage(Message):
 
     """
 
-    input_schema: Optional[str]
-    output_schema: Optional[str]
+    input_schema: Optional[str] = None
+    output_schema: Optional[str] = None
+    kind: Kind = Kind.Describe
 
-    def __init__(self) -> None:
-        super().__init__(kind=Kind.Describe)
-        self.input_schema = None
-        self.output_schema = None
+
+def serialize_message(message: BaseModel, compress: bool = False) -> bytes:
+    data = message.json().encode("utf-8")
+    if compress:
+        data = b"Z" + zstandard.compress(data)
+    return data
+
+
+def deserialize_message(raw: bytes) -> Union[Message, DescribeMessage]:
+    if raw[0] == ord("{"):
+        message_dict = json.loads(raw.decode("utf-8"))
+    elif raw[0] == ord("Z"):
+        message_dict = json.loads(zstandard.decompress(raw[1:]).decode("utf-8"))
+    else:
+        raise PipelineMessageError("Unknown bytes string cannot be deserialized")
+
+    if message_dict["kind"] == Kind.Message:
+        return parse_obj_as(Message, message_dict)
+    elif message_dict["kind"] == Kind.Describe:
+        return parse_obj_as(DescribeMessage, message_dict)
+    else:
+        raise PipelineMessageError("Unknown format")

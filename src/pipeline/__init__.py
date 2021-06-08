@@ -1,5 +1,5 @@
 from .exception import PipelineError, PipelineOutputError, PipelineMessageError
-from .message import Message, DescribeMessage
+from .message import Message, DescribeMessage, serialize_message, deserialize_message
 from .tap import DestinationTap, SourceTap, TapKind
 from .worker import (
     ProducerSettings,
@@ -29,5 +29,7 @@ __all__ = [
     "Splitter",
     "Message",
     "DescribeMessage",
+    "serialize_message",
+    "deserialize_message",
     "Pipeline",
 ]

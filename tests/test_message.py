@@ -2,7 +2,13 @@ from unittest import TestCase
 
 import pytest
 
-from pipeline import Message, DescribeMessage, PipelineMessageError
+from pipeline import (
+    Message,
+    DescribeMessage,
+    PipelineMessageError,
+    serialize_message,
+    deserialize_message,
+)
 
 
 class TestMessage(TestCase):
@@ -15,17 +21,17 @@ class TestMessage(TestCase):
 
     def test_serialization(self):
         message = Message(content={"key": "message"})
-        result = Message.deserialize(message.serialize())
+        result = deserialize_message(serialize_message(message))
         self.assertDictEqual(message.content, result.content)
 
-    def test_compression(self):
-        content = b'{"key": "message is a message"}'
-        c = Message._decompress(Message._compress(content))
-        assert content == c
+    def test_serialization_describe(self):
+        message = DescribeMessage()
+        result = deserialize_message(serialize_message(message))
+        self.assertDictEqual(message.dict(), result.dict())
 
     def test_serialization_compression(self):
         message = Message(content={"key": "message"})
-        result = Message.deserialize(message.serialize(compress=True))
+        result = deserialize_message(serialize_message(message, compress=True))
         self.assertDictEqual(message.content, result.content)
 
     def test_serialization_compression_unicode(self):

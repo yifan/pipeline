@@ -403,6 +403,8 @@ class Processor(Worker):
             setattr(self, "message", msg)
             output_data = self.process(input_data, msg.id)
             self.logger.info(f"Processed message {msg}")
+        except Exception:
+            raise
         finally:
             delattr(self, "message")
 
