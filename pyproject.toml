@@ -1,9 +1,31 @@
+[tool.poetry]
+name = "tanbih-pipeline"
+version = "0.11.9"
+description = "data streaming on top of popular message queues"
+authors = ["Yifan Zhang <freqyifan@gmail.com>"]
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = "^3.7"
+prometheus-client = "0.7.*"
+zstandard = "0.15.*"
+pydantic = "1.8.*"
+redis = {version = "^3.5.3", extras = ["redis", "full"]}
+confluent-kafka = {version = "1.3.*", extras = ["kafka", "full"]}
+pulsar-client = {version = "2.5.*", extras = ["pulsar", "full"]}
+
+[tool.poetry.dev-dependencies]
+tox = "^3.23.1"
+tox-pyenv = "^1.1.0"
+pre-commit = "^2.13.0"
+Sphinx = "^4.0.2"
+pytest = "^6.2.4"
+pytest-cov = "^2.12.1"
+mypy = "^0.901"
+
 [build-system]
-requires = [
-  "setuptools>=30.3.0",
-  "wheel",
-  "setuptools_scm>=3.3.1",
-]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
 
 [tool.black]
 line-length = 88
