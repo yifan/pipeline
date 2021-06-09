@@ -6,7 +6,7 @@ import pulsar
 from pydantic import AnyUrl, Field
 
 from ..tap import SourceTap, DestinationTap, SourceSettings, DestinationSettings
-from ..message import Message
+from ..message import MessageBase
 
 
 class PulsarDsn(AnyUrl):
@@ -62,14 +62,14 @@ class PulsarSource(SourceTap):
             self.subscription,
         )
 
-    def read(self) -> Iterator[Message]:
+    def read(self) -> Iterator[MessageBase]:
         timeout_ms = self.settings.timeout * 1000 if self.settings.timeout else None
         msg = self.consumer.receive(timeout_millis=timeout_ms)
         while msg:
             msg = self.consumer.receive(timeout_millis=timeout_ms)
             self.last_msg = msg
             if msg:
-                yield Message.deserialize(msg.data())
+                yield MessageBase.deserialize(msg.data())
             time.sleep(0.01)
 
     def acknowledge(self) -> None:
@@ -117,7 +117,7 @@ class PulsarDestination(DestinationTap):
             self.name,
         )
 
-    def write(self, message: Message) -> int:
+    def write(self, message: MessageBase) -> int:
         serialized = message.serialize(compress=self.settings.compress)
         self.producer.send(serialized)
         return len(serialized)

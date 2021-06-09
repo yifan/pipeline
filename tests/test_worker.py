@@ -6,7 +6,7 @@ import pytest
 
 from pipeline import (
     TapKind,
-    DescribeMessage,
+    Command,
     ProducerSettings,
     Producer,
     ProcessorSettings,
@@ -14,6 +14,7 @@ from pipeline import (
     SplitterSettings,
     Splitter,
     PipelineOutputError,
+    CommandActions,
 )
 
 
@@ -431,7 +432,7 @@ class TestWorkerCore:
         assert len(processor.destination.results) == 3
         logger.info.assert_any_call("logging")
 
-    def test_describe_message(self):
+    def test_define_command(self):
         class Input(BaseModel):
             key: int
             title: str
@@ -444,7 +445,7 @@ class TestWorkerCore:
                 return Output(key=1)
 
         logger = mock.MagicMock()
-        msgs = [DescribeMessage(), {"key": "3", "title": "title"}]
+        msgs = [Command(action=CommandActions.Define), {"key": "3", "title": "title"}]
         settings = ProcessorSettings(
             name="processor",
             version="0.0.0",
@@ -460,5 +461,5 @@ class TestWorkerCore:
         processor.start()
         assert len(processor.destination.results) == 2
         result = processor.destination.results[0]
-        assert result.input_schema is not None
-        assert result.output_schema is not None
+        assert "input" in result.get("processor")
+        assert "output" in result.get("processor")

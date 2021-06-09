@@ -4,9 +4,8 @@ import pytest
 
 from pipeline import (
     Message,
-    DescribeMessage,
+    Command,
     PipelineMessageError,
-    serialize_message,
     deserialize_message,
 )
 
@@ -21,17 +20,17 @@ class TestMessage(TestCase):
 
     def test_serialization(self):
         message = Message(content={"key": "message"})
-        result = deserialize_message(serialize_message(message))
+        result = deserialize_message(message.serialize())
         self.assertDictEqual(message.content, result.content)
 
     def test_serialization_describe(self):
-        message = DescribeMessage()
-        result = deserialize_message(serialize_message(message))
-        self.assertDictEqual(message.dict(), result.dict())
+        command = Command(action="CustomAction")
+        result = deserialize_message(command.serialize())
+        self.assertDictEqual(command.dict(), result.dict())
 
     def test_serialization_compression(self):
         message = Message(content={"key": "message"})
-        result = deserialize_message(serialize_message(message, compress=True))
+        result = deserialize_message(message.serialize(compress=True))
         self.assertDictEqual(message.content, result.content)
 
     def test_serialization_compression_unicode(self):
@@ -54,6 +53,3 @@ class TestMessage(TestCase):
     def test_parsing_exception(self):
         with pytest.raises(PipelineMessageError):
             Message.deserialize(b"HFHGKDJFHG")
-
-    def test_describe(self):
-        DescribeMessage()

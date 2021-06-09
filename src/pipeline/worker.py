@@ -4,14 +4,14 @@ import traceback
 from abc import ABC
 from copy import copy
 from datetime import datetime
-from enum import IntEnum
-from typing import Optional, List, Dict, Iterator, Type, KeysView, Union
+from enum import IntEnum, Enum
+from typing import Optional, List, Dict, Iterator, Type, KeysView, Union, cast
 from logging import Logger
 
 from pydantic import BaseModel, ByteSize, Field, ValidationError, parse_obj_as
 
 from .exception import PipelineError, PipelineInputError, PipelineOutputError
-from .message import Message, DescribeMessage, Log
+from .message import Message, Command, Log, Kind, MessageBase
 from .monitor import Monitor
 from .tap import DestinationTap, SourceTap
 from .tap import TapKind, SourceSettings, DestinationSettings  # noqa: F401
@@ -20,6 +20,11 @@ from .helpers import Settings, Timer
 
 pipelineLogger = logging.getLogger("pipeline")
 pipelineLogger.setLevel(logging.INFO)
+
+
+class CommandActions(str, Enum):
+    Reset = "RESET"
+    Define = "DEFINE"
 
 
 class WorkerType(IntEnum):
@@ -255,26 +260,27 @@ class Splitter(Worker):
                 received=datetime.now(),
             )
 
-            topic = self.get_topic(msg)
+            if msg.kind == Kind.Message:
+                topic = self.get_topic(cast(Message, msg))
 
-            if topic not in self.destinations:
-                settings = copy(self.destination.settings)
-                settings.topic = topic
-                self.destinations[
-                    topic
-                ] = self.destination_and_settings_classes.destination_class(
-                    settings, logger=self.logger
-                )
+                if topic not in self.destinations:
+                    settings = copy(self.destination.settings)
+                    settings.topic = topic
+                    self.destinations[
+                        topic
+                    ] = self.destination_and_settings_classes.destination_class(
+                        settings, logger=self.logger
+                    )
 
-            destination = self.destinations[topic]
+                destination = self.destinations[topic]
 
-            msg.logs.append(log)
+                msg.logs.append(log)
 
-            self.logger.info("Writing message %s to topic <%s>", str(msg), topic)
-            msgSize = destination.write(msg)
-            self.logger.info(f"Message size: {msgSize}")
+                self.logger.info("Writing message %s to topic <%s>", str(msg), topic)
+                msgSize = destination.write(msg)
+                self.logger.info(f"Message size: {msgSize}")
 
-            self.monitor.record_write(topic)
+                self.monitor.record_write(topic)
             self.source.acknowledge()
 
     def start(self) -> None:
@@ -359,7 +365,7 @@ class Processor(Worker):
         """
         raise NotImplementedError("You need to implement .process()")
 
-    def _step(self, msg: Message) -> None:
+    def _step(self, msg: MessageBase) -> None:
         """process one message"""
 
         self.logger.info(f"Receive message {msg}")
@@ -370,12 +376,14 @@ class Processor(Worker):
             received=datetime.now(),
         )
 
-        if isinstance(msg, DescribeMessage):
-            self.process_special_message(msg)
-        else:
-            updated = self.process_message(msg)
+        if msg.kind == Kind.Command:
+            self.process_command(cast(Command, msg))
+        elif msg.kind == Kind.Message:
+            updated = self.process_message(cast(Message, msg))
             if updated:
                 log.updated.update(updated)
+        else:
+            raise PipelineError("Unrecognized message kind")
 
         log.processed = datetime.now()
         log.elapsed = self.timer.elapsed_time()
@@ -424,11 +432,14 @@ class Processor(Worker):
 
         return updated
 
-    def process_special_message(self, msg: DescribeMessage) -> None:
-        if self.input_class:
-            msg.input_schema = self.input_class.schema_json(indent=2)
-        if self.output_class:
-            msg.output_schema = self.output_class.schema_json(indent=2)
+    def process_command(self, cmd: Command) -> None:
+        if cmd.action == CommandActions.Define:
+            definition = {}
+            if self.input_class:
+                definition["input"] = self.input_class.schema_json(indent=2)
+            if self.output_class:
+                definition["output"] = self.output_class.schema_json(indent=2)
+            cmd.content.update({self.name: definition})
 
     def start(self) -> None:
         """start processing."""

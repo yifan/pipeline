@@ -12,7 +12,7 @@ from confluent_kafka import (
 )
 
 from ..tap import SourceTap, SourceSettings, DestinationTap, DestinationSettings
-from ..message import Message
+from ..message import MessageBase
 
 
 class KafkaSourceSettings(SourceSettings):
@@ -73,7 +73,7 @@ class KafkaSource(SourceTap):
             self.settings.kafka, self.settings.group_id, self.topic
         )
 
-    def read(self) -> Iterator[Message]:
+    def read(self) -> Iterator[MessageBase]:
         # sometimes it is better to make constant call to KAFKA
         # to keep the connection alive.
         timedout = False
@@ -91,7 +91,7 @@ class KafkaSource(SourceTap):
                 else:
                     self.logger.info("Read {}, {}".format(msg.topic(), msg.offset()))
                     self.last_msg = msg
-                    yield Message.deserialize(msg.value())
+                    yield MessageBase.deserialize(msg.value())
                     last_message_time = time.time()
 
             if self.settings.timeout > 0:
@@ -146,7 +146,7 @@ class KafkaDestination(DestinationTap):
             self.settings.kafka, self.topic
         )
 
-    def write(self, message: Message) -> int:
+    def write(self, message: MessageBase) -> int:
         def delivery_report(err, msg):  # type: ignore
             if err:
                 self.logger.error(

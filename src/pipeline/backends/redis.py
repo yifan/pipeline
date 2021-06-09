@@ -8,7 +8,7 @@ from pydantic import Field
 from redis import Redis, ResponseError as RedisResponseError
 
 from ..tap import SourceTap, SourceSettings, DestinationTap, DestinationSettings
-from ..message import Message
+from ..message import MessageBase
 from ..helpers import namespaced_topic
 
 
@@ -54,7 +54,7 @@ class RedisStreamSource(SourceTap):
     def __repr__(self) -> str:
         return f'RedisStreamSource(host="{self.settings.redis}", topic="{self.topic}")'
 
-    def read(self) -> Iterator[Message]:
+    def read(self) -> Iterator[MessageBase]:
 
         try:
             self.redis.xgroup_create(self.topic, self.group, id="0", mkstream=True)
@@ -63,7 +63,7 @@ class RedisStreamSource(SourceTap):
             raise
 
         timedOut = False
-        lastMessageTime = time.time()
+        lastMessageBaseTime = time.time()
         while not timedOut:
             try:
                 msg = self.redis.xreadgroup(
@@ -73,13 +73,13 @@ class RedisStreamSource(SourceTap):
                     (msgId, data) = msg[0][1][0]
                     self.last_msg = msgId
                     self.logger.info("Read message %s", msgId)
-                    yield Message.deserialize(data[b"data"])
-                    lastMessageTime = time.time()
+                    yield MessageBase.deserialize(data[b"data"])
+                    lastMessageBaseTime = time.time()
             except Exception as ex:
                 self.logger.error(ex)
                 break
             time.sleep(0.01)
-            if self.timeout > 0 and time.time() - lastMessageTime > self.timeout:
+            if self.timeout > 0 and time.time() - lastMessageBaseTime > self.timeout:
                 timedOut = True
 
     def acknowledge(self) -> None:
@@ -122,7 +122,7 @@ class RedisStreamDestination(DestinationTap):
     def __repr__(self) -> str:
         return f'RedisStreamDestination(host="{self.settings.redis}", topic="{self.topic}")'
 
-    def write(self, message: Message) -> int:
+    def write(self, message: MessageBase) -> int:
         serialized = message.serialize(compress=self.settings.compress)
         self.redis.xadd(self.topic, fields={"data": serialized})
         return len(serialized)
@@ -163,22 +163,22 @@ class RedisListSource(SourceTap):
     def __repr__(self) -> str:
         return f'RedisListSource(host="{self.settings.redis}", topic="{self.topic}")'
 
-    def read(self) -> Iterator[Message]:
+    def read(self) -> Iterator[MessageBase]:
         timedOut = False
-        lastMessageTime = time.time()
+        lastMessageBaseTime = time.time()
         while not timedOut:
             try:
                 value = self.redis.lpop(self.topic)
                 if value:
-                    msg = Message.deserialize(value)
+                    msg = MessageBase.deserialize(value)
                     self.logger.info("Read message %s", str(msg))
                     yield msg
-                    lastMessageTime = time.time()
+                    lastMessageBaseTime = time.time()
             except Exception as ex:
                 self.logger.error(ex)
                 break
             time.sleep(0.01)
-            if self.timeout > 0 and time.time() - lastMessageTime > self.timeout:
+            if self.timeout > 0 and time.time() - lastMessageBaseTime > self.timeout:
                 timedOut = True
 
     def acknowledge(self) -> None:
@@ -217,7 +217,7 @@ class RedisListDestination(DestinationTap):
             f'RedisListDestination(host="{self.settings.redis}", topic="{self.topic}")'
         )
 
-    def write(self, message: Message) -> int:
+    def write(self, message: MessageBase) -> int:
         serialized = message.serialize(compress=self.settings.compress)
         self.redis.rpush(self.topic, serialized)
         return len(serialized)

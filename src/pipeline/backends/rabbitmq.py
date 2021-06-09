@@ -6,7 +6,7 @@ import pika
 from pydantic import AnyUrl, Field
 
 from ..tap import SourceTap, SourceSettings, DestinationTap, DestinationSettings
-from ..message import Message
+from ..message import MessageBase
 from ..helpers import namespaced_topic
 
 
@@ -60,9 +60,9 @@ class RabbitMQSource(SourceTap):
     def __repr__(self) -> str:
         return f'RabbitMQSource(queue="{self.name}")'
 
-    def read(self) -> Iterator[Message]:
+    def read(self) -> Iterator[MessageBase]:
         timedOut = False
-        lastMessageTime = time.time()
+        lastMessageBaseTime = time.time()
 
         while not timedOut:
             try:
@@ -81,10 +81,10 @@ class RabbitMQSource(SourceTap):
             if method:
                 self.delivery_tag = method.delivery_tag
                 self.logger.info("Read message %s", self.delivery_tag)
-                yield Message.deserialize(body)
-                lastMessageTime = time.time()
+                yield MessageBase.deserialize(body)
+                lastMessageBaseTime = time.time()
             time.sleep(0.01)
-            if self.timeout > 0 and time.time() - lastMessageTime > self.timeout:
+            if self.timeout > 0 and time.time() - lastMessageBaseTime > self.timeout:
                 self.logger.info("RabbitMQSource timed out.")
                 timedOut = True
 
@@ -138,7 +138,7 @@ class RabbitMQDestination(DestinationTap):
     def __repr__(self) -> str:
         return f'RabbitMQDestination(queue="{self.name}")'
 
-    def write(self, message: Message) -> int:
+    def write(self, message: MessageBase) -> int:
         serialized = message.serialize()
         try:
             self.channel.basic_publish(

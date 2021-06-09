@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 
 from .exception import PipelineMessageError
 from .helpers import Settings
-from .message import Message
+from .message import MessageBase, Message, deserialize_message
 from .importor import import_class
 
 
@@ -44,12 +44,12 @@ class SourceTap(ABC):
         self.logger = logger
 
     @abstractmethod
-    def read(self) -> Iterator[Message]:
-        """ receive message. """
+    def read(self) -> Iterator[MessageBase]:
+        """receive message."""
         raise NotImplementedError()
 
     def rewind(self) -> None:
-        """ rewind to earliest message. """
+        """rewind to earliest message."""
         raise NotImplementedError("rewind is not implemented")
 
     @classmethod
@@ -72,11 +72,11 @@ class SourceTap(ABC):
             return classes_or_strings
 
     def close(self) -> None:
-        """ implementation needed when subclassing """
+        """implementation needed when subclassing"""
         pass
 
     def acknowledge(self) -> None:
-        """ implementation needed when subclassing """
+        """implementation needed when subclassing"""
         pass
 
 
@@ -98,8 +98,8 @@ class DestinationTap(ABC):
         self.logger = logger
 
     @abstractmethod
-    def write(self, message: Message) -> int:
-        """ send message. """
+    def write(self, message: MessageBase) -> int:
+        """send message."""
         raise NotImplementedError()
 
     @classmethod
@@ -119,7 +119,7 @@ class DestinationTap(ABC):
             return classes_or_strings
 
     def close(self) -> None:
-        """ implementation needed when subclassing """
+        """implementation needed when subclassing"""
         pass
 
 
@@ -146,9 +146,9 @@ class MemorySource(SourceTap):
         super().__init__(settings, logger)
         self.data = settings.data
 
-    def read(self) -> Iterator[Message]:
+    def read(self) -> Iterator[MessageBase]:
         for i in self.data:
-            if isinstance(i, Message):
+            if isinstance(i, MessageBase):
                 yield i
             elif isinstance(i, dict):
                 yield Message(content=i)
@@ -182,9 +182,9 @@ class MemoryDestination(DestinationTap):
         self, settings: MemoryDestinationSettings, logger: Logger = pipelineLogger
     ) -> None:
         super().__init__(settings=settings, logger=logger)
-        self.results: List[Message] = []
+        self.results: List[MessageBase] = []
 
-    def write(self, message: Message) -> int:
+    def write(self, message: MessageBase) -> int:
         self.results.append(message)
         return 0
 
@@ -229,9 +229,9 @@ class FileSource(SourceTap):
     def __repr__(self) -> str:
         return 'FileSource("{}")'.format(self.filename)
 
-    def read(self) -> Iterator[Message]:
+    def read(self) -> Iterator[MessageBase]:
         for line in self.infile:
-            yield Message.deserialize(line)
+            yield deserialize_message(line)
 
 
 class FileDestinationSettings(DestinationSettings):
@@ -271,7 +271,7 @@ class FileDestination(DestinationTap):
     def __repr__(self) -> str:
         return 'FileDestination("{}")'.format(self.filename)
 
-    def write(self, message: Message) -> int:
+    def write(self, message: MessageBase) -> int:
         serialized = message.serialize(compress=False) + "\n".encode("utf-8")
         self.outFile.write(serialized)
         return len(serialized)
@@ -328,7 +328,7 @@ class CsvSource(SourceTap):
     def __repr__(self) -> str:
         return 'CsvSource("{}")'.format(self.filename)
 
-    def read(self) -> Iterator[Message]:
+    def read(self) -> Iterator[MessageBase]:
         for row in self.reader:
             yield Message(content=row)
 
@@ -371,7 +371,7 @@ class CsvDestination(DestinationTap):
     def __repr__(self) -> str:
         return 'CsvDestination("{}")'.format(self.filename)
 
-    def write(self, message: Message) -> int:
+    def write(self, message: MessageBase) -> int:
         if self.writer is None:
             self.writer = csv.DictWriter(
                 self.outFile,

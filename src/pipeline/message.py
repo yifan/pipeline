@@ -10,8 +10,9 @@ from .exception import PipelineMessageError
 
 
 class Kind(str, Enum):
+    Base = "BASE"
     Message = "MESG"
-    Describe = "DESC"
+    Command = "COMD"
 
 
 class Log(BaseModel):
@@ -23,20 +24,12 @@ class Log(BaseModel):
     elapsed: Optional[float] = None
 
 
-class Message(BaseModel):
+class MessageBase(BaseModel):
     """:class:`Message` is a container for data in pipeline. Data will be wrapped in
     :class:`Message` in order to pass through a pipeline constructed with this library.
-
-    Usage:
-
-    .. code-block:: python
-
-        >>> msg = Message(id="key", content={"field": "value"})
-        >>> serialized = msg.serialize()
-        >>> deserialized_msg = Message.deserialize(serialized)
     """
 
-    kind: Optional[Kind] = Kind.Message
+    kind: Kind = Kind.Base
     id: str = uuid.uuid1().hex
     created: datetime = datetime.now()
     logs: List[Log] = []
@@ -46,7 +39,7 @@ class Message(BaseModel):
         return serialize_message(self, compress)
 
     @classmethod
-    def deserialize(self, raw: bytes) -> "Message":
+    def deserialize(self, raw: bytes) -> "MessageBase":
         return deserialize_message(raw)
 
     def as_model(self, model_class: Type[BaseModel]) -> BaseModel:
@@ -86,22 +79,27 @@ class Message(BaseModel):
         return self.content.get(key, default)
 
 
-class DescribeMessage(Message):
-    """:class:`DescribeMessage` is a special message to be sent to worker as a command
+class Message(MessageBase):
+    """ """
+
+    kind: Kind = Kind.Message
+
+
+class Command(MessageBase):
+    """:class:`Command` is a special message to be sent to worker as a command
 
     Usage:
 
      .. code-block:: python
 
-        >>> describe = DescribeMessage()
-        >>> describe.kind == Kind.Describe
+        >>> command = Command(action="CustomAction")
+        >>> command.kind == Kind.Command
         True
 
     """
 
-    input_schema: Optional[str] = None
-    output_schema: Optional[str] = None
-    kind: Kind = Kind.Describe
+    kind: Kind = Kind.Command
+    action: str
 
 
 def serialize_message(message: BaseModel, compress: bool = False) -> bytes:
@@ -111,7 +109,7 @@ def serialize_message(message: BaseModel, compress: bool = False) -> bytes:
     return data
 
 
-def deserialize_message(raw: bytes) -> Union[Message, DescribeMessage]:
+def deserialize_message(raw: bytes) -> Union[Message, Command]:
     if raw[0] == ord("{"):
         message_dict = json.loads(raw.decode("utf-8"))
     elif raw[0] == ord("Z"):
@@ -121,7 +119,7 @@ def deserialize_message(raw: bytes) -> Union[Message, DescribeMessage]:
 
     if message_dict["kind"] == Kind.Message:
         return parse_obj_as(Message, message_dict)
-    elif message_dict["kind"] == Kind.Describe:
-        return parse_obj_as(DescribeMessage, message_dict)
+    elif message_dict["kind"] == Kind.Command:
+        return parse_obj_as(Command, message_dict)
     else:
         raise PipelineMessageError("Unknown format")
