@@ -29,6 +29,33 @@ class TestTaps(TestCase):
             message_written.content.get("key"), message_read.content.get("key")
         )
 
+    def test_file_content_only(self):
+        destination_and_settings_classes = DestinationTap.of(TapKind.FILE)
+        with tempfile.NamedTemporaryFile() as tmpfile:
+            out_filename = tmpfile.name
+            settings = destination_and_settings_classes.settings_class()
+            settings.parse_args(
+                f"--out-filename {out_filename} --out-content-only".split()
+            )
+            assert settings.content_only is True
+            destination = destination_and_settings_classes.destination_class(settings)
+            message_written = Message(content={"key": "written"})
+            destination.write(message_written)
+            destination.close()
+
+            source_and_settings_classes = SourceTap.of(TapKind.FILE)
+            settings = source_and_settings_classes.settings_class()
+            settings.parse_args(
+                f"--in-filename {out_filename} --in-content-only".split()
+            )
+            assert settings.content_only is True
+            source = source_and_settings_classes.source_class(settings)
+            message_read = next(source.read())
+
+        self.assertEqual(
+            message_written.content.get("key"), message_read.content.get("key")
+        )
+
     def test_csv_file(self):
         destination_and_settings_classes = DestinationTap.of(TapKind.CSV)
         with tempfile.NamedTemporaryFile() as tmpfile:

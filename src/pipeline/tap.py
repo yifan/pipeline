@@ -3,6 +3,7 @@ import csv
 import logging
 import sys
 import gzip
+import json
 from abc import ABC, abstractmethod
 from logging import Logger
 from enum import Enum
@@ -193,6 +194,7 @@ class FileSourceSettings(SourceSettings):
     filename: str = Field(
         None, title="input filename, use '-' for stdin", required=True
     )
+    content_only: bool = Field(False, title="input contains only content for messages")
 
 
 class FileSource(SourceTap):
@@ -230,13 +232,22 @@ class FileSource(SourceTap):
         return 'FileSource("{}")'.format(self.filename)
 
     def read(self) -> Iterator[MessageBase]:
-        for line in self.infile:
-            yield deserialize_message(line)
+        if self.settings.content_only:
+            for line in self.infile:
+                content = json.loads(line)
+                if content.get("id"):
+                    yield Message(content=content, id=content.get("id"))
+                else:
+                    yield Message(content=content)
+        else:
+            for line in self.infile:
+                yield deserialize_message(line)
 
 
 class FileDestinationSettings(DestinationSettings):
     filename: str = Field(None, title="output filename", required=True)
     overwrite: bool = Field(False, title="overwrite output file if exists")
+    content_only: bool = Field(False, title="input contains only content for messages")
 
 
 class FileDestination(DestinationTap):
@@ -272,7 +283,10 @@ class FileDestination(DestinationTap):
         return 'FileDestination("{}")'.format(self.filename)
 
     def write(self, message: MessageBase) -> int:
-        serialized = message.serialize(compress=False) + "\n".encode("utf-8")
+        if self.settings.content_only:
+            serialized = (json.dumps(message.content) + "\n").encode("utf-8")
+        else:
+            serialized = message.serialize(compress=False) + "\n".encode("utf-8")
         self.outFile.write(serialized)
         return len(serialized)
 
