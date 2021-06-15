@@ -77,7 +77,7 @@ class Settings(BaseSettings):
                 else:
                     dest = self.dest
                 if option_string in self.option_strings:
-                    setattr(namespace, dest, not option_string.startswith("--no-"))
+                    setattr(self.settings, dest, not option_string.startswith("--no-"))
 
             def format_usage(self):  # type: ignore
                 return " | ".join(self.option_strings)
@@ -96,12 +96,14 @@ class Settings(BaseSettings):
         parser = ArgumentParser(add_help=True)
         for name, field in self.__fields__.items():
             name = (self.Config.env_prefix + name).replace("_", "-")
+            if field.type_ == bool:
+                action = BooleanOptionalAction
+            else:
+                action = SetSettingsAction
             parser.add_argument(
                 f"--{name}",
                 type=field.type_,
-                action=BooleanOptionalAction
-                if field.type_ is bool
-                else SetSettingsAction,
+                action=action,
                 help=field.field_info.title,
             )
         parser.parse_known_args(args)
