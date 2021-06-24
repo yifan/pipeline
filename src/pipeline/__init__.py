@@ -11,6 +11,7 @@ from .worker import (
     CommandActions,
 )
 from .manager import Pipeline
+from .monitor import Monitor
 from .helpers import Settings
 
 
@@ -33,4 +34,5 @@ __all__ = [
     "Command",
     "deserialize_message",
     "Pipeline",
+    "Monitor",
 ]

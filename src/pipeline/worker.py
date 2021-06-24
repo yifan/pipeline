@@ -12,7 +12,7 @@ from pydantic import BaseModel, ByteSize, Field, ValidationError, parse_obj_as
 
 from .exception import PipelineError, PipelineInputError, PipelineOutputError
 from .message import Message, Command, Log, Kind, MessageBase
-from .monitor import Monitor
+from .monitor import WorkerMonitor as Monitor
 from .tap import DestinationTap, SourceTap
 from .tap import TapKind, SourceSettings, DestinationSettings  # noqa: F401
 from .helpers import Settings, Timer
