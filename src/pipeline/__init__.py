@@ -1,5 +1,5 @@
 from .exception import PipelineError, PipelineOutputError, PipelineMessageError
-from .message import Message, Command, Definition, deserialize_message
+from .message import Message, Command, deserialize_message
 from .tap import DestinationTap, SourceTap, TapKind
 from .worker import (
     ProducerSettings,
@@ -9,6 +9,7 @@ from .worker import (
     SplitterSettings,
     Splitter,
     CommandActions,
+    Definition,
 )
 from .manager import Pipeline
 from .monitor import Monitor

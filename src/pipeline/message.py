@@ -102,16 +102,6 @@ class Command(MessageBase):
     action: str
 
 
-class Definition(BaseModel):
-    """ """
-
-    name: str
-    version: str
-    description: str
-    input_schema: Dict[str, Any] = dict()
-    output_schema: Dict[str, Any] = dict()
-
-
 def serialize_message(message: BaseModel, compress: bool = False) -> bytes:
     data = message.json().encode("utf-8")
     if compress:

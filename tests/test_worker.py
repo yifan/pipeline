@@ -1,7 +1,7 @@
 import tempfile
 from unittest import mock
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import pytest
 
 from pipeline import (
@@ -15,6 +15,7 @@ from pipeline import (
     Splitter,
     PipelineOutputError,
     CommandActions,
+    Definition,
 )
 
 
@@ -453,3 +454,36 @@ class TestWorkerCore:
         result = processor.destination.results[0]
         assert result.get("input_schema")
         assert result.get("output_schema")
+
+    def test_definition(self):
+        class Input(BaseModel):
+            text: str = Field(..., title="text", description="input text")
+
+        class Output(BaseModel):
+            probability: float = Field(..., title="prob", description="probability")
+
+        settings = ProcessorSettings(
+            name="processor",
+            version="0.0.0",
+            description="",
+            in_kind=TapKind.MEM,
+            out_kind=TapKind.MEM,
+        )
+        processor = Processor(
+            settings,
+            input_class=Input,
+            output_class=Output,
+        )
+        processor.parse_args()
+
+        definition1 = Definition(
+            name="worker",
+            version="0.1.0",
+            description="worker",
+            source=processor.source.settings,
+            destination=processor.destination.settings,
+            input_schema=Input.schema(),
+            output_schema=Output.schema(),
+        )
+
+        assert definition1

@@ -5,13 +5,13 @@ from abc import ABC
 from copy import copy
 from datetime import datetime
 from enum import IntEnum, Enum
-from typing import Optional, List, Dict, Iterator, Type, KeysView, Union, cast
+from typing import Optional, List, Dict, Iterator, Type, KeysView, Union, cast, Any
 from logging import Logger
 
 from pydantic import BaseModel, ByteSize, Field, ValidationError, parse_obj_as
 
 from .exception import PipelineError, PipelineInputError, PipelineOutputError
-from .message import Message, Command, Log, Kind, MessageBase, Definition
+from .message import Message, Command, Log, Kind, MessageBase
 from .monitor import WorkerMonitor as Monitor
 from .tap import DestinationTap, SourceTap
 from .tap import TapKind, SourceSettings, DestinationSettings  # noqa: F401
@@ -25,6 +25,18 @@ pipelineLogger.setLevel(logging.INFO)
 class CommandActions(str, Enum):
     Reset = "RESET"
     Define = "DEFINE"
+
+
+class Definition(BaseModel):
+    """ """
+
+    name: str
+    version: str
+    description: str
+    source: SourceSettings
+    destination: DestinationSettings
+    input_schema: Dict[str, Any] = dict()
+    output_schema: Dict[str, Any] = dict()
 
 
 class WorkerType(IntEnum):
