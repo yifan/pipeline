@@ -27,6 +27,6 @@ WORKDIR /code
 COPY test-processor/* /code/
 COPY dist/*.whl /code/
 
-RUN python3 -m pip install "tanbih-pipeline[full]@file:///code/tanbih_pipeline-0.11.9-py3-none-any.whl"
+RUN python3 -m pip install "tanbih-pipeline[full]@file:///code/tanbih_pipeline-0.11.10-py3-none-any.whl"
 ENV PYTHONPATH=/code
 CMD /wait && python testprocessor.py
