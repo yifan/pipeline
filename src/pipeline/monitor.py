@@ -93,7 +93,7 @@ class WorkerMonitor(Monitor):
             "worker state, eg: starting, running and stopped",
             labels=["name"],
             states=["starting", "running", "stopped"],
-        )
+        ).labels(name=self.worker.name)
         self.worker_state.state("starting")
         self.worker_operation = self.use_counter(
             "worker_operation",

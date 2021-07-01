@@ -163,7 +163,12 @@ class TestWorkerCore:
                 return Output(key=input.key, newkey="newval")
 
         msgs = [{"key": "1"}, {"key": "2"}, {"key": "3"}]
-        settings = ProcessorSettings(name="processor", version="0.0.0", description="")
+        settings = ProcessorSettings(
+            name="processor",
+            version="0.0.0",
+            description="",
+            monitoring=True,
+        )
         processor = MyProcessor(settings, input_class=Input, output_class=Output)
         processor.parse_args(
             args="--in-kind MEM --out-kind MEM --out-topic test".split()
