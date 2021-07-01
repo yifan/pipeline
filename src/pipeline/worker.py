@@ -441,6 +441,9 @@ class Processor(Worker):
                 "version": self.version,
                 "description": self.description,
             }
+            dct["source"] = self.source.settings
+            if self.has_output():
+                dct["destination"] = self.destination.settings
             if self.input_class:
                 dct["input_schema"] = self.input_class.schema()
             if self.output_class:
