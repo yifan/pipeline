@@ -434,7 +434,11 @@ class Processor(Worker):
 
     def process_command(self, cmd: Command) -> None:
         if cmd.action == CommandActions.Define:
-            definition = {}
+            definition = {
+                "name": self.name,
+                "version": self.version,
+                "description": self.description,
+            }
             if self.input_class:
                 definition["input"] = self.input_class.schema_json(indent=2)
             if self.output_class:
