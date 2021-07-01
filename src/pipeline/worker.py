@@ -11,7 +11,7 @@ from logging import Logger
 from pydantic import BaseModel, ByteSize, Field, ValidationError, parse_obj_as
 
 from .exception import PipelineError, PipelineInputError, PipelineOutputError
-from .message import Message, Command, Log, Kind, MessageBase
+from .message import Message, Command, Log, Kind, MessageBase, Definition
 from .monitor import WorkerMonitor as Monitor
 from .tap import DestinationTap, SourceTap
 from .tap import TapKind, SourceSettings, DestinationSettings  # noqa: F401
@@ -377,13 +377,14 @@ class Processor(Worker):
         )
 
         if msg.kind == Kind.Command:
-            self.process_command(cast(Command, msg))
+            updated = self.process_command(cast(Command, msg))
         elif msg.kind == Kind.Message:
             updated = self.process_message(cast(Message, msg))
-            if updated:
-                log.updated.update(updated)
         else:
             raise PipelineError("Unrecognized message kind")
+
+        if updated:
+            log.updated.update(updated)
 
         log.processed = datetime.now()
         log.elapsed = self.timer.elapsed_time()
@@ -432,18 +433,24 @@ class Processor(Worker):
 
         return updated
 
-    def process_command(self, cmd: Command) -> None:
+    def process_command(self, cmd: Command) -> Union[KeysView[str], None]:
+        updated = None
         if cmd.action == CommandActions.Define:
-            definition = {
+            dct = {
                 "name": self.name,
                 "version": self.version,
                 "description": self.description,
             }
             if self.input_class:
-                definition["input"] = self.input_class.schema_json(indent=2)
+                dct["input_schema"] = self.input_class.schema()
             if self.output_class:
-                definition["output"] = self.output_class.schema_json(indent=2)
-            cmd.content.update({self.name: definition})
+                dct["output_schema"] = self.output_class.schema()
+
+            definition = Definition(**dct)
+            updated = cmd.update_content(definition)
+        else:
+            raise PipelineInputError("Unknown command")
+        return updated
 
     def start(self) -> None:
         """start processing."""
@@ -480,9 +487,11 @@ class Processor(Worker):
                     self._step(msg)
                 except PipelineInputError as e:
                     # If input error, upstream worker should act
+                    self.logger.error(traceback.format_exc())
                     self.monitor.record_error(str(e))
                 except PipelineOutputError as e:
                     # If output error, worker needs to exit without acknowldgement
+                    self.logger.error(traceback.format_exc())
                     self.monitor.record_error(str(e))
                     raise
                 except Exception as e:

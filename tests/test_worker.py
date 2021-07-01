@@ -355,22 +355,6 @@ class TestWorkerCore:
         assert len(splitter.destinations["test-it"].results) == 1
         assert splitter.destinations["test-it"].results[0].content["language"] == "it"
 
-    # def test_splitter_invalid_message(self):
-    #     class InvalidMessage(Message):
-    #         def is_valid(self):
-    #             return False
-    #
-    #     msgs = [{"key": 1, "language": "en"}, {"key": 2, "language": "it"}]
-    #     config = SplitterConfig(messageClass=InvalidMessage)
-    #     splitter = Splitter("spliter1", "0.1.0", config=config)
-    #     splitter.parse_args(
-    #         args=["--kind", "MEM", "--out-topic", "test"],
-    #         config={"data": msgs},
-    #     )
-    #     splitter.start()
-    #     assert len(splitter.destinations["test-en"].results) == 0
-    #     assert len(splitter.destinations["test-it"].results) == 0
-
     def test_splitter_file(self):
         with tempfile.NamedTemporaryFile() as tmpInFile:
             make_output(tmpInFile.name)
@@ -449,7 +433,6 @@ class TestWorkerCore:
             def process(self, msg: Input, id: str) -> Output:
                 return Output(key=1)
 
-        logger = mock.MagicMock()
         msgs = [Command(action=CommandActions.Define), {"key": "3", "title": "title"}]
         settings = ProcessorSettings(
             name="processor",
@@ -459,12 +442,14 @@ class TestWorkerCore:
             out_kind=TapKind.MEM,
         )
         processor = MyProcessor(
-            settings, input_class=Input, output_class=Output, logger=logger
+            settings,
+            input_class=Input,
+            output_class=Output,
         )
         processor.parse_args(args="--out-topic test".split())
         processor.source.data = msgs
         processor.start()
         assert len(processor.destination.results) == 2
         result = processor.destination.results[0]
-        assert "input" in result.get("processor")
-        assert "output" in result.get("processor")
+        assert result.get("input_schema")
+        assert result.get("output_schema")

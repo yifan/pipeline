@@ -1,5 +1,5 @@
 from .exception import PipelineError, PipelineOutputError, PipelineMessageError
-from .message import Message, Command, deserialize_message
+from .message import Message, Command, Definition, deserialize_message
 from .tap import DestinationTap, SourceTap, TapKind
 from .worker import (
     ProducerSettings,
@@ -32,6 +32,7 @@ __all__ = [
     "CommandActions",
     "Message",
     "Command",
+    "Definition",
     "deserialize_message",
     "Pipeline",
     "Monitor",

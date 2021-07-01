@@ -1,10 +1,12 @@
 from unittest import TestCase
 
 import pytest
+from pydantic import BaseModel, Field
 
 from pipeline import (
     Message,
     Command,
+    Definition,
     PipelineMessageError,
     deserialize_message,
 )
@@ -53,3 +55,20 @@ class TestMessage(TestCase):
     def test_parsing_exception(self):
         with pytest.raises(PipelineMessageError):
             Message.deserialize(b"HFHGKDJFHG")
+
+    def test_definition(self):
+        class Input(BaseModel):
+            text: str = Field(..., title="text", description="input text")
+
+        class Output(BaseModel):
+            probability: float = Field(..., title="prob", description="probability")
+
+        definition1 = Definition(
+            name="worker",
+            version="0.1.0",
+            description="worker",
+            input_schema=Input.schema(),
+            output_schema=Output.schema(),
+        )
+
+        assert definition1
