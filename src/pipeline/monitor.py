@@ -59,7 +59,7 @@ class Monitor(object):
         return self.metrics[name]
 
     def state(self, name, labels, state=None):
-        self.metrics[name].state(state)
+        self.metrics[name].labels(**labels).state(state)
 
     def use_histogram(self, name, description):
         if name not in self.metrics:
