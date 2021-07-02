@@ -27,7 +27,7 @@ class CommandActions(str, Enum):
     Define = "DEFINE"
 
 
-class Definition(BaseModel):
+class DefinitionInternal(BaseModel):
     """ """
 
     name: str
@@ -35,6 +35,23 @@ class Definition(BaseModel):
     description: str
     source: SourceSettings
     destination: DestinationSettings
+    input_schema: Dict[str, Any] = dict()
+    output_schema: Dict[str, Any] = dict()
+
+
+class TapSettings(BaseModel):
+    namespace: Optional[str]
+    topic: str
+
+
+class Definition(BaseModel):
+    """ """
+
+    name: str
+    version: str
+    description: str
+    source: TapSettings
+    destination: TapSettings
     input_schema: Dict[str, Any] = dict()
     output_schema: Dict[str, Any] = dict()
 
@@ -461,7 +478,7 @@ class Processor(Worker):
             if self.output_class:
                 dct["output_schema"] = self.output_class.schema()
 
-            definition = Definition(**dct)
+            definition = DefinitionInternal(**dct)
             updated = cmd.update_content(definition)
         else:
             raise PipelineInputError("Unknown command")
