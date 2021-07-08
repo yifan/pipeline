@@ -496,6 +496,7 @@ class Processor(Worker):
             self.logger.exception(
                 f"Input validation failed for message {msg}", exc_info=e
             )
+            self.logger.error(msg.json())
             raise PipelineInputError(f"Input validation failed for message {msg}")
 
         try:
