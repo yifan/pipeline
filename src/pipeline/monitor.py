@@ -1,3 +1,4 @@
+import os
 import time
 from typing import TYPE_CHECKING
 
@@ -7,6 +8,7 @@ from prometheus_client import (
     Enum,
     Histogram,
     Info,
+    multiprocess,
     start_http_server,
 )
 
@@ -19,6 +21,9 @@ class Monitor(object):
         self.registry = CollectorRegistry()
         self.port = port
         self.metrics = {}
+
+        if "PROMETHEUS_MULTIPROC_DIR" in os.environ:
+            multiprocess.MultiProcessCollector(self.registry)
 
     def use_counter(self, name, description, labels):
         if name not in self.metrics:
