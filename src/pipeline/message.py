@@ -98,7 +98,7 @@ class Message(ABC):
         return cls(content, header=header, config=config)
 
     def get_version(self, name):
-        for version in self.header["history"]:
+        for version in self.header.get("history", []):
             if version["name"] == name:
                 return version
 
