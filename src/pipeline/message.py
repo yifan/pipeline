@@ -117,7 +117,7 @@ class Message(ABC):
         return versionDct is None or version > versionDct["version"]
 
     def update_version(self, name, version):
-        self.header["history"].insert(
+        self.header.setdefault("history", []).insert(
             0,
             {
                 "name": name,
