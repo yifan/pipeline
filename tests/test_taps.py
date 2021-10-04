@@ -106,7 +106,7 @@ class TestTaps(TestCase):
         )
 
     def test_redis(self):
-        destination_and_settings_classes = DestinationTap.of(TapKind.REDIS)
+        destination_and_settings_classes = DestinationTap.of(TapKind.XREDIS)
         settings = destination_and_settings_classes.settings_class()
         settings.parse_args("--out-namespace out".split())
         destination = destination_and_settings_classes.destination_class(settings)
@@ -115,7 +115,7 @@ class TestTaps(TestCase):
         destination.write(message_written)
         destination.close()
 
-        source_and_settings_classes = SourceTap.of(TapKind.REDIS)
+        source_and_settings_classes = SourceTap.of(TapKind.XREDIS)
         settings = source_and_settings_classes.settings_class()
         settings.parse_args("--in-namespace in".split())
         source = source_and_settings_classes.source_class(settings)

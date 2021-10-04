@@ -452,7 +452,7 @@ def tap_kinds() -> Dict[
                 destination_class=CsvDestination, settings_class=CsvDestinationSettings
             ),
         ),
-        "REDIS": (
+        "XREDIS": (
             TapAndSettingsImportStrings(
                 tap_class="pipeline.backends.redis:RedisStreamSource",
                 settings_class="pipeline.backends.redis:RedisSourceSettings",
