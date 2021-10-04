@@ -93,6 +93,7 @@ class RedisStreamSource(SourceTap):
 
 class RedisDestinationSettings(DestinationSettings):
     redis: str = Field("redis://localhost:6379/0", title="redis url")
+    maxlen: int = Field(1, title="maximum length for stream")
 
 
 class RedisStreamDestination(DestinationTap):
@@ -124,7 +125,9 @@ class RedisStreamDestination(DestinationTap):
 
     def write(self, message: MessageBase) -> int:
         serialized = message.serialize(compress=self.settings.compress)
-        self.redis.xadd(self.topic, fields={"data": serialized})
+        self.redis.xadd(
+            self.topic, fields={"data": serialized}, maxlen=self.settings.maxlen
+        )
         return len(serialized)
 
     def close(self) -> None:
