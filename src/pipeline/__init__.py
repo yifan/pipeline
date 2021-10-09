@@ -1,3 +1,4 @@
+from .version import version
 from .exception import PipelineError, PipelineOutputError, PipelineMessageError
 from .message import Message, Command, deserialize_message
 from .tap import DestinationTap, SourceTap, TapKind
@@ -17,6 +18,7 @@ from .helpers import Settings
 
 
 __all__ = [
+    "version",
     "Settings",
     "PipelineError",
     "PipelineOutputError",

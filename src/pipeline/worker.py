@@ -10,6 +10,7 @@ from logging import Logger
 
 from pydantic import BaseModel, ByteSize, Field, ValidationError, parse_obj_as
 
+from .version import version
 from .exception import PipelineError, PipelineInputError, PipelineOutputError
 from .message import Message, Command, Log, Kind, MessageBase
 from .monitor import WorkerMonitor as Monitor
@@ -74,7 +75,9 @@ class Worker(ABC):
 
         self.monitor = Monitor(self)
 
-        self.logger.info("Pipeline Worker %s (%s)", self.name, self.version)
+        self.logger.info(
+            f"Pipeline Worker {self.name} {self.version} (pipeline {version})"
+        )
 
     def setup(self) -> None:
         """loading code goes here"""
