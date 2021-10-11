@@ -35,8 +35,8 @@ class Definition(BaseModel):
     name: str
     version: str
     description: str
-    source: SourceSettings
-    destination: DestinationSettings
+    source: Optional[Dict]
+    destination: Optional[Dict]
     input_schema: Dict[str, Any] = dict()
     output_schema: Dict[str, Any] = dict()
 
@@ -473,9 +473,9 @@ class Processor(Worker):
                 "version": self.version,
                 "description": self.description,
             }
-            dct["source"] = self.source.settings
+            dct["source"] = self.source.settings.dict()
             if self.has_output():
-                dct["destination"] = self.destination.settings
+                dct["destination"] = self.destination.settings.dict()
             if self.input_class:
                 dct["input_class"] = self.input_class
             if self.output_class:
