@@ -490,4 +490,8 @@ class TestWorkerCore:
             output_class=Output,
         )
 
-        assert definition1.input_schema
+        print(definition1.json(indent=4))
+
+        definition2 = Definition.parse_raw(definition1.json())
+
+        assert definition1 == definition2

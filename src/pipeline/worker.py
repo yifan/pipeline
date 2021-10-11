@@ -35,13 +35,23 @@ class Definition(BaseModel):
     name: str
     version: str
     description: str
-    source: Optional[Dict]
-    destination: Optional[Dict]
+    source: SourceSettings
+    destination: Optional[DestinationSettings]
     input_schema: Dict[str, Any] = dict()
     output_schema: Dict[str, Any] = dict()
 
     @classmethod
     def new(cls, **data):
+        source = data.get("source")
+        data["source"] = SourceSettings(
+            **source.dict(include=SourceSettings.__fields__.keys())
+        )
+
+        destination = data.get("destination")
+        if destination:
+            data["destination"] = DestinationSettings(
+                **destination.dict(include=DestinationSettings.__fields__.keys())
+            )
         if "input_class" in data:
             input_class = data.get("input_class")
             input_schema = model_schema(input_class, ref_prefix="#/components/schemas")
@@ -473,9 +483,9 @@ class Processor(Worker):
                 "version": self.version,
                 "description": self.description,
             }
-            dct["source"] = self.source.settings.dict()
+            dct["source"] = self.source.settings
             if self.has_output():
-                dct["destination"] = self.destination.settings.dict()
+                dct["destination"] = self.destination.settings
             if self.input_class:
                 dct["input_class"] = self.input_class
             if self.output_class:
