@@ -456,8 +456,12 @@ class TestWorkerCore:
         assert result.get("output_schema")
 
     def test_definition(self):
+        class ComplexField(BaseModel):
+            value: str
+
         class Input(BaseModel):
             text: str = Field(..., title="text", description="input text")
+            value: ComplexField
 
         class Output(BaseModel):
             probability: float = Field(..., title="prob", description="probability")
@@ -476,14 +480,14 @@ class TestWorkerCore:
         )
         processor.parse_args()
 
-        definition1 = Definition(
+        definition1 = Definition.new(
             name="worker",
             version="0.1.0",
             description="worker",
             source=processor.source.settings,
             destination=processor.destination.settings,
-            input_schema=Input.schema(),
-            output_schema=Output.schema(),
+            input_class=Input,
+            output_class=Output,
         )
 
-        assert definition1
+        assert definition1.input_schema

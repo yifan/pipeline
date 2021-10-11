@@ -9,6 +9,7 @@ from typing import Optional, List, Dict, Iterator, Type, KeysView, Union, cast, 
 from logging import Logger
 
 from pydantic import BaseModel, ByteSize, Field, ValidationError, parse_obj_as
+from pydantic.schema import model_schema
 
 from .version import version
 from .exception import PipelineError, PipelineInputError, PipelineOutputError
@@ -38,6 +39,22 @@ class Definition(BaseModel):
     destination: DestinationSettings
     input_schema: Dict[str, Any] = dict()
     output_schema: Dict[str, Any] = dict()
+
+    @classmethod
+    def new(cls, **data):
+        if "input_class" in data:
+            input_class = data.get("input_class")
+            input_schema = model_schema(input_class, ref_prefix="#/components/schemas")
+            del data["input_class"]
+            data["input_schema"] = input_schema
+        if "output_class" in data:
+            output_class = data.get("output_class")
+            output_schema = model_schema(
+                output_class, ref_prefix="#/components/schemas"
+            )
+            del data["output_class"]
+            data["output_schema"] = output_schema
+        return cls(**data)
 
 
 class WorkerType(IntEnum):
@@ -460,11 +477,11 @@ class Processor(Worker):
             if self.has_output():
                 dct["destination"] = self.destination.settings
             if self.input_class:
-                dct["input_schema"] = self.input_class.schema()
+                dct["input_class"] = self.input_class
             if self.output_class:
-                dct["output_schema"] = self.output_class.schema()
+                dct["output_class"] = self.output_class
 
-            definition = Definition(**dct)
+            definition = Definition.new(**dct)
             updated = cmd.update_content(definition)
         else:
             raise PipelineInputError("Unknown command")
