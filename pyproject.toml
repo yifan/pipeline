@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pipeline"
-version = "0.11.20"
+version = "0.11.21"
 description = "data streaming on top of popular message queues"
 authors = ["Yifan Zhang <freqyifan@gmail.com>"]
 license = "MIT"
