@@ -54,13 +54,13 @@ class Definition(BaseModel):
             )
         if "input_class" in data:
             input_class = data.get("input_class")
-            input_schema = model_schema(input_class, ref_prefix="#/components/schemas")
+            input_schema = model_schema(input_class, ref_prefix="#/components/schemas/")
             del data["input_class"]
             data["input_schema"] = input_schema
         if "output_class" in data:
             output_class = data.get("output_class")
             output_schema = model_schema(
-                output_class, ref_prefix="#/components/schemas"
+                output_class, ref_prefix="#/components/schemas/"
             )
             del data["output_class"]
             data["output_schema"] = output_schema
