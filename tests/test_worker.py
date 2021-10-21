@@ -1,4 +1,5 @@
 import tempfile
+import re
 from unittest import mock
 
 from pydantic import BaseModel, Field
@@ -495,3 +496,27 @@ class TestWorkerCore:
         assert definition2.source.topic == "in-topic"
 
         assert definition1 == definition2
+
+    def test_help(self, capfd):
+        class Input(BaseModel):
+            pass
+
+        class Output(BaseModel):
+            pass
+
+        class MyProcessor(Processor):
+            def process(self, msg: Input, id: str) -> Output:
+                return Output()
+
+        settings = ProcessorSettings(
+            name="processor",
+            version="0.0.0",
+            description="",
+        )
+        processor = MyProcessor(settings, input_class=Input, output_class=Output)
+        with pytest.raises(SystemExit):
+            processor.parse_args(
+                args=["--help", "--in-kind", "FILE", "--out-kind", "FILE"]
+            )
+        out, err = capfd.readouterr()
+        assert re.search("--in-filename", out)

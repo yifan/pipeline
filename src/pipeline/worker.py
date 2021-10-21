@@ -2,6 +2,7 @@ import logging
 import sys
 import traceback
 from abc import ABC
+from argparse import ArgumentParser
 from copy import copy
 from datetime import datetime
 from enum import IntEnum, Enum
@@ -121,7 +122,18 @@ class Worker(ABC):
         return self.worker_type != WorkerType.NoOutput
 
     def parse_args(self, args: List[str] = sys.argv[1:]) -> None:
-        self.settings.parse_args(args)
+        parser = ArgumentParser(add_help=False)
+        parser.add_argument(
+            "-V",
+            action="version",
+            version=f"{self.version} (pipeline {version})",
+            help="show version",
+        )
+        parser.add_argument(
+            "-h", "--help", action="store_true", default=False, help="display help"
+        )
+
+        options, unknown = self.settings.parse_args(args, parser)
 
         if self.has_input():
             if self.settings.in_kind is None:
@@ -134,10 +146,11 @@ class Worker(ABC):
 
             self.source_and_settings_classes = SourceTap.of(self.settings.in_kind)
             source_settings = self.source_and_settings_classes.settings_class()
-            source_settings.parse_args(args)
-            self.source = self.source_and_settings_classes.source_class(
-                settings=source_settings, logger=self.logger
-            )
+            source_settings.parse_args(args, parser)
+            if not options.help:
+                self.source = self.source_and_settings_classes.source_class(
+                    settings=source_settings, logger=self.logger
+                )
 
         if self.settings.out_kind:
             self.destination_and_settings_classes = DestinationTap.of(
@@ -146,12 +159,19 @@ class Worker(ABC):
             destination_settings = (
                 self.destination_and_settings_classes.settings_class()
             )
-            destination_settings.parse_args(args)
-            self.destination = self.destination_and_settings_classes.destination_class(
-                settings=destination_settings, logger=self.logger
-            )
+            destination_settings.parse_args(args, parser)
+            if not options.help:
+                self.destination = (
+                    self.destination_and_settings_classes.destination_class(
+                        settings=destination_settings, logger=self.logger
+                    )
+                )
         else:
             self.worker_type = WorkerType.NoOutput
+
+        if options.help:
+            print(parser.format_help())
+            sys.exit(0)
 
         # report worker info to monitor
         self.monitor.record_worker_info()

@@ -25,12 +25,12 @@ class Settings(BaseSettings):
     >>> settings = ASettings(name='name')
     >>> settings.name
     'name'
-    >>> settings.parse_args("--in-name yifan".split())
+    >>> parser = settings.parse_args("--in-name yifan".split())
     >>> settings.name
     'yifan'
     """
 
-    def parse_args(self, args: List[str]) -> None:
+    def parse_args(self, args: List[str], parser=None) -> ArgumentParser:
         settings_ref: Settings = self
 
         class BooleanOptionalAction(Action):
@@ -93,7 +93,9 @@ class Settings(BaseSettings):
                 if hasattr(self.settings, dest):
                     setattr(self.settings, dest, values)
 
-        parser = ArgumentParser(add_help=True)
+        if parser is None:
+            parser = ArgumentParser(add_help=False)
+
         for name, field in self.__fields__.items():
             name = (self.Config.env_prefix + name).replace("_", "-")
             if field.type_ == bool:
@@ -106,7 +108,8 @@ class Settings(BaseSettings):
                 action=action,
                 help=field.field_info.title,
             )
-        parser.parse_known_args(args)
+        options = parser.parse_known_args(args)
+        return options
 
 
 class Timer:
