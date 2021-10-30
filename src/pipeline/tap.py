@@ -502,6 +502,16 @@ def tap_kinds() -> Dict[
                 settings_class="pipeline.backends.rabbitmq:RabbitMQDestinationSettings",
             ),
         ),
+        "ELASTIC": (
+            TapAndSettingsImportStrings(
+                tap_class="pipeline.backends.elasticsearch:ElasticSearchSource",
+                settings_class="pipeline.backends.elasticsearch:ElasticSearchSourceSettings",
+            ),
+            TapAndSettingsImportStrings(
+                tap_class="pipeline.backends.elasticsearch:ElasticSearchDestination",
+                settings_class="pipeline.backends.elasticsearch:ElasticSearchDestinationSettings",
+            ),
+        ),
     }
 
 
