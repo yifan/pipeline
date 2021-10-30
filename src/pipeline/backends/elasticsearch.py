@@ -21,8 +21,6 @@ class ElasticSearchSourceSettings(SourceSettings):
     query: Json = Field('{"match_all": {}}', title="query as a json string")
     keyname: str = Field("id", title="id field name")
     size: int = Field(10, title="limit results in each query")
-    ignores: str = Field("", title="ignore fields, separated by comma")
-    includes: str = Field("", title="include only these fields, separated by comma")
 
 
 class ElasticSearchSource(SourceTap):
@@ -47,8 +45,6 @@ class ElasticSearchSource(SourceTap):
         self.query = settings.query
         self.keyname = settings.keyname
         self.size = settings.size
-        self.ignores = settings.ignores.split(",")
-        self.includes = settings.includes.split(",")
 
     def __repr__(self) -> str:
         return f'ElasticSearchSource(host="{self.settings.uri}", topic="{self.topic}")'
@@ -64,17 +60,16 @@ class ElasticSearchSource(SourceTap):
             yield MessageBase(id=content[self.keyname], content=content)
 
     def acknowledge(self) -> None:
+        """no acknowledge for Elastic Search"""
         pass
 
     def close(self) -> None:
-        pass
+        self.elastic.close()
 
 
 class ElasticSearchDestinationSettings(DestinationSettings):
     uri: str = Field("http://localhost:9200", title="ElasticSearch url")
-    index: str = Field("", title="index")
-    # ignores: str = Field("", title="ignore fields, separated by comma")
-    # includes: str = Field("", title="include only these fields, separated by comma")
+    topic: str = Field("", title="Elastic Search index")
 
 
 class ElasticSearchDestination(DestinationTap):
@@ -110,4 +105,4 @@ class ElasticSearchDestination(DestinationTap):
         return 0
 
     def close(self) -> None:
-        pass
+        self.elastic.close()
