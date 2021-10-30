@@ -90,8 +90,6 @@ class ElasticSearchDestination(DestinationTap):
         self.elastic = Elasticsearch([settings.uri])
         self.elastic.indices.create(index=settings.topic, ignore=400)
         self.topic = settings.topic
-        # self.ignores = settings.ignores.split(",")
-        # self.includes = settings.includes.split(",")
 
     def __repr__(self) -> str:
         return f'ElasticSearchDestination(host="{self.settings.uri}", topic="{self.topic}")'
