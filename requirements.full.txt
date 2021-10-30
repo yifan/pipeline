@@ -5,3 +5,4 @@ mysql-connector-python
 redis
 azure-cosmosdb-table
 pika
+elasticsearch
