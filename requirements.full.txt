@@ -6,3 +6,4 @@ redis
 azure-cosmosdb-table
 pika
 elasticsearch
+pymongo
