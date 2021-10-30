@@ -512,6 +512,16 @@ def tap_kinds() -> Dict[
                 settings_class="pipeline.backends.elasticsearch:ElasticSearchDestinationSettings",
             ),
         ),
+        "MONGO": (
+            TapAndSettingsImportStrings(
+                tap_class="pipeline.backends.mongodb:MongodbSource",
+                settings_class="pipeline.backends.mongodb:MongodbSourceSettings",
+            ),
+            TapAndSettingsImportStrings(
+                tap_class="pipeline.backends.mongodb:MongodbDestination",
+                settings_class="pipeline.backends.mongodb:MongodbDestinationSettings",
+            ),
+        ),
     }
 
 
