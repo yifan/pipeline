@@ -535,6 +535,8 @@ class Processor(Worker):
         self.setup()
 
         self.logger.info("start listening on topic %s", self.source.topic)
+        if self.has_output():
+            self.logger.info("will write to topic %s", self.destination.topic)
 
         if self.settings.monitoring:
             self.monitor.expose()
