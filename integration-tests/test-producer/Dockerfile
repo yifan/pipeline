@@ -27,6 +27,6 @@ WORKDIR /code
 COPY test-generator/* /code/
 COPY dist/*.whl /code/
 
-RUN python3 -m pip install "tanbih-pipeline[full]@file:///code/tanbih_pipeline-0.11.24-py3-none-any.whl"
+RUN python3 -m pip install "tanbih-pipeline[full]@file:///code/tanbih_pipeline-0.11.25-py3-none-any.whl"
 ENV PYTHONPATH=/code
 CMD /wait && python testgenerator.py
