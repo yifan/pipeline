@@ -103,8 +103,29 @@ class TestWorkerCore:
         msgs = [{"key": 1}, {"key": 2}, {"key": 3}]
         processor.parse_args()
         processor.source.data = msgs
+        assert processor.has_output() is True
         with pytest.raises(PipelineOutputError):
             processor.start()
+
+    def test_processor_has_output(self):
+        class Input(BaseModel):
+            key: str
+
+        class MyProcessor(Processor):
+            def process(self, input, id):
+                pass
+
+        settings = ProcessorSettings(
+            name="processor",
+            version="0.0.0",
+            description="",
+            monitoring=True,
+        )
+        processor = MyProcessor(settings, input_class=Input, output_class=None)
+        processor.parse_args(
+            args="--in-kind MEM --out-kind MEM --out-topic test".split()
+        )
+        assert processor.has_output() is False
 
     def test_processor_invalid_input(self):
         class Output(BaseModel):

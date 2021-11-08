@@ -404,7 +404,10 @@ class Processor(Worker):
         output_class: Type[BaseModel],
         logger: Logger = pipelineLogger,
     ) -> None:
-        super().__init__(settings, logger=logger)
+        if output_class is None:
+            super().__init__(settings, worker_type=WorkerType.NoOutput, logger=logger)
+        else:
+            super().__init__(settings, logger=logger)
         self.retryEnabled = False
         self.input_class = input_class
         self.output_class = output_class
