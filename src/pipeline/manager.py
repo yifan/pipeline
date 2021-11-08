@@ -108,9 +108,11 @@ class Pipeline(object):
         """
         settings = copy(self.source_settings)
         settings.topic = name
-        self.sources[name] = self.source_and_settings_classes.source_class(
+        source = self.source_and_settings_classes.source_class(
             settings=settings, logger=self.logger
         )
+        self.sources[name] = source
+        self.logger.info(f"Source {source} added for {name}")
 
     def add_destination_topic(self, name: str) -> None:
         """Add a new :class:`DestinationTap` with a defined topic(queue) name
@@ -119,11 +121,11 @@ class Pipeline(object):
         """
         settings = copy(self.destination_settings)
         settings.topic = name
-        self.destinations[
-            name
-        ] = self.destination_and_settings_classes.destination_class(
+        destination = self.destination_and_settings_classes.destination_class(
             settings=settings, logger=self.logger
         )
+        self.destinations[name] = destination
+        self.logger.info(f"Destination {destination} added for {name}")
 
     def source_of(self, name: str) -> SourceTap:
         """Return the :class:`SourceTap` of specified topic(queue) name"""
