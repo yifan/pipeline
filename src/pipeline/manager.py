@@ -10,6 +10,7 @@ from .tap import (
     DestinationAndSettingsClasses,
 )
 from .worker import ProcessorSettings
+from .helpers import namespaced_topic
 
 pipelineLogger = logging.getLogger("pipeline")
 pipelineLogger.setLevel(logging.INFO)
@@ -107,7 +108,7 @@ class Pipeline(object):
         :param name: a name given for the source topic
         """
         settings = copy(self.source_settings)
-        settings.topic = name
+        settings.topic = namespaced_topic(settings.namespace, name)
         source = self.source_and_settings_classes.source_class(
             settings=settings, logger=self.logger
         )
@@ -120,7 +121,7 @@ class Pipeline(object):
         :param name: a name given for the destination topic
         """
         settings = copy(self.destination_settings)
-        settings.topic = name
+        settings.topic = namespaced_topic(settings.namespace, name)
         destination = self.destination_and_settings_classes.destination_class(
             settings=settings, logger=self.logger
         )
