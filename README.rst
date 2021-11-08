@@ -40,13 +40,15 @@ You can install the required backend dependencies with:
     $ pip install tanbih-pipeline[kafka]
     $ pip install tanbih-pipeline[pulsar]
     $ pip install tanbih-pipeline[rabbitmq]
-    $ pip install tanbih-pipeline[azure]
+    $ pip install tanbih-pipeline[elastic]
+    $ pip install tanbih-pipeline[mongodb]
 
 If you want to support all backends, you can:
 
 .. code-block:: bash
 
     $ pip install tanbih-pipeline[full]
+
 
 
 Producer
@@ -129,11 +131,47 @@ generate output topic based on the processing message, and use it when writing o
 Usage
 -----
 
+## API Server
+
+API
+
+## ETL
+
+Data pipeline 
+
+## Database Record
+
+
+
+Pipeline allows your data pipeline to support different technologies. 
+
++-----------+----------------+---------+--------+-------+
+|           |                |  multi- | shared | data  |
+| kind      |  description   |  reader | reader | expire|
++===========+================+=========+========+=======+
+| LREDIS    |  Redis List    |    X    |    X   | read  |
++-----------+----------------+---------+--------+-------+
+| XREDIS    |  Redis Stream  |    X    |    X   | limit |
++-----------+----------------+---------+--------+-------+
+| KAFKA     |  Kafka         |    X    |    X   | read  |
++-----------+----------------+---------+--------+-------+
+| PULSAR    |  Pulsar        |    X    |    X   | ttl   |
++-----------+----------------+---------+--------+-------+
+| RABBITMQ  |  RabbitMQ      |    X    |        | read  |
++-----------+----------------+---------+--------+-------+
+| ELASTIC   |  ElasticSearch |         |        |       |
++-----------+----------------+---------+--------+-------+
+| MONGODB   |  MongoDB       |         |        |       |
++-----------+----------------+---------+--------+-------+
+
 Writing a Worker
 ################
 
 
 Choose Producer, Processor or Splitter to subclass from.
+
+
+
 
 Environment Variables
 *********************
