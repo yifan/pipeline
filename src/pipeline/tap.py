@@ -247,7 +247,7 @@ class FileSource(SourceTap):
 class FileDestinationSettings(DestinationSettings):
     filename: str = Field(None, title="output filename", required=True)
     overwrite: bool = Field(False, title="overwrite output file if exists")
-    content_only: bool = Field(False, title="input contains only content for messages")
+    content_only: bool = Field(False, title="output content only, no messages")
 
 
 class FileDestination(DestinationTap):
