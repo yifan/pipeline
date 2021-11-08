@@ -534,9 +534,9 @@ class Processor(Worker):
 
         self.setup()
 
-        self.logger.info("start listening on topic %s", self.source.topic)
+        self.logger.info(f"start reading from source {self.source}")
         if self.has_output():
-            self.logger.info("will write to topic %s", self.destination.topic)
+            self.logger.info(f"will write to destination {self.destination}")
 
         if self.settings.monitoring:
             self.monitor.expose()
