@@ -26,7 +26,7 @@ pytest-cov = "^2.12.1"
 mypy = "^0.901"
 
 [tool.poetry.extras]
-full=["redis", "confluent-kafka", "pulsar-client"]
+full=["redis", "confluent-kafka", "pulsar-client", "elasticsearch", "pymongo"]
 redis=["redis"]
 kafka=["conflucent-kafka"]
 pulsar=["pulsar-client"]
