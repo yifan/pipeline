@@ -63,7 +63,7 @@ class RedisStreamSource(SourceTap):
             raise
 
         timedOut = False
-        lastMessageBaseTime = time.time()
+        last_message_time = time.time()
         while not timedOut:
             try:
                 msg = self.redis.xreadgroup(
@@ -74,13 +74,20 @@ class RedisStreamSource(SourceTap):
                     self.last_msg = msgId
                     self.logger.info("Read message %s", msgId)
                     yield MessageBase.deserialize(data[b"data"])
-                    lastMessageBaseTime = time.time()
+                    last_message_time = time.time()
             except Exception as ex:
                 self.logger.error(ex)
                 break
             time.sleep(0.01)
-            if self.timeout > 0 and time.time() - lastMessageBaseTime > self.timeout:
-                timedOut = True
+            if self.timeout > 0:
+                elapsed_time = time.time() - last_message_time
+                if elapsed_time > self.timeout:
+                    self.logger.warning(
+                        "reader timed out after %d seconds (timeout %d)",
+                        elapsed_time,
+                        self.timeout,
+                    )
+                    timedOut = True
 
     def acknowledge(self) -> None:
         self.logger.info("acknowledged message %s", self.last_msg)
@@ -168,7 +175,7 @@ class RedisListSource(SourceTap):
 
     def read(self) -> Iterator[MessageBase]:
         timedOut = False
-        lastMessageBaseTime = time.time()
+        last_message_time = time.time()
         while not timedOut:
             try:
                 value = self.redis.lpop(self.topic)
@@ -176,13 +183,20 @@ class RedisListSource(SourceTap):
                     msg = MessageBase.deserialize(value)
                     self.logger.info("Read message %s", str(msg))
                     yield msg
-                    lastMessageBaseTime = time.time()
+                    last_message_time = time.time()
             except Exception as ex:
                 self.logger.error(ex)
                 break
             time.sleep(0.01)
-            if self.timeout > 0 and time.time() - lastMessageBaseTime > self.timeout:
-                timedOut = True
+            if self.timeout > 0:
+                elapsed_time = time.time() - last_message_time
+                if elapsed_time > self.timeout:
+                    self.logger.warning(
+                        "reader timed out after %d seconds (timeout %d)",
+                        elapsed_time,
+                        self.timeout,
+                    )
+                    timedOut = True
 
     def acknowledge(self) -> None:
         self.logger.info("Acknowledgement is not supported for LREDIS (Redis List)")
