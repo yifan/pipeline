@@ -21,6 +21,10 @@ pipelineLogger.setLevel(logging.DEBUG)
 class RedisSourceSettings(SourceSettings):
     redis: str = Field("redis://localhost:6379/0", title="redis url")
     group: str = Field(None, title="redis consumer group name")
+    min_idle_time: int = Field(
+        3600000,
+        title="messages not acknowledged after min-idle-time will be reprocessed",
+    )
 
 
 class RedisStreamSource(SourceTap):
@@ -64,17 +68,33 @@ class RedisStreamSource(SourceTap):
 
         timedOut = False
         last_message_time = time.time()
+
         while not timedOut:
             try:
-                msg = self.redis.xreadgroup(
-                    self.group, self.consumer, {self.topic: ">"}, count=1
+                # claim lost pending messages
+                msg = self.redis.xautoclaim(
+                    self.group, self.consumer, self.settings.min_idle_time, "0", count=1
                 )
+
                 if msg:
-                    (msgId, data) = msg[0][1][0]
+                    (msgId, data) = msg[0]
+                else:
+                    # if no lost pending message, read new message
+                    msg = self.redis.xreadgroup(
+                        self.group, self.consumer, {self.topic: ">"}, count=1
+                    )
+                    if msg:
+                        (msgId, data) = msg[0][1][0]
+                    else:  # no message
+                        data = None
+
+                # for either old or new message
+                if data:
                     self.last_msg = msgId
                     self.logger.info("Read message %s", msgId)
                     yield MessageBase.deserialize(data[b"data"])
                     last_message_time = time.time()
+
             except Exception as ex:
                 self.logger.error(ex)
                 break
