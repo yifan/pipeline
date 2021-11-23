@@ -26,7 +26,7 @@ pytest-cov = "^2.12.1"
 mypy = "^0.901"
 
 [tool.poetry.scripts]
-pipeline-copy = "pipeline.worker:copy_cli"
+pipeline-copy = "pipeline.__main__:copy"
 
 [tool.poetry.extras]
 full=["redis", "confluent-kafka", "pulsar-client", "elasticsearch", "pymongo"]

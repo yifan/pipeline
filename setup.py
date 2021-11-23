@@ -16,6 +16,11 @@ setup(
     name="tanbih-pipeline",
     version="0.11.28",
     description="a pipeline framework for streaming processing",
+    entry_points={
+        "console_scripts": {
+            "pipeline-copy = pipeline.__main__:copy",
+        },
+    },
     long_description=readme,
     long_description_content_type="text/x-rst",
     author="yifan",
@@ -42,6 +47,7 @@ setup(
             "pulsar-client==2.5.*",
             "azure-cosmosdb-table",
             "pika",
+            "pymongo",
         ],
         "redis": ["redis"],
         "kafka": ["confluent-kafka==1.3.*"],
@@ -49,5 +55,6 @@ setup(
         "mysql": ["mysql-connector-python"],
         "rabbitmq": ["pika"],
         "azure": ["azure-cosmosdb-table"],
+        "mongodb": ["pymongo"],
     },
 )
