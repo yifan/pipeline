@@ -25,6 +25,9 @@ pytest = "^6.2.4"
 pytest-cov = "^2.12.1"
 mypy = "^0.901"
 
+[tool.poetry.scripts]
+pipeline-copy = "pipeline.worker:copy_cli"
+
 [tool.poetry.extras]
 full=["redis", "confluent-kafka", "pulsar-client", "elasticsearch", "pymongo"]
 redis=["redis", "walrus"]
@@ -32,6 +35,11 @@ kafka=["conflucent-kafka"]
 pulsar=["pulsar-client"]
 elastic=["elasticsearch"]
 mongodb=["pymongo"]
+
+[tool.poetry.urls]
+homepage="https://github.com/yifan/pipeline"
+repository="https://github.com/yifan/pipeline"
+documentation="https://tanbih-pipeline.readthedocs.io/en/latest/"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
