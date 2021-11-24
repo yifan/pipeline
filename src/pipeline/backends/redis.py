@@ -58,13 +58,18 @@ class RedisStreamSource(SourceTap):
     def __repr__(self) -> str:
         return f'RedisStreamSource(host="{self.settings.redis}", topic="{self.topic}")'
 
-    def read(self) -> Iterator[MessageBase]:
-
+    def _create_group(self):
         try:
             self.redis.xgroup_create(self.topic, self.group, id="0", mkstream=True)
         except RedisResponseError as e:
             self.logger.error(str(e))
             raise
+
+    def length(self) -> int:
+        return self.redis.xlen(self.topic)
+
+    def read(self) -> Iterator[MessageBase]:
+        self._create_group()
 
         timedOut = False
         last_message_time = time.time()
@@ -150,6 +155,9 @@ class RedisStreamDestination(DestinationTap):
     def __repr__(self) -> str:
         return f'RedisStreamDestination(host="{self.settings.redis}", topic="{self.topic}")'
 
+    def length(self) -> int:
+        return self.redis.xlen(self.topic)
+
     def write(self, message: MessageBase) -> int:
         serialized = message.serialize(compress=self.settings.compress)
         self.redis.xadd(
@@ -192,6 +200,9 @@ class RedisListSource(SourceTap):
 
     def __repr__(self) -> str:
         return f'RedisListSource(host="{self.settings.redis}", topic="{self.topic}")'
+
+    def length(self) -> int:
+        return self.redis.llen(self.topic)
 
     def read(self) -> Iterator[MessageBase]:
         timedOut = False
@@ -253,6 +264,9 @@ class RedisListDestination(DestinationTap):
         return (
             f'RedisListDestination(host="{self.settings.redis}", topic="{self.topic}")'
         )
+
+    def length(self) -> int:
+        return self.redis.llen(self.topic)
 
     def write(self, message: MessageBase) -> int:
         serialized = message.serialize(compress=self.settings.compress)

@@ -53,6 +53,10 @@ class SourceTap(ABC):
         """rewind to earliest message."""
         raise NotImplementedError("rewind is not implemented")
 
+    def length(self) -> None:
+        """return how many messages in source"""
+        raise NotImplementedError("length is not implemented")
+
     @classmethod
     def of(cls, kind: "TapKind") -> "SourceAndSettingsClasses":
         """
@@ -102,6 +106,10 @@ class DestinationTap(ABC):
     def write(self, message: MessageBase) -> int:
         """send message."""
         raise NotImplementedError()
+
+    def length(self) -> None:
+        """return how many messages in backlog"""
+        raise NotImplementedError("length is not implemented")
 
     @classmethod
     def of(cls, kind: "TapKind") -> "DestinationAndSettingsClasses":
