@@ -1,6 +1,7 @@
 import tempfile
 import re
 from unittest import mock
+from datetime import datetime
 
 from pydantic import BaseModel, Field
 import pytest
@@ -102,7 +103,7 @@ class TestWorkerCore:
         processor = MyProcessor(settings, input_class=Input, output_class=Output)
         msgs = [{"key": 1}, {"key": 2}, {"key": 3}]
         processor.parse_args()
-        processor.source.data = msgs
+        processor.source.load_data(msgs)
         assert processor.has_output() is True
         with pytest.raises(PipelineOutputError):
             processor.start()
@@ -148,7 +149,7 @@ class TestWorkerCore:
         processor = MyProcessor(settings, input_class=Input, output_class=Output)
         msgs = [{"language": "en"}, {"key": 1}, {"key": 2}, {"language": "en"}]
         processor.parse_args()
-        processor.source.data = msgs
+        processor.source.load_data(msgs)
         processor.start()
         assert len(processor.destination.results) == 2
 
@@ -167,7 +168,7 @@ class TestWorkerCore:
         processor.parse_args(
             args="--in-kind MEM --out-kind MEM --out-topic test".split()
         )
-        processor.source.data = msgs
+        processor.source.load_data(msgs)
         processor.start()
         assert len(processor.destination.results) == 3
         m = processor.destination.results[0]
@@ -196,7 +197,42 @@ class TestWorkerCore:
         processor.parse_args(
             args="--in-kind MEM --out-kind MEM --out-topic test".split()
         )
-        processor.source.data = msgs
+        processor.source.load_data(msgs)
+        processor.start()
+        assert len(processor.destination.results) == 3
+        m = processor.destination.results[0]
+        assert m.get("newkey") == "newval"
+
+    def test_processor_datetime(self):
+        class Input(BaseModel):
+            key: str
+            date_field: datetime
+
+        class Output(BaseModel):
+            key: str
+            newkey: str
+            date_field: datetime
+
+        class MyProcessor(Processor):
+            def process(self, input, id):
+                return Output(key=input.key, newkey="newval", date_field=datetime.now())
+
+        msgs = [
+            {"key": "1", "date_field": datetime.today()},
+            {"key": "2", "date_field": datetime.now()},
+            {"key": "3", "date_field": datetime.today()},
+        ]
+        settings = ProcessorSettings(
+            name="processor",
+            version="0.0.0",
+            description="",
+            monitoring=False,
+        )
+        processor = MyProcessor(settings, input_class=Input, output_class=Output)
+        processor.parse_args(
+            args="--in-kind MEM --out-kind MEM --out-topic test".split()
+        )
+        processor.source.load_data(msgs)
         processor.start()
         assert len(processor.destination.results) == 3
         m = processor.destination.results[0]
@@ -292,7 +328,7 @@ class TestWorkerCore:
         processor.parse_args(
             args="--in-kind MEM --out-kind MEM --out-topic test".split()
         )
-        processor.source.data = msgs
+        processor.source.load_data(msgs)
         processor.start()
         assert len(processor.destination.results) == 3
 
@@ -312,7 +348,7 @@ class TestWorkerCore:
         settings = ProcessorSettings(name="processor", version="0.0.0", description="")
         processor = MyProcessor(settings, input_class=Input, output_class=Output)
         processor.parse_args(args="--in-kind MEM --out-kind MEM".split())
-        processor.source.data = msgs
+        processor.source.load_data(msgs)
         processor.start()
         assert len(processor.destination.results) == 0
         assert not hasattr(processor, "message")
@@ -351,7 +387,7 @@ class TestWorkerCore:
         )
         processor = MyProcessor(settings, input_class=Input, output_class=Output)
         processor.parse_args(args=["--limit", "1", "--out-topic", "test"])
-        processor.source.data = msgs
+        processor.source.load_data(msgs)
         processor.start()
         assert len(processor.destination.results) == 1
 
@@ -371,7 +407,7 @@ class TestWorkerCore:
 
         splitter = MySplitter(settings)
         splitter.parse_args(args=["--out-topic", "test"])
-        splitter.source.data = msgs
+        splitter.source.load_data(msgs)
         splitter.start()
         assert len(splitter.destinations["test-en"].results) == 1
         assert splitter.destinations["test-en"].results[0].content["language"] == "en"
@@ -438,7 +474,7 @@ class TestWorkerCore:
             settings, input_class=Input, output_class=Output, logger=logger
         )
         processor.parse_args(args="--out-topic test".split())
-        processor.source.data = msgs
+        processor.source.load_data(msgs)
         monkeypatch.setattr(processor, "monitor", mock.MagicMock())
         processor.start()
         assert len(processor.destination.results) == 3
@@ -456,7 +492,7 @@ class TestWorkerCore:
             def process(self, msg: Input, id: str) -> Output:
                 return Output(key=1)
 
-        msgs = [Command(action=CommandActions.Define), {"key": "3", "title": "title"}]
+        msgs = [{"key": "3", "title": "title"}]
         settings = ProcessorSettings(
             name="processor",
             version="0.0.0",
@@ -470,10 +506,13 @@ class TestWorkerCore:
             output_class=Output,
         )
         processor.parse_args(args="--out-topic test".split())
-        processor.source.data = msgs
+        processor.source.load_data(msgs)
+        processor.source.storage.append(
+            Command(action=CommandActions.Define).serialize()
+        )
         processor.start()
         assert len(processor.destination.results) == 2
-        result = processor.destination.results[0]
+        result = processor.destination.results[1]
         assert result.get("input_schema")
         assert result.get("output_schema")
 

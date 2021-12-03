@@ -11,9 +11,8 @@ from typing import Optional, Dict, Tuple, Iterator, List, ClassVar, Type, Union,
 
 from pydantic import BaseModel, Field
 
-from .exception import PipelineMessageError
 from .helpers import Settings
-from .message import MessageBase, Message, deserialize_message
+from .message import MessageBase, Message, deserialize_message, serialize_message
 from .importor import import_class
 
 
@@ -154,15 +153,17 @@ class MemorySource(SourceTap):
     ) -> None:
         super().__init__(settings, logger)
         self.data = settings.data
+        self.storage = [
+            Message(content=content).serialize() for content in settings.data
+        ]
+
+    def load_data(self, data):
+        self.data = data
+        self.storage = [Message(content=content).serialize() for content in data]
 
     def read(self) -> Iterator[MessageBase]:
-        for i in self.data:
-            if isinstance(i, MessageBase):
-                yield i
-            elif isinstance(i, dict):
-                yield Message(content=i)
-            else:
-                raise PipelineMessageError("MemorySource needs Message or dict")
+        for serialized in self.storage:
+            yield deserialize_message(serialized)
 
     def rewind(self) -> None:
         raise NotImplementedError()
@@ -192,9 +193,11 @@ class MemoryDestination(DestinationTap):
     ) -> None:
         super().__init__(settings=settings, logger=logger)
         self.results: List[MessageBase] = []
+        self.storage: List[bytes] = []
 
     def write(self, message: MessageBase) -> int:
         self.results.append(message)
+        self.storage.append(serialize_message(message))
         return 0
 
 

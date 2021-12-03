@@ -826,7 +826,7 @@ redis = ["redis"]
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.7"
-content-hash = "25898a91a98dacfa62216c8d1083894608c8451cb3af24fd917cb635c1f779ec"
+content-hash = "8590ab29ffb99d49005f7e1587be0c7c89b79c8f71156d5b9101b813709501e6"
 
 [metadata.files]
 alabaster = [
