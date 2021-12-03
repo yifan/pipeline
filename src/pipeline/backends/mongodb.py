@@ -85,7 +85,13 @@ class MongodbDestination(DestinationTap):
     ) -> None:
         super().__init__(settings, logger)
         self.settings = settings
-        self.keyname = settings.keyname
+        keynames = settings.keyname.split(",")
+        if len(keynames) > 1:
+            self.keynames = keynames
+            self.get_filter = self.get_filter_keynames
+        else:
+            self.keyname = settings.keyname
+            self.get_filter = self.get_filter_keyname
         self.client = MongoClient(settings.uri)
         database = MongoClient(settings.uri).get_database(settings.database)
         self.collection = Collection(
@@ -96,9 +102,15 @@ class MongodbDestination(DestinationTap):
     def __repr__(self) -> str:
         return f'MongdbDestination(host="{self.settings.uri}", topic="{self.topic}")'
 
+    def get_filter_keyname(self, dct):
+        return {self.keyname: dct.get(self.keyname)}
+
+    def get_filter_keynames(self, dct):
+        return {k: dct.get(k) for k in self.keynames}
+
     def write(self, message: MessageBase) -> int:
         self.collection.update_one(
-            {self.keyname: message.content.get(self.keyname)},
+            self.get_filter(message.content),
             {"$set": message.content},
             upsert=True,
         )

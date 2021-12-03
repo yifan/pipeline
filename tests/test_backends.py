@@ -50,9 +50,11 @@ class TestBackends(TestCase):
     @mock.patch("pipeline.backends.mongodb.Collection")
     @mock.patch("pipeline.backends.mongodb.MongoClient")
     def test_mongodb(self, mock_mongo, mock_collection):
+        queries = []
         results = []
 
         def mock_update(filt, doc, upsert):
+            queries.append(filt)
             results.append(doc["$set"])
 
         mock_collection.return_value.update_one.side_effect = mock_update
@@ -61,12 +63,15 @@ class TestBackends(TestCase):
         destination_and_settings_classes = DestinationTap.of(TapKind.MONGO)
         settings = destination_and_settings_classes.settings_class()
         settings.parse_args(
-            "--out-namespace out --out-topic test --out-database test".split()
+            "--out-namespace out --out-topic test --out-database test --out-keyname key,secondary_key".split()
         )
         destination = destination_and_settings_classes.destination_class(settings)
-        message_written = Message(content={"key": "written"})
+        message_written = Message(content={"key": "written", "secondary_key": "some"})
         destination.write(message_written)
         destination.close()
+
+        assert "key" in queries[0]
+        assert "secondary_key" in queries[0]
 
         source_and_settings_classes = SourceTap.of(TapKind.MONGO)
         settings = source_and_settings_classes.settings_class()
