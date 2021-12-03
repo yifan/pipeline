@@ -14,7 +14,7 @@ with codecs.open(
 
 setup(
     name="tanbih-pipeline",
-    version="0.11.28",
+    version="0.11.29",
     description="a pipeline framework for streaming processing",
     entry_points={
         "console_scripts": {
