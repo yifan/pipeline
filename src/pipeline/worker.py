@@ -151,6 +151,7 @@ class Worker(ABC):
                 self.source = self.source_and_settings_classes.source_class(
                     settings=source_settings, logger=self.logger
                 )
+                self.logger.info(f"Source: {self.source}")
 
         if self.settings.out_kind:
             self.destination_and_settings_classes = DestinationTap.of(
@@ -166,6 +167,7 @@ class Worker(ABC):
                         settings=destination_settings, logger=self.logger
                     )
                 )
+                self.logger.info(f"Destination: {self.destination}")
         else:
             self.worker_type = WorkerType.NoOutput
 
