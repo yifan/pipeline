@@ -10,20 +10,28 @@
     :alt: Maintainability Score
 
 
-a flexible stream processing framework supporting RabbitMQ, Pulsar, Kafka and Redis.
+Pipeline provides an unified interface to set up data stream processing systems with Kafka, Pulsar,
+RabbitMQ, Redis and many more. The idea is to free developer from the dynamic change of technology
+in deployment, so that a docker image released for a certain task can be used with Kafka or Redis
+through changes of environment variables.
+
+
 
 Features
 --------
 
-- at-least-once guaranteed with acknowledgement on every message
-- horizontally scalable through consumer groups
-- flow is controlled in deployment, develop it once, use it everywhere
-- testability provided with FILE and MEMORY input/output
+- a unified interface from Kakfa to Pulsar, from Redis to MongoDB
+- components connection controlled via command line, or environment variables
+- support file and in-memory for testing
+
+
 
 Requirements
 ------------
 
-- Python 3.8
+- Python 3.7, 3.8
+
+
 
 Installation
 ------------
@@ -131,19 +139,7 @@ generate output topic based on the processing message, and use it when writing o
 Usage
 -----
 
-## API Server
-
-API
-
-## ETL
-
-Data pipeline 
-
-## Database Record
-
-
-
-Pipeline allows your data pipeline to support different technologies. 
+Choosing backend technology:
 
 +-----------+----------------+---------+--------+-------+
 |           |                |  multi- | shared | data  |
@@ -163,13 +159,14 @@ Pipeline allows your data pipeline to support different technologies.
 +-----------+----------------+---------+--------+-------+
 | MONGODB   |  MongoDB       |         |        |       |
 +-----------+----------------+---------+--------+-------+
+| FILE*     |  json,csv      |         |        |       |
++-----------+----------------+---------+--------+-------+
+| MEM*      |  memory        |         |        |       |
++-----------+----------------+---------+--------+-------+
 
-Writing a Worker
-################
-
-
-Choose Producer, Processor or Splitter to subclass from.
-
+* FILE accepts jsonl input on stdin and with filename, it also accepts csv file. 
+  Both format can be gzipped.
+* MEM read and write to memory, designed for unit tests.
 
 
 
@@ -179,48 +176,29 @@ Environment Variables
 Application accepts following environment variables 
 (Please note, you will need to add prefix `IN_`, `--in-` and
 `OUT_`, `--out-` to these variables to indicate the option for
-input and output):
-
-+----------------+-----------------+---------------------+
-|   environment  |  command line   |                     |
-|   variable     |  argument       | options             |
-+================+=================+=====================+
-|   KIND         |  --kind         | KAFKA, PULSAR, FILE |
-+----------------+-----------------+---------------------+
-|   PULSAR       |  --pulsar       | pulsar url          |
-+----------------+-----------------+---------------------+
-|   TENANT       |  --tenant       | pulsar tenant       |
-+----------------+-----------------+---------------------+
-|   NAMESPACE    |  --namespace    | pulsar namespace    |
-+----------------+-----------------+---------------------+
-|   SUBSCRIPTION |  --subscription | pulsar subscription |
-+----------------+-----------------+---------------------+
-|   KAFKA        |  --kafka        | kafka url           |
-+----------------+-----------------+---------------------+
-|   GROUPID      |  --group-id     | kafka group id      |
-+----------------+-----------------+---------------------+
-|   TOPIC        |  --topic        | topic to read       |
-+----------------+-----------------+---------------------+
+input and output). Please refer to backend documentation for
+available arguments/environment variables.
 
 
-Custom Code
-***********
+Customize Settings
+******************
 
-Define add_arguments to add new arguments to worker.
+.. code-block:: python
 
-Define setup to run initialization code before worker starts processing messages. setup is called after
-command line arguments have been parsed. Logic based on options (parsed arguments) goes here.
+    class CustomSettings(Settings):
+        new_argument: str = Field("", title="a new argument for custom settings")
 
+    class CustomProcessor(Processor):
+        def __init__(self):
+            settings = CustomSettings("worker", "v0.1.0", "custom processor")
+            super().__init__(settings, input_class=BaseModel, output_class=BaseModel)
 
-Options
-*******
 
 
 Errors
 ******
 
-The value `None` above is error you should return if `dct` or `dcts` is empty.
-Error will be sent to topic `errors` with worker information.
+PipelineError will be raised when error occurs 
 
 
 Contribute
