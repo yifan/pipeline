@@ -169,6 +169,57 @@ Choosing backend technology:
 * MEM read and write to memory, designed for unit tests.
 
 
+.. code-block:: shell
+
+    # check command line arguments for certain input and output
+    worker.py --in-kind FILE --help
+    # or
+    IN_KIND=FILE worker.py
+    # or
+    export IN_KIND=FILE
+    worker.py --help
+
+    # process input from file and output to stdout (--in-content-only is
+    # needed for this version)
+    worker.py --in-kind FILE --in-filename data.jsonl --in-content-only \
+              --out-kind FILE --out-filename -
+
+
+    # read from file and write to KAFKA
+    worker.py --in-kind FILE --in-filename data.jsonl --in-content-only \
+              --out-kind KAFKA --out-namespace test --out-topic articles \
+              --out-kafka kafka_url --out-config kafka_config_json
+
+
+Scripts
+*******
+
+`pipeline-copy` is a script to copy data from a source to a destination. It can 
+be used to inject data from a file to a database, or from a database to another 
+database. It is implemented as a Pipeline worker. 
+
+Since JSON format does not support datetimes, in order for `pipeline-copy` to
+treat datetime field as datetime instead of string, you can provide a model
+definition via argument `--model-definition`. An example of such model definition
+is as following (the class name needs to be `Model`):
+
+.. code-block:: shell
+
+    from datetime import datetime
+    from typing import Optional
+
+    from pydantic import BaseModel
+
+    class Model(BaseModel):
+        hashtag: str
+        username: str
+        text: str
+        tweet_id: str
+        location: Optional[str]
+        created_at: datetime
+        retweet_count: int
+
+
 
 Environment Variables
 *********************
