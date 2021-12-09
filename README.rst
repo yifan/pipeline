@@ -191,12 +191,32 @@ Choosing backend technology:
               --out-kafka kafka_url --out-config kafka_config_json
 
 
+Arguments
+*********
+
+common
+    debug
+    monitoring
+
+    kind
+    namespace
+    topic
+
+
+input:
+
+
+FILE
+
+
+
+
 Scripts
 *******
 
-`pipeline-copy` is a script to copy data from a source to a destination. It can 
-be used to inject data from a file to a database, or from a database to another 
-database. It is implemented as a Pipeline worker. 
+`pipeline-copy` is a script to copy data from a source to a destination. It can
+be used to inject data from a file to a database, or from a database to another
+database. It is implemented as a Pipeline worker.
 
 Since JSON format does not support datetimes, in order for `pipeline-copy` to
 treat datetime field as datetime instead of string, you can provide a model
@@ -224,7 +244,7 @@ is as following (the class name needs to be `Model`):
 Environment Variables
 *********************
 
-Application accepts following environment variables 
+Application accepts following environment variables
 (Please note, you will need to add prefix `IN_`, `--in-` and
 `OUT_`, `--out-` to these variables to indicate the option for
 input and output). Please refer to backend documentation for
