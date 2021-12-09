@@ -135,15 +135,7 @@ class Worker(ABC):
 
         options, unknown = self.settings.parse_args(args, parser)
 
-        if self.has_input():
-            if self.settings.in_kind is None:
-                self.logger.critical(
-                    "Please specify '--in-kind' or environment 'IN_KIND'!"
-                )
-                raise PipelineError(
-                    "Please specify '--in-kind' or environment 'IN_KIND'!"
-                )
-
+        if self.has_input() and self.settings.in_kind:
             self.source_and_settings_classes = SourceTap.of(self.settings.in_kind)
             source_settings = self.source_and_settings_classes.settings_class()
             source_settings.parse_args(args, parser)
@@ -174,6 +166,10 @@ class Worker(ABC):
         if options.help:
             print(parser.format_help())
             sys.exit(0)
+
+        if self.has_input() and self.settings.in_kind is None:
+            self.logger.critical("Please specify '--in-kind' or environment 'IN_KIND'!")
+            raise PipelineError("Please specify '--in-kind' or environment 'IN_KIND'!")
 
         # report worker info to monitor
         self.monitor.record_worker_info()
