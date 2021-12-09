@@ -7,6 +7,7 @@ Contents
 
    readme
    api
+   scripts
    authors
    changelog
 
