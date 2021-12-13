@@ -95,18 +95,19 @@ can produce one output for each input, or no output.
 
 .. code-block:: python
 
+    >>> from pydantic import BaseModel
     >>> from pipeline import Processor as Worker, ProcessorSettings as Settings
     >>>
     >>> class Input(BaseModel):
-    ...     key: int
+    ...     temperature: float
     >>>
     >>> class Output(BaseModel):
-    ...     key: int
-    ...     processed: bool
+    ...     is_hot: bool
     >>>
     >>> class MyProcessor(Worker):
-    ...     def process(self, input):
-    ...         return Output(key=input.key, processed=True)
+    ...     def process(self, content, key):
+    ...         is_hot = (content.temperature > 25)
+    ...         return Output(is_hot=is_hot)
     >>>
     >>> settings = Settings(name='processor', version='0.1.0', description='')
     >>> processor = MyProcessor(settings, input_class=Input, output_class=Output)
