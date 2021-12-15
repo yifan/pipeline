@@ -152,10 +152,11 @@ class MemorySource(SourceTap):
         self, settings: MemorySourceSettings, logger: Logger = pipelineLogger
     ) -> None:
         super().__init__(settings, logger)
-        self.data = settings.data
-        self.storage = [
-            Message(content=content).serialize() for content in settings.data
-        ]
+
+        self.reset()
+
+    def reset(self):
+        self.load_data(self.settings.data)
 
     def load_data(self, data):
         self.data = data
@@ -194,6 +195,10 @@ class MemoryDestination(DestinationTap):
         super().__init__(settings=settings, logger=logger)
         self.results: List[MessageBase] = []
         self.storage: List[bytes] = []
+
+    def reset(self):
+        self.results = []
+        self.storage = []
 
     def write(self, message: MessageBase) -> int:
         self.results.append(message)
