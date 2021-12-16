@@ -8,6 +8,17 @@ BASE_DIR = "./"
 
 
 class TestTaps(TestCase):
+    def test_repr(self):
+        destination_and_settings_classes = DestinationTap.of(TapKind.MEM)
+        settings = destination_and_settings_classes.settings_class()
+        destination = destination_and_settings_classes.destination_class(settings)
+        assert str(destination).startswith("Destination")
+
+        source_and_settings_classes = SourceTap.of(TapKind.MEM)
+        settings = source_and_settings_classes.settings_class()
+        source = source_and_settings_classes.source_class(settings)
+        assert str(source).startswith("Source")
+
     def test_file(self):
         destination_and_settings_classes = DestinationTap.of(TapKind.FILE)
         with tempfile.NamedTemporaryFile() as tmpfile:

@@ -43,6 +43,12 @@ class SourceTap(ABC):
         self.topic = settings.topic
         self.logger = logger
 
+    def __str__(self) -> str:
+        return self.__repr__()
+
+    def __repr__(self) -> str:
+        return f"Source(topic=({self.topic}), settings=({self.settings}))"
+
     @abstractmethod
     def read(self) -> Iterator[MessageBase]:
         """receive message."""
@@ -100,6 +106,12 @@ class DestinationTap(ABC):
         self.settings = settings
         self.topic = settings.topic
         self.logger = logger
+
+    def __str__(self) -> str:
+        return self.__repr__()
+
+    def __repr__(self) -> str:
+        return f"Destination(topic=({self.topic}), settings=({self.settings}))"
 
     @abstractmethod
     def write(self, message: MessageBase) -> int:

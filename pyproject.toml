@@ -15,7 +15,7 @@ confluent-kafka = {version = "1.3.*", optional = true}
 pulsar-client = {version = "2.5.*", optional = true}
 elasticsearch = {version = "7.15.*", optional = true}
 pymongo = {version = "3.12.*", optional = true}
-python-dotenv = "^0.19.2"
+python-dotenv = {version = "^0.19.2", optional = true}
 
 [tool.poetry.dev-dependencies]
 tox = "^3.23.1"
@@ -36,6 +36,7 @@ kafka=["conflucent-kafka"]
 pulsar=["pulsar-client"]
 elastic=["elasticsearch"]
 mongodb=["pymongo"]
+cli=["python-dotenv"]
 
 [tool.poetry.urls]
 homepage="https://github.com/yifan/pipeline"

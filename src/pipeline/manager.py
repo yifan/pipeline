@@ -112,7 +112,7 @@ class Pipeline(object):
             settings=settings, logger=self.logger
         )
         self.sources[name] = source
-        self.logger.info(f"Source {source} added for {name}")
+        self.logger.info(f"Source {str(source)} added for `{name}`")
 
     def add_destination_topic(self, name: str) -> None:
         """Add a new :class:`DestinationTap` with a defined topic(queue) name
@@ -125,7 +125,7 @@ class Pipeline(object):
             settings=settings, logger=self.logger
         )
         self.destinations[name] = destination
-        self.logger.info(f"Destination {destination} added for {name}")
+        self.logger.info(f"Destination {destination} added for `{name}`")
 
     def source_of(self, name: str) -> SourceTap:
         """Return the :class:`SourceTap` of specified topic(queue) name"""
