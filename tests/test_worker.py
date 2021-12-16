@@ -15,6 +15,7 @@ from pipeline import (
     Processor,
     SplitterSettings,
     Splitter,
+    PipelineError,
     PipelineOutputError,
     CommandActions,
     Definition,
@@ -42,21 +43,29 @@ class TestWorkerCore:
         class Output(BaseModel):
             key: int
 
+        class MyProducerSettings(ProducerSettings):
+            pass
+
         class MyProducer(Producer):
+            def __init__(self):
+                settings = MyProducerSettings(
+                    name="producer",
+                    version="0.1.0",
+                    description="test",
+                )
+                super().__init__(
+                    settings=settings,
+                    output_class=Output,
+                )
+
             def generate(self):
                 for i in range(3):
                     yield Output(key=i)
 
-        settings = ProducerSettings(
-            name="producer",
-            version="0.1.0",
-            description="",
-            out_kind=TapKind.MEM,
-            debug=True,
-            monitoring=True,
-        )
-        producer = MyProducer(settings, output_class=Output)
-        producer.parse_args(args=["--out-topic", "test", "--debug"])
+        producer = MyProducer()
+        producer.parse_args(args="--out-kind MEM".split())
+        assert producer.has_input() is False
+        assert producer.has_output() is True
         monkeypatch.setattr(producer, "monitor", mock.MagicMock())
         producer.start()
         assert len(producer.destination.results) == 3
@@ -362,34 +371,8 @@ class TestWorkerCore:
 
         settings = ProcessorSettings(name="processor", version="0.0.0", description="")
         processor = Processor(settings, input_class=Input, output_class=Output)
-        processor.parse_args(args=["--in-kind", "MEM"])
-        assert processor.settings.out_kind is None
-        assert not hasattr(processor, "destination")
-
-    def test_mem_processor_limit(self):
-        class Input(BaseModel):
-            pass
-
-        class Output(BaseModel):
-            pass
-
-        class MyProcessor(Processor):
-            def process(self, msg: Input, id: str) -> Output:
-                return Output()
-
-        msgs = [{}, {}, {}]
-        settings = ProcessorSettings(
-            name="processor",
-            version="0.0.0",
-            description="",
-            in_kind=TapKind.MEM,
-            out_kind=TapKind.MEM,
-        )
-        processor = MyProcessor(settings, input_class=Input, output_class=Output)
-        processor.parse_args(args=["--limit", "1", "--out-topic", "test"])
-        processor.source.load_data(msgs)
-        processor.start()
-        assert len(processor.destination.results) == 1
+        with pytest.raises(PipelineError):
+            processor.parse_args(args="--in-kind MEM".split())
 
     def test_splitter(self):
         msgs = [{"language": "en"}, {"language": "it"}]
@@ -397,8 +380,6 @@ class TestWorkerCore:
             name="splitter",
             version="0.0.0",
             description="",
-            in_kind=TapKind.MEM,
-            out_kind=TapKind.MEM,
         )
 
         class MySplitter(Splitter):
@@ -406,7 +387,7 @@ class TestWorkerCore:
                 return f'test-{msg.get("language")}'
 
         splitter = MySplitter(settings)
-        splitter.parse_args(args=["--out-topic", "test"])
+        splitter.parse_args(args="--in-kind MEM --out-kind MEM".split())
         splitter.source.load_data(msgs)
         splitter.start()
         assert len(splitter.destinations["test-en"].results) == 1

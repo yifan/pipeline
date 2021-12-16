@@ -160,8 +160,6 @@ class Worker(ABC):
                     )
                 )
                 self.logger.info(f"Destination: {self.destination}")
-        else:
-            self.worker_type = WorkerType.NoOutput
 
         if options.help:
             print(parser.format_help())
@@ -170,6 +168,13 @@ class Worker(ABC):
         if self.has_input() and self.settings.in_kind is None:
             self.logger.critical("Please specify '--in-kind' or environment 'IN_KIND'!")
             raise PipelineError("Please specify '--in-kind' or environment 'IN_KIND'!")
+        elif self.has_output() and self.settings.out_kind is None:
+            self.logger.critical(
+                "Please specify '--out-kind' or environment 'OUT_KIND'!"
+            )
+            raise PipelineError(
+                "Please specify '--out-kind' or environment 'OUT_KIND'!"
+            )
 
         # report worker info to monitor
         self.monitor.record_worker_info()
@@ -405,7 +410,7 @@ class Processor(Worker):
         if output_class is None:
             super().__init__(settings, worker_type=WorkerType.NoOutput, logger=logger)
         else:
-            super().__init__(settings, logger=logger)
+            super().__init__(settings, worker_type=WorkerType.Normal, logger=logger)
         self.retryEnabled = False
         self.input_class = input_class
         self.output_class = output_class
