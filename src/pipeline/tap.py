@@ -3,7 +3,7 @@ import csv
 import logging
 import sys
 import gzip
-import json
+import orjson
 from abc import ABC, abstractmethod
 from logging import Logger
 from enum import Enum
@@ -262,7 +262,7 @@ class FileSource(SourceTap):
     def read(self) -> Iterator[MessageBase]:
         if self.settings.content_only:
             for line in self.infile:
-                content = json.loads(line)
+                content = orjson.loads(line)
                 if content.get("id"):
                     yield Message(content=content, id=content.get("id"))
                 else:
@@ -312,7 +312,7 @@ class FileDestination(DestinationTap):
 
     def write(self, message: MessageBase) -> int:
         if self.settings.content_only:
-            serialized = (json.dumps(message.content) + "\n").encode("utf-8")
+            serialized = orjson.dumps(message.content) + b"\n"
         else:
             serialized = message.serialize(compress=False) + "\n".encode("utf-8")
         self.outFile.write(serialized)

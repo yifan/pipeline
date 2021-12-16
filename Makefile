@@ -42,7 +42,7 @@ integration: $(VPY)
 
 .PHONY: clean
 clean:
-	rm -rf venv
+	rm -rf $(VENV)
 	rm -rf dist
 	rm -rf .tox
 	find . -name '__pycache__' -delete

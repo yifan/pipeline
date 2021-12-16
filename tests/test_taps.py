@@ -26,7 +26,7 @@ class TestTaps(TestCase):
             settings = destination_and_settings_classes.settings_class()
             settings.parse_args(f"--out-filename {out_filename}".split())
             destination = destination_and_settings_classes.destination_class(settings)
-            message_written = Message(content={"key": "written"})
+            message_written = Message(content={"key": "written\U0001f604"})
             destination.write(message_written)
             destination.close()
 
