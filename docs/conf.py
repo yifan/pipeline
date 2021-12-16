@@ -26,13 +26,13 @@ project = "Tanbih Pipeline"
 year = "2020"
 author = "Yifan Zhang"
 copyright = "{0}, {1}".format(year, author)
-release = "0.11.31"
+release = "0.11.32"
 # try:
 #    from pkg_resources import get_distribution
 #    version = release = get_distribution('tanbih-worker').version
 # except Exception:
 #    traceback.print_exc()
-#    version = release = '0.11.31'
+#    version = release = '0.11.32'
 
 pygments_style = "trac"
 templates_path = ["."]
