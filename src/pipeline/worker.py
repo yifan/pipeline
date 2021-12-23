@@ -228,8 +228,21 @@ class Producer(Worker):
         """a producer to generate dict."""
         yield self.output_class()
 
-    def _step(self) -> BaseModel:
-        return next(self.generator)
+    def make_message(self, content: BaseModel) -> Message:
+        if hasattr(content, "id"):
+            msg = Message(id=content.id, content=content.dict())  # type: ignore
+        else:
+            msg = Message(content=content.dict())
+        return msg
+
+    def step(self) -> ByteSize:
+        """make new message and write to destination
+        rtype: tuple(ByteSize, Message)
+        """
+        output = next(self.generator)
+        msg = self.make_message(output)
+        size = ByteSize(self.destination.write(msg))
+        return size, msg
 
     def start(self) -> None:
         try:
@@ -264,17 +277,10 @@ class Producer(Worker):
                     received=datetime.now(),
                 )
                 self.timer.start()
-                output = self._step()
+                size, msg = self.step()
                 self.timer.log(self.logger)
-                if hasattr(output, "id"):
-                    msg = Message(id=output.id, content=output.dict())  # type: ignore
-                else:
-                    msg = Message(content=output.dict())
-                self.logger.info("Generated %d-th message %s", i, msg)
-                log.updated.update(output.dict().keys())
-                msg.logs.append(log)
-                self.logger.info("Writing message %s", msg)
-                size = ByteSize(self.destination.write(msg))
+                self.logger.info("Generated %d-th message message %s", i, msg)
+                log.updated.update(msg.content.keys())
                 self.logger.info(f"Message size: {size.human_readable()}")
                 self.monitor.record_write(self.destination.topic)
         except StopIteration:
