@@ -294,18 +294,22 @@ class FileDestination(DestinationTap):
         super().__init__(settings, logger)
         self.filename = settings.filename
         if self.filename == "-":
+            self.logger.info("File Destination: stdout")
             self.outFile = sys.stdout.buffer
         elif self.filename.endswith(".gz"):
             if settings.overwrite:
+                self.logger.info("File Destination: %s (overwriting)", self.filename)
                 self.outFile = gzip.GzipFile(self.filename, "wb")  # type: ignore
             else:
+                self.logger.info("File Destination: %s", self.filename)
                 self.outFile = gzip.GzipFile(self.filename, "ab")  # type: ignore
         else:
             if settings.overwrite:
+                self.logger.info("File Destination: %s (overwriting)", self.filename)
                 self.outFile = open(self.filename, "wb")
             else:
+                self.logger.info("File Destination: %s", self.filename)
                 self.outFile = open(self.filename, "ab")
-        self.logger.info("File Destination: %s", self.filename)
 
     def __repr__(self) -> str:
         return 'FileDestination("{}")'.format(self.filename)
