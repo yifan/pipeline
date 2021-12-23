@@ -561,3 +561,60 @@ class TestWorkerCore:
             )
         out, err = capfd.readouterr()
         assert re.search("--in-filename", out)
+
+    def test_producer_multiple_destinations(self):
+        class Output(BaseModel):
+            key: int
+
+        class Output1(Output):
+            pass
+
+        class Output2(Output):
+            pass
+
+        class MyProducerSettings(ProducerSettings):
+            topic_1: str = ""
+            topic_2: str = ""
+
+        class MyProducer(Producer):
+            def __init__(self):
+                settings = MyProducerSettings(
+                    name="producer",
+                    version="0.1.0",
+                    description="test",
+                    monitoring=False,
+                )
+                super().__init__(
+                    settings=settings,
+                    output_class=Output,
+                )
+
+                self.multiple_destinations()
+
+            def setup(self):
+                self.duplicate_destination(self.settings.topic_1)
+                self.duplicate_destination(self.settings.topic_2)
+
+            def generate(self):
+                for i in range(10):
+                    if i % 2 == 0:
+                        yield Output1(key=i)
+                    else:
+                        yield Output2(key=i)
+
+            def step(self):
+                output = next(self.generator)
+                msg = self.make_message(output)
+                if isinstance(output, Output1):
+                    size = self.destinations[self.settings.topic_1].write(msg)
+                else:
+                    size = self.destinations[self.settings.topic_2].write(msg)
+                return size, msg
+
+        producer = MyProducer()
+        producer.parse_args(
+            args="--out-kind MEM --topic-1 topic1 --topic-2 topic2".split()
+        )
+        producer.start()
+        assert len(producer.destinations["topic1"].results) == 5
+        assert len(producer.destinations["topic2"].results) == 5

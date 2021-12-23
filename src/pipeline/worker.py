@@ -6,7 +6,18 @@ from argparse import ArgumentParser
 from copy import copy
 from datetime import datetime
 from enum import IntEnum, Enum
-from typing import Optional, List, Dict, Iterator, Type, KeysView, Union, cast, Any
+from typing import (
+    Optional,
+    List,
+    Dict,
+    Iterator,
+    Type,
+    KeysView,
+    Union,
+    cast,
+    Any,
+    Tuple,
+)
 from logging import Logger
 
 from pydantic import BaseModel, ByteSize, Field, ValidationError, parse_obj_as
@@ -248,13 +259,13 @@ class Producer(Worker):
             msg = Message(content=content.dict())
         return msg
 
-    def step(self) -> ByteSize:
+    def step(self) -> Tuple[int, Message]:
         """make new message and write to destination
-        rtype: tuple(ByteSize, Message)
+        rtype: Tuple[int, Message]
         """
         output = next(self.generator)
         msg = self.make_message(output)
-        size = ByteSize(self.destination.write(msg))
+        size = self.destination.write(msg)
         return size, msg
 
     def start(self) -> None:
@@ -294,7 +305,8 @@ class Producer(Worker):
                 self.timer.log(self.logger)
                 self.logger.info("Generated %d-th message message %s", i, msg)
                 log.updated.update(msg.content.keys())
-                self.logger.info(f"Message size: {size.human_readable()}")
+                human_readable_size = ByteSize(size).human_readable()
+                self.logger.info(f"Message size: {human_readable_size}")
                 self.monitor.record_write(self.destination.topic)
         except StopIteration:
             pass
