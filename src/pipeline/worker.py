@@ -179,6 +179,19 @@ class Worker(ABC):
         # report worker info to monitor
         self.monitor.record_worker_info()
 
+    def multiple_destinations(self):
+        self.destinations: Dict[str, DestinationTap] = {}
+
+    def duplicate_destination(self, topic):
+        """helper function"""
+        settings = copy(self.destination.settings)
+        settings.topic = topic
+        self.destinations[
+            topic
+        ] = self.destination_and_settings_classes.destination_class(
+            settings, logger=self.logger
+        )
+
 
 class ProducerSettings(WorkerSettings):
     """Producer settings"""
@@ -314,7 +327,7 @@ class Splitter(Worker):
         super().__init__(settings, logger=logger)
         # keep a dictionary for 'topic': 'destination', self.destination is only used to parse
         # command line arguments
-        self.destinations: Dict[str, DestinationTap] = {}
+        self.multiple_destinations()
 
     def get_topic(self, msg: Message) -> str:
         raise NotImplementedError("You need to implement .get_topic(self, msg)")
@@ -335,13 +348,7 @@ class Splitter(Worker):
                 topic = self.get_topic(cast(Message, msg))
 
                 if topic not in self.destinations:
-                    settings = copy(self.destination.settings)
-                    settings.topic = topic
-                    self.destinations[
-                        topic
-                    ] = self.destination_and_settings_classes.destination_class(
-                        settings, logger=self.logger
-                    )
+                    self.duplicate_destination(topic)
 
                 destination = self.destinations[topic]
 
