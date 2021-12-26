@@ -127,7 +127,7 @@ class TestTaps(TestCase):
         destination.close()
 
         source_and_settings_classes = SourceTap.of(TapKind.XREDIS)
-        settings = source_and_settings_classes.settings_class()
+        settings = source_and_settings_classes.settings_class(group="group")
         settings.parse_args("--in-namespace in".split())
         source = source_and_settings_classes.source_class(settings)
         source.redis = mock.MagicMock()

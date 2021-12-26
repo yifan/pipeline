@@ -219,10 +219,8 @@ class MemoryDestination(DestinationTap):
 
 
 class FileSourceSettings(SourceSettings):
-    filename: str = Field(
-        None, title="input filename, use '-' for stdin", required=True
-    )
-    content_only: bool = Field(False, title="input contains only content for messages")
+    filename: str = Field("-", title="input filename, use '-' for stdin", required=True)
+    content_only: bool = Field(True, title="input contains only content for messages")
 
 
 class FileSource(SourceTap):
@@ -234,7 +232,7 @@ class FileSource(SourceTap):
     >>> with tempfile.NamedTemporaryFile() as tmpfile:
     ...     tmpfile.write(Message(content={"id": 0}).serialize()) and True
     ...     tmpfile.flush()
-    ...     settings = FileSourceSettings(filename=tmpfile.name)
+    ...     settings = FileSourceSettings(filename=tmpfile.name, content_only=False)
     ...     fileSource = FileSource(settings)
     ...     [m.content["id"] for m in fileSource.read()]
     True
@@ -273,9 +271,9 @@ class FileSource(SourceTap):
 
 
 class FileDestinationSettings(DestinationSettings):
-    filename: str = Field(None, title="output filename", required=True)
+    filename: str = Field("-", title="output filename", required=True)
     overwrite: bool = Field(False, title="overwrite output file if exists")
-    content_only: bool = Field(False, title="output content only, no messages")
+    content_only: bool = Field(True, title="output content only, no messages")
 
 
 class FileDestination(DestinationTap):
@@ -487,21 +485,21 @@ def tap_kinds() -> Dict[
         "XREDIS": (
             TapAndSettingsImportStrings(
                 tap_class="pipeline.backends.redis:RedisStreamSource",
-                settings_class="pipeline.backends.redis:RedisSourceSettings",
+                settings_class="pipeline.backends.redis:RedisStreamSourceSettings",
             ),
             TapAndSettingsImportStrings(
                 tap_class="pipeline.backends.redis:RedisStreamDestination",
-                settings_class="pipeline.backends.redis:RedisDestinationSettings",
+                settings_class="pipeline.backends.redis:RedisStreamDestinationSettings",
             ),
         ),
         "LREDIS": (
             TapAndSettingsImportStrings(
                 tap_class="pipeline.backends.redis:RedisListSource",
-                settings_class="pipeline.backends.redis:RedisSourceSettings",
+                settings_class="pipeline.backends.redis:RedisListSourceSettings",
             ),
             TapAndSettingsImportStrings(
                 tap_class="pipeline.backends.redis:RedisListDestination",
-                settings_class="pipeline.backends.redis:RedisDestinationSettings",
+                settings_class="pipeline.backends.redis:RedisListDestinationSettings",
             ),
         ),
         "KAFKA": (

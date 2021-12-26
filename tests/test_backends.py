@@ -28,17 +28,17 @@ class TestBackends(TestCase):
         mock_elastic.return_value.search.side_effect = [results]
 
         destination_and_settings_classes = DestinationTap.of(TapKind.ELASTIC)
-        settings = destination_and_settings_classes.settings_class()
-        settings.parse_args("--out-namespace out --out-topic test".split())
+        settings = destination_and_settings_classes.settings_class(
+            _args="--out-namespace out --out-topic test --out-uri uri".split()
+        )
         destination = destination_and_settings_classes.destination_class(settings)
         message_written = Message(content={"key": "written"})
         destination.write(message_written)
         destination.close()
 
         source_and_settings_classes = SourceTap.of(TapKind.ELASTIC)
-        settings = source_and_settings_classes.settings_class()
-        settings.parse_args(
-            "--in-namespace in --in-topic test --in-keyname key".split()
+        settings = source_and_settings_classes.settings_class(
+            _args="--in-namespace in --in-topic test --in-keyname key --in-uri uri".split()
         )
         source = source_and_settings_classes.source_class(settings)
         messages_read = list(source.read())
@@ -61,9 +61,8 @@ class TestBackends(TestCase):
         mock_collection.return_value.find.return_value = iter(results)
 
         destination_and_settings_classes = DestinationTap.of(TapKind.MONGO)
-        settings = destination_and_settings_classes.settings_class()
-        settings.parse_args(
-            "--out-namespace out --out-topic test --out-database test --out-keyname key,secondary_key".split()
+        settings = destination_and_settings_classes.settings_class(
+            _args="--out-namespace out --out-topic test --out-database test --out-keyname key,secondary_key".split()
         )
         destination = destination_and_settings_classes.destination_class(settings)
         message_written = Message(content={"key": "written", "secondary_key": "some"})
@@ -74,9 +73,8 @@ class TestBackends(TestCase):
         assert "secondary_key" in queries[0]
 
         source_and_settings_classes = SourceTap.of(TapKind.MONGO)
-        settings = source_and_settings_classes.settings_class()
-        settings.parse_args(
-            (
+        settings = source_and_settings_classes.settings_class(
+            _args=(
                 "--in-namespace in --in-topic test --in-database test "
                 '--in-keyname key --query {"key":"written"}'
             ).split()

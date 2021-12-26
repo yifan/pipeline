@@ -19,8 +19,8 @@ pipelineLogger.setLevel(logging.DEBUG)
 
 class MongodbSourceSettings(SourceSettings):
     uri: str = Field("mongodb://localhost:27017", title="MongoDB url")
-    database: str = Field("", title="MongoDB database")
-    topic: str = Field("", title="collection name")
+    database: str = Field(..., title="MongoDB database")
+    topic: str = Field(..., title="collection name")
     keyname: str = Field("id", title="keyname")
     query: Json = Field("{}", title="query as json string")
 
@@ -67,8 +67,8 @@ class MongodbSource(SourceTap):
 
 class MongodbDestinationSettings(DestinationSettings):
     uri: str = Field("mongodb://localhost:27017", title="MongoDB url")
-    database: str = Field("", title="MongoDB database")
-    topic: str = Field("", title="collection name")
+    database: str = Field(..., title="MongoDB database")
+    topic: str = Field(..., title="collection name")
     keyname: str = Field("id", title="keyname")
 
 
