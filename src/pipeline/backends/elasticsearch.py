@@ -17,7 +17,7 @@ pipelineLogger.setLevel(logging.DEBUG)
 
 class ElasticSearchSourceSettings(SourceSettings):
     uri: str = Field("http://localhost:9200", title="Elastic Search url")
-    topic: str = Field("", title="Elastic Search index")
+    topic: str = Field(..., title="Elastic Search index")
     query: Json = Field('{"match_all": {}}', title="query as a json string")
     keyname: str = Field("id", title="id field name")
     size: int = Field(10, title="limit results in each query")
@@ -69,7 +69,7 @@ class ElasticSearchSource(SourceTap):
 
 class ElasticSearchDestinationSettings(DestinationSettings):
     uri: str = Field("http://localhost:9200", title="ElasticSearch url")
-    topic: str = Field("", title="Elastic Search index")
+    topic: str = Field(..., title="Elastic Search index")
 
 
 class ElasticSearchDestination(DestinationTap):

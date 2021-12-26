@@ -18,9 +18,9 @@ pipelineLogger = logging.getLogger("pipeline")
 pipelineLogger.setLevel(logging.DEBUG)
 
 
-class RedisSourceSettings(SourceSettings):
+class RedisStreamSourceSettings(SourceSettings):
     redis: str = Field("redis://localhost:6379/0", title="redis url")
-    group: str = Field(None, title="redis consumer group name")
+    group: str = Field(..., title="redis consumer group name")
     min_idle_time: int = Field(
         3600000,
         title="messages not acknowledged after min-idle-time will be reprocessed",
@@ -32,18 +32,18 @@ class RedisStreamSource(SourceTap):
 
     >>> import logging
     >>> from unittest.mock import patch
-    >>> settings = RedisSourceSettings()
+    >>> settings = RedisStreamSourceSettings(group="reader")
     >>> RedisStreamSource(settings=settings, logger=logging)
     RedisStreamSource(host="redis://localhost:6379/0", topic="in-topic")
     """
 
-    settings: RedisSourceSettings
+    settings: RedisStreamSourceSettings
     redis: Any
 
     kind: ClassVar[str] = "XREDIS"
 
     def __init__(
-        self, settings: RedisSourceSettings, logger: Logger = pipelineLogger
+        self, settings: RedisStreamSourceSettings, logger: Logger = pipelineLogger
     ) -> None:
         super().__init__(settings, logger)
         self.settings = settings
@@ -123,7 +123,7 @@ class RedisStreamSource(SourceTap):
         self.redis.close()
 
 
-class RedisDestinationSettings(DestinationSettings):
+class RedisStreamDestinationSettings(DestinationSettings):
     redis: str = Field("redis://localhost:6379/0", title="redis url")
     maxlen: int = Field(1, title="maximum length for stream")
 
@@ -133,18 +133,18 @@ class RedisStreamDestination(DestinationTap):
 
     >>> import logging
     >>> from unittest.mock import patch
-    >>> settings = RedisDestinationSettings()
+    >>> settings = RedisStreamDestinationSettings()
     >>> RedisStreamDestination(settings=settings, logger=logging)
     RedisStreamDestination(host="redis://localhost:6379/0", topic="out-topic")
     """
 
-    settings: RedisDestinationSettings
+    settings: RedisStreamDestinationSettings
     redis: Any
 
     kind: ClassVar[str] = "XREDIS"
 
     def __init__(
-        self, settings: RedisDestinationSettings, logger: Logger = pipelineLogger
+        self, settings: RedisStreamDestinationSettings, logger: Logger = pipelineLogger
     ) -> None:
         super().__init__(settings, logger)
         self.settings = settings
@@ -169,6 +169,14 @@ class RedisStreamDestination(DestinationTap):
         self.redis.close()
 
 
+class RedisListSourceSettings(SourceSettings):
+    redis: str = Field("redis://localhost:6379/0", title="redis url")
+    min_idle_time: int = Field(
+        3600000,
+        title="messages not acknowledged after min-idle-time will be reprocessed",
+    )
+
+
 class RedisListSource(SourceTap):
     """RedisListSource reads from Redis Stream
 
@@ -176,23 +184,22 @@ class RedisListSource(SourceTap):
 
     >>> import logging
     >>> from unittest.mock import patch
-    >>> settings = RedisSourceSettings()
+    >>> settings = RedisListSourceSettings()
     >>> RedisListSource(settings=settings, logger=logging)
     RedisListSource(host="redis://localhost:6379/0", topic="in-topic")
     """
 
-    settings: RedisSourceSettings
+    settings: RedisListSourceSettings
     redis: Any
 
     kind: ClassVar[str] = "LREDIS"
 
     def __init__(
-        self, settings: RedisSourceSettings, logger: Logger = pipelineLogger
+        self, settings: RedisListSourceSettings, logger: Logger = pipelineLogger
     ) -> None:
         super().__init__(settings, logger)
         self.settings = settings
         self.client = Redis(settings.redis)
-        self.group = settings.group
         self.topic = namespaced_topic(settings.topic, settings.namespace)
         self.timeout = settings.timeout
         self.redis = Redis.from_url(settings.redis)
@@ -236,23 +243,28 @@ class RedisListSource(SourceTap):
         self.redis.close()
 
 
+class RedisListDestinationSettings(DestinationSettings):
+    redis: str = Field("redis://localhost:6379/0", title="redis url")
+    maxlen: int = Field(1, title="maximum length for stream")
+
+
 class RedisListDestination(DestinationTap):
     """RedisListDestination writes to Redis Stream
 
     >>> import logging
     >>> from unittest.mock import patch
-    >>> settings = RedisDestinationSettings()
+    >>> settings = RedisListDestinationSettings()
     >>> RedisListDestination(settings=settings, logger=logging)
     RedisListDestination(host="redis://localhost:6379/0", topic="out-topic")
     """
 
-    settings: RedisDestinationSettings
+    settings: RedisListDestinationSettings
     redis: Any
 
     kind: ClassVar[str] = "LREDIS"
 
     def __init__(
-        self, settings: RedisDestinationSettings, logger: Logger = pipelineLogger
+        self, settings: RedisListDestinationSettings, logger: Logger = pipelineLogger
     ) -> None:
         super().__init__(settings, logger)
         self.settings = settings

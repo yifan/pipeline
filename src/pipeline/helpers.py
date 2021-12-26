@@ -1,10 +1,14 @@
+import sys
 import time
 import orjson
 from argparse import ArgumentParser, Action
-from typing import List
+from typing import List, Dict, Any, Optional, Union
+from os import PathLike
 from logging import Logger
 
 from pydantic import BaseSettings
+
+StrPath = Union[str, PathLike]
 
 
 def orjson_dumps(v, *, default):
@@ -19,6 +23,9 @@ def namespaced_topic(topic: str, namespace: str = None) -> str:
         return topic
 
 
+env_file_sentinel = str(object())
+
+
 class Settings(BaseSettings):
     """Settings can read from environment variable and parse
     command line arguments as well.
@@ -31,12 +38,59 @@ class Settings(BaseSettings):
     >>> settings = ASettings(name='name')
     >>> settings.name
     'name'
-    >>> parser = settings.parse_args("--in-name yifan".split())
+    >>> options, _ = settings.parse_args(args="--in-name pipeline".split())
+    >>> settings.name
+    'pipeline'
+    >>> settings = ASettings(_args="--in-name yifan".split())
     >>> settings.name
     'yifan'
     """
 
-    def parse_args(self, args: List[str], parser=None) -> ArgumentParser:
+    def __init__(
+        __pipeline_self,
+        _env_file: Optional[StrPath] = env_file_sentinel,
+        _env_file_encoding: Optional[str] = None,
+        _secrets_dir: Optional[StrPath] = None,
+        _args: List[str] = sys.argv,
+        **values: Any,
+    ) -> None:
+        init_kwargs = __pipeline_self._build_values_args(
+            values,
+            _args=_args,
+        )
+        super(Settings, __pipeline_self).__init__(
+            _env_file=_env_file,
+            _env_file_encoding=_env_file_encoding,
+            _secrets_dir=_secrets_dir,
+            **init_kwargs,
+        )
+
+    def _build_values_args(
+        self,
+        init_kwargs: Dict[str, Any],
+        _args: List[str],
+    ) -> Dict[str, Any]:
+        settings = init_kwargs
+        options, unknown = self.parse_args(_args, update=False)
+        args = vars(options)
+        for name, field in self.__fields__.items():
+            fullname = self.Config.env_prefix + name
+            try:
+                value = args.get(fullname, None)
+            except AttributeError:
+                continue
+
+            if value is not None:
+                settings[name] = value
+
+        return settings
+
+    def parse_args(self, args: List[str], parser=None, update=True) -> ArgumentParser:
+        """
+        :param args:
+        :param parser:
+        :param update: True if update Settings in place
+        """
         settings_ref: Settings = self
 
         class BooleanOptionalAction(Action):
@@ -78,12 +132,20 @@ class Settings(BaseSettings):
                 )
 
             def __call__(self, parser, namespace, values, option_string=None):  # type: ignore
+                dest = self.dest
                 if self.settings.Config.env_prefix:
-                    dest = self.dest[len(self.settings.Config.env_prefix) :]
+                    base_dest = self.dest[len(self.settings.Config.env_prefix) :]
                 else:
-                    dest = self.dest
+                    base_dest = self.dest
                 if option_string in self.option_strings:
-                    setattr(self.settings, dest, not option_string.startswith("--no-"))
+                    if update:
+                        setattr(
+                            self.settings,
+                            base_dest,
+                            not option_string.startswith("--no-"),
+                        )
+                    else:
+                        setattr(namespace, dest, not option_string.startswith("--no-"))
 
             def format_usage(self):  # type: ignore
                 return " | ".join(self.option_strings)
@@ -92,12 +154,15 @@ class Settings(BaseSettings):
             settings = settings_ref
 
             def __call__(self, parser, namespace, values, option_string=None):  # type: ignore
+                dest = self.dest
                 if self.settings.Config.env_prefix:
-                    dest = self.dest[len(self.settings.Config.env_prefix) :]
+                    base_dest = self.dest[len(self.settings.Config.env_prefix) :]
                 else:
-                    dest = self.dest
-                if hasattr(self.settings, dest):
-                    setattr(self.settings, dest, values)
+                    base_dest = self.dest
+                if update and hasattr(self.settings, base_dest):
+                    setattr(self.settings, base_dest, values)
+                else:
+                    setattr(namespace, dest, values)
 
         if parser is None:
             parser = ArgumentParser(add_help=False)
@@ -114,8 +179,9 @@ class Settings(BaseSettings):
                 action=action,
                 help=field.field_info.title,
             )
-        options = parser.parse_known_args(args)
-        return options
+
+        options, unknown = parser.parse_known_args(args)
+        return options, unknown
 
 
 class Timer:

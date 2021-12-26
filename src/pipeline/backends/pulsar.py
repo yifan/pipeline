@@ -17,8 +17,8 @@ class PulsarDsn(AnyUrl):
 
 class PulsarSourceSettings(SourceSettings):
     pulsar: PulsarDsn = Field("pulsar://localhost:6650", title="pulsar url")
-    tenant: str = Field(None, title="pulsar tenant, always is meganews")
-    subscription: str = Field(None, title="subscription to read")
+    tenant: str = Field(..., title="pulsar tenant, always is meganews")
+    subscription: str = Field(..., title="subscription to read")
 
 
 class PulsarSource(SourceTap):
@@ -81,7 +81,7 @@ class PulsarSource(SourceTap):
 
 class PulsarDestinationSettings(DestinationSettings):
     pulsar: PulsarDsn = Field("pulsar://localhost:6650", title="pulsar url")
-    tenant: str = Field(None, title="pulsar tenant, always is meganews")
+    tenant: str = Field(..., title="pulsar tenant, always is meganews")
 
 
 class PulsarDestination(DestinationTap):

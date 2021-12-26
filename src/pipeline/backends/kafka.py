@@ -17,7 +17,7 @@ from ..message import MessageBase
 
 class KafkaSourceSettings(SourceSettings):
     kafka: str = Field("localhost", title="kafka url")
-    group_id: str = Field(None, title="kafka consumer group id")
+    group_id: str = Field(..., title="kafka consumer group id")
     config: Optional[str] = Field(None, title="kafka config in json format")
     poll_timeout: int = Field(30, title="time out for polling new messages")
 
