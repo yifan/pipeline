@@ -148,8 +148,9 @@ class Worker(ABC):
 
         if self.has_input() and self.settings.in_kind:
             self.source_and_settings_classes = SourceTap.of(self.settings.in_kind)
-            source_settings = self.source_and_settings_classes.settings_class()
-            source_settings.parse_args(args, parser)
+            source_settings = self.source_and_settings_classes.settings_class(
+                _args=args, _parser=parser
+            )
             if not options.help:
                 self.source = self.source_and_settings_classes.source_class(
                     settings=source_settings, logger=self.logger
@@ -160,10 +161,9 @@ class Worker(ABC):
             self.destination_and_settings_classes = DestinationTap.of(
                 self.settings.out_kind
             )
-            destination_settings = (
-                self.destination_and_settings_classes.settings_class()
+            destination_settings = self.destination_and_settings_classes.settings_class(
+                _args=args, _parser=parser
             )
-            destination_settings.parse_args(args, parser)
             if not options.help:
                 self.destination = (
                     self.destination_and_settings_classes.destination_class(

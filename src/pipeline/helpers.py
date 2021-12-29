@@ -8,8 +8,6 @@ from logging import Logger
 
 from pydantic import BaseSettings
 
-StrPath = Union[str, PathLike]
-
 
 def orjson_dumps(v, *, default):
     # orjson.dumps returns bytes, to match standard json.dumps we need to decode
@@ -23,6 +21,7 @@ def namespaced_topic(topic: str, namespace: str = None) -> str:
         return topic
 
 
+StrPath = Union[str, PathLike]
 env_file_sentinel = str(object())
 
 
@@ -52,11 +51,13 @@ class Settings(BaseSettings):
         _env_file_encoding: Optional[str] = None,
         _secrets_dir: Optional[StrPath] = None,
         _args: List[str] = sys.argv,
+        _parser: Optional[ArgumentParser] = None,
         **values: Any,
     ) -> None:
         init_kwargs = __pipeline_self._build_values_args(
             values,
-            _args=_args,
+            args=_args,
+            parser=_parser,
         )
         super(Settings, __pipeline_self).__init__(
             _env_file=_env_file,
@@ -67,23 +68,20 @@ class Settings(BaseSettings):
 
     def _build_values_args(
         self,
-        init_kwargs: Dict[str, Any],
-        _args: List[str],
+        values: Dict[str, Any],
+        args: List[str],
+        parser: Optional[ArgumentParser] = None,
     ) -> Dict[str, Any]:
-        settings = init_kwargs
-        options, unknown = self.parse_args(_args, update=False)
+        options, unknown = self.parse_args(args, parser=parser, update=False)
         args = vars(options)
+
         for name, field in self.__fields__.items():
             fullname = self.Config.env_prefix + name
-            try:
-                value = args.get(fullname, None)
-            except AttributeError:
-                continue
-
+            value = args.get(fullname, None)
             if value is not None:
-                settings[name] = value
+                values[name] = value
 
-        return settings
+        return values
 
     def parse_args(self, args: List[str], parser=None, update=True) -> ArgumentParser:
         """
