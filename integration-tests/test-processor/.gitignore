@@ -1,0 +1,9 @@
+env
+.env
+venv
+.venv
+build
+dist
+**/__pycache__
+**/*.swp
+.DS_Store
