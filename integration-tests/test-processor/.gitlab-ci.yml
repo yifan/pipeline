@@ -1,0 +1,82 @@
+variables:
+  GET_SOURCES_ATTEMPTS: 3
+
+stages:
+  - test
+  - build
+  - deploy
+
+test:
+  stage: test
+  variables:
+    NAME: testprocessor
+  script:
+    - docker build -t $NAME -f Dockerfile .
+    - docker run --name $NAME -w /code --entrypoint pytest $NAME
+  after_script:
+    - docker stop $NAME
+    - docker rm $NAME
+    - docker rmi $NAME:latest
+  only:
+    - tags
+    - pull_requests
+    - develop
+
+build:
+  stage: build
+  variables:
+    TAG: $CI_COMMIT_REF_NAME
+    NAME: testprocessor
+  script:
+    - docker login $ACR_REGISTERY -u $ACR_USERNAME -p $ACR_PASSWORD
+    - docker build -t $NAME:$TAG -f Dockerfile .
+    - docker tag $NAME:$TAG meganews.azurecr.io/meganews/$NAME:$TAG
+    - docker tag $NAME:$TAG meganews.azurecr.io/meganews/$NAME:latest
+    - docker push meganews.azurecr.io/meganews/$NAME:$TAG
+    - docker push meganews.azurecr.io/meganews/$NAME:latest
+  after_script:
+    - docker rmi $NAME:$TAG 
+    - docker rmi meganews.azurecr.io/meganews/$NAME:$TAG
+    - docker rmi meganews.azurecr.io/meganews/$NAME:latest
+    - >-
+      curl -X POST --data-urlencode "payload={\"channel\": \"#pipeline\", \"username\": \"tanbih\", 
+      \"text\": \"$NAME:$TAG image pushed to registery\", \"icon_emoji\": \":ghost:\"}" 
+      https://hooks.slack.com/services/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
+  only:
+    - tags
+
+staging:
+  stage: deploy
+  variables:
+    TAG: $CI_COMMIT_REF_NAME
+    NAME: testprocessor
+    IMAGE: testprocessor:$CI_COMMIT_REF_NAME
+  script:
+    - kubectl set image deployment/testprocessor testprocessor=$IMAGE -n staging --insecure-skip-tls-verify=true
+    - kubectl rollout status -w deployment/testprocessor -n staging --insecure-skip-tls-verify=true
+    - >-
+      curl -X POST --data-urlencode "payload={\"channel\": \"#pipeline\", \"username\": \"tanbih\",
+      \"text\": \"$NAME:$TAG is deployed to staging \",
+      \"icon_emoji\": \":ghost:\"}"
+      https://hooks.slack.com/services/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
+  only:
+    - tags
+  when: manual
+
+prod:
+  stage: deploy
+  variables:
+    TAG: $CI_COMMIT_REF_NAME
+    NAME: testprocessor
+    IMAGE: testprocessor:$CI_COMMIT_REF_NAME
+  script:
+    - kubectl set image deployment/testprocessor testprocessor=$IMAGE -n production --insecure-skip-tls-verify=true
+    - kubectl rollout status -w deployment/testprocessor -n production --insecure-skip-tls-verify=true
+    - >-
+      curl -X POST --data-urlencode "payload={\"channel\": \"#pipeline\", \"username\": \"tanbih\",
+      \"text\": \"$NAME:$TAG is deployed to production \", 
+      \"icon_emoji\": \":ghost:\"}"
+      https://hooks.slack.com/services/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
+  only:
+    - tags
+  when: manual
