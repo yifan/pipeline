@@ -47,7 +47,8 @@ setup(
             "pulsar-client==2.5.*",
             "azure-cosmosdb-table",
             "pika",
-            "pymongo",
+            "pymongo==3.12.*",
+            "elasticsearch==7.15.*",
         ],
         "redis": ["redis"],
         "kafka": ["confluent-kafka==1.3.*"],
@@ -56,5 +57,6 @@ setup(
         "rabbitmq": ["pika"],
         "azure": ["azure-cosmosdb-table"],
         "mongodb": ["pymongo"],
+        "elastic": ["elasticsearch==7.15.*"],
     },
 )
