@@ -11,6 +11,7 @@ RUN apt-get update \
             libwebp-dev \
             libmariadb-dev  \
             gcc \
+            git \
     && rm -rf /var/cache/apk/*
 
 RUN python3 -m ensurepip \
@@ -24,9 +25,9 @@ ADD https://github.com/ufoscout/docker-compose-wait/releases/download/2.7.3/wait
 RUN chmod +x /wait
 
 WORKDIR /code
-COPY test-generator/* /code/
+COPY test-producer/* /code/
 COPY dist/*.whl /code/
 
 RUN python3 -m pip install "tanbih-pipeline[full]@file:///code/tanbih_pipeline-0.12.1-py3-none-any.whl"
 ENV PYTHONPATH=/code
-CMD /wait && python testgenerator.py
+CMD /wait && python testproducer.py

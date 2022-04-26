@@ -49,6 +49,7 @@ setup(
             "pika",
             "pymongo==3.12.*",
             "elasticsearch==7.15.*",
+            "rq@git+https://github.com/qcrisw/rq.git@ddb7a6c311e347e40cb27d312afb0e2cacdd28c2#egg=rq",
         ],
         "redis": ["redis"],
         "kafka": ["confluent-kafka==1.3.*"],

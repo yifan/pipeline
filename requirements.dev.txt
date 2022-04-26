@@ -8,3 +8,4 @@ sphinx
 pytest
 pytest-cov
 mypy
+fakeredis

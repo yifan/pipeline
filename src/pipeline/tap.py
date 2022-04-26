@@ -22,13 +22,20 @@ pipelineLogger = logging.getLogger("pipeline")
 pipelineLogger.setLevel(logging.DEBUG)
 
 
-class SourceSettings(Settings):
+class BaseSourceSettings(Settings):
+    class Config:
+        env_prefix = "in_"
+
+
+class BaseDestinationSettings(Settings):
+    class Config:
+        env_prefix = "out_"
+
+
+class SourceSettings(BaseSourceSettings):
     namespace: str = Field(None, title="source namespace")
     topic: str = Field("in-topic", title="source topic")
     timeout: int = Field(0, title="seconds to time out")
-
-    class Config:
-        env_prefix = "in_"
 
 
 class SourceTap(ABC):
@@ -90,13 +97,10 @@ class SourceTap(ABC):
         pass
 
 
-class DestinationSettings(Settings):
+class DestinationSettings(BaseDestinationSettings):
     namespace: str = Field(None, title="destination namespace")
     topic: str = Field("out-topic", title="output topic")
     compress: bool = Field(False, title="turn on compression")
-
-    class Config:
-        env_prefix = "out_"
 
 
 class DestinationTap(ABC):
@@ -440,12 +444,12 @@ class TapAndSettingsImportStrings(BaseModel):
 
 class SourceAndSettingsClasses(BaseModel):
     source_class: Type[SourceTap]
-    settings_class: Type[SourceSettings]
+    settings_class: Type[BaseSourceSettings]
 
 
 class DestinationAndSettingsClasses(BaseModel):
     destination_class: Type[DestinationTap]
-    settings_class: Type[DestinationSettings]
+    settings_class: Type[BaseDestinationSettings]
 
 
 def tap_kinds() -> Dict[
@@ -550,6 +554,16 @@ def tap_kinds() -> Dict[
             TapAndSettingsImportStrings(
                 tap_class="pipeline.backends.mongodb:MongodbDestination",
                 settings_class="pipeline.backends.mongodb:MongodbDestinationSettings",
+            ),
+        ),
+        "RQ": (
+            TapAndSettingsImportStrings(
+                tap_class="pipeline.backends.rq:RQSource",
+                settings_class="pipeline.backends.rq:RQSourceSettings",
+            ),
+            TapAndSettingsImportStrings(
+                tap_class="pipeline.backends.rq:RQDestination",
+                settings_class="pipeline.backends.rq:RQDestinationSettings",
             ),
         ),
     }

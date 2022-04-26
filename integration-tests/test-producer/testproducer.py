@@ -25,17 +25,15 @@ class TestProducer(Producer):
         super().__init__(settings, output_class=Output)
 
     def generate(self):
-        for i in range(0, 1000):
+        for i in range(0, 10):
             yield Output(
                 id=f"message-{i}",
                 value=i,
-                text="text is not good" * 1024,
+                text="text is not good",
             )
 
 
 if __name__ == "__main__":
     worker = TestProducer()
     worker.parse_args()
-    if worker.options.debug:
-        logger.setLevel(logging.DEBUG)
     worker.start()

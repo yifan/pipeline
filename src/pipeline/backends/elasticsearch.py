@@ -5,7 +5,7 @@ from typing import ClassVar, Iterator
 from pydantic import Field, Json
 from elasticsearch import Elasticsearch
 
-from ..tap import SourceTap, SourceSettings, DestinationTap, DestinationSettings
+from ..tap import SourceTap, BaseSourceSettings, DestinationTap, BaseDestinationSettings
 from ..message import MessageBase
 
 
@@ -15,7 +15,7 @@ pipelineLogger = logging.getLogger("pipeline")
 pipelineLogger.setLevel(logging.DEBUG)
 
 
-class ElasticSearchSourceSettings(SourceSettings):
+class ElasticSearchSourceSettings(BaseSourceSettings):
     uri: str = Field("http://localhost:9200", title="Elastic Search url")
     topic: str = Field(..., title="Elastic Search index")
     query: Json = Field('{"match_all": {}}', title="query as a json string")
@@ -67,7 +67,7 @@ class ElasticSearchSource(SourceTap):
         self.elastic.close()
 
 
-class ElasticSearchDestinationSettings(DestinationSettings):
+class ElasticSearchDestinationSettings(BaseDestinationSettings):
     uri: str = Field("http://localhost:9200", title="ElasticSearch url")
     topic: str = Field(..., title="Elastic Search index")
 
