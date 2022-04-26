@@ -33,10 +33,10 @@ class TestProcessor(Processor):
         )
         self.counter = 0
 
-    def process(self, msg):
+    def process(self, msg, _id):
         self.counter += 1
         o = Output(
-            id=msg.id,
+            id=_id,
             flag=True,
             additional=self.counter,
         )
@@ -47,6 +47,4 @@ class TestProcessor(Processor):
 if __name__ == "__main__":
     worker = TestProcessor()
     worker.parse_args()
-    if worker.options.debug:
-        logger.setLevel(logging.DEBUG)
     worker.start()

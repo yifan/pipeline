@@ -25,6 +25,4 @@ class TestSplitter(Splitter):
 if __name__ == "__main__":
     worker = TestSplitter()
     worker.parse_args()
-    if worker.options.debug:
-        logger.setLevel(logging.DEBUG)
     worker.start()

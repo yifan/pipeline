@@ -1,5 +1,7 @@
 from unittest import TestCase, mock
 
+import fakeredis
+
 from pipeline import Message, TapKind, SourceTap, DestinationTap
 
 
@@ -85,3 +87,38 @@ class TestBackends(TestCase):
         for message_read in messages_read:
             self.assertEquals(message_read.id, "written")
             self.destination.write(message_read)
+
+    def test_redis(self):
+        destination_and_settings_classes = DestinationTap.of(TapKind.XREDIS)
+        settings = destination_and_settings_classes.settings_class()
+        settings.parse_args("--out-namespace out".split())
+        destination = destination_and_settings_classes.destination_class(settings)
+        destination.redis = mock.MagicMock()
+        message_written = Message(content={"key": "written"})
+        destination.write(message_written)
+        destination.close()
+
+        source_and_settings_classes = SourceTap.of(TapKind.XREDIS)
+        settings = source_and_settings_classes.settings_class(group="group")
+        settings.parse_args("--in-namespace in".split())
+        source = source_and_settings_classes.source_class(settings)
+        source.redis = mock.MagicMock()
+        # message_read = next(source.read())
+
+    @mock.patch("pipeline.backends.rq.Redis.from_url")
+    def test_rq(self, mock_redis):
+        mock_redis.return_value = fakeredis.FakeStrictRedis()
+        destination_and_settings_classes = DestinationTap.of(TapKind.RQ)
+        settings = destination_and_settings_classes.settings_class()
+        settings.parse_args("--out-topic test".split())
+        destination = destination_and_settings_classes.destination_class(settings)
+        message_written = Message(content={"key": "written"})
+        destination.write(message_written)
+        destination.close()
+
+        source_and_settings_classes = SourceTap.of(TapKind.RQ)
+        settings = source_and_settings_classes.settings_class(group="group")
+        settings.parse_args("--in-topic test".split())
+        source = source_and_settings_classes.source_class(settings)
+        message_read = next(source.read())
+        assert message_read.content["key"] == "written"

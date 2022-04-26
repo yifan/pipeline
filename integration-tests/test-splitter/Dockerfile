@@ -11,6 +11,7 @@ RUN apt-get update \
             libwebp-dev \
             libmariadb-dev  \
             gcc \
+            git \
     && rm -rf /var/cache/apk/*
 
 RUN python3 -m ensurepip \

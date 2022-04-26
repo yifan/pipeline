@@ -1,0 +1,54 @@
+version: '3'
+services:
+  producer:
+    build:  
+      context: .
+      dockerfile: test-producer/Dockerfile
+    links:
+     - redis
+    environment:
+     - OUT_KIND=RQ
+     - OUT_REDIS=redis://redis:6379
+     - OUT_TOPIC=test-q-logger
+     - OUT_GROUP=test
+    depends_on:
+      - redis
+      - init_redis
+  processor1:
+    build:  
+      context: .
+      dockerfile: test-processor/Dockerfile
+    links:
+     - redis
+    environment:
+     - OUT_KIND=RQ
+     - OUT_REDIS=redis://redis:6379
+     - OUT_GROUP=test
+     - IN_KIND=RQ
+     - IN_REDIS=redis://redis:6379
+     - IN_TOPIC=test-q-processor
+     - IN_GROUP=test
+  logger:
+    image: logger-worker
+    links:
+     - redis
+    environment:
+     - OUT_KIND=RQ
+     - OUT_REDIS=redis://redis:6379
+     - IN_KIND=RQ
+     - IN_REDIS=redis://redis:6379
+     - IN_QUEUE=test-q-logger
+     - OUT_QUEUE=test-q-processor
+     - REDIS_URL=redis://redis:6379
+    depends_on:
+      - redis
+      - init_redis
+      - producer
+  redis:
+    image: redis
+  init_redis:
+    image: redis
+    command: redis-cli FLUSHALL
+    depends_on:
+      redis:
+        condition: service_started

@@ -7,3 +7,4 @@ azure-cosmosdb-table
 pika
 elasticsearch
 pymongo
+git+https://github.com/qcrisw/rq.git@ddb7a6c311e347e40cb27d312afb0e2cacdd28c2#egg=rq
