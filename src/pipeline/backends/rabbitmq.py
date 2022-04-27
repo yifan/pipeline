@@ -1,4 +1,5 @@
 import time
+import logging
 from logging import Logger
 from typing import ClassVar, Iterator
 
@@ -8,6 +9,11 @@ from pydantic import AnyUrl, Field
 from ..tap import SourceTap, SourceSettings, DestinationTap, DestinationSettings
 from ..message import MessageBase
 from ..helpers import namespaced_topic
+
+
+FORMAT = "%(asctime)-15s %(levelname)s %(message)s"
+logging.basicConfig(format=FORMAT)
+pipelineLogger = logging.getLogger("pipeline")
 
 
 class RabbitMQDsn(AnyUrl):
@@ -43,7 +49,9 @@ class RabbitMQSource(SourceTap):
 
     kind: ClassVar[str] = "RABBITMQ"
 
-    def __init__(self, settings: RabbitMQSourceSettings, logger: Logger) -> None:
+    def __init__(
+        self, settings: RabbitMQSourceSettings, logger: Logger = pipelineLogger
+    ) -> None:
         super().__init__(settings, logger)
         self.settings = settings
         self.topic = settings.topic

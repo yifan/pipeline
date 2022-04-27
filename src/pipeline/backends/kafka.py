@@ -1,5 +1,6 @@
 import time
 import json
+import logging
 from logging import Logger
 from typing import ClassVar, Iterator, Optional
 
@@ -13,6 +14,11 @@ from confluent_kafka import (
 
 from ..tap import SourceTap, SourceSettings, DestinationTap, DestinationSettings
 from ..message import MessageBase
+
+
+FORMAT = "%(asctime)-15s %(levelname)s %(message)s"
+logging.basicConfig(format=FORMAT)
+pipelineLogger = logging.getLogger("pipeline")
 
 
 class KafkaSourceSettings(SourceSettings):
@@ -35,7 +41,9 @@ class KafkaSource(SourceTap):
 
     kind: ClassVar[str] = "KAFKA"
 
-    def __init__(self, settings: KafkaSourceSettings, logger: Logger) -> None:
+    def __init__(
+        self, settings: KafkaSourceSettings, logger: Logger = pipelineLogger
+    ) -> None:
         super().__init__(settings, logger)
 
         config = {
