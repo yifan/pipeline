@@ -16,10 +16,7 @@ from .message import MessageBase, Message, deserialize_message, serialize_messag
 from .importor import import_class
 
 
-FORMAT = "%(asctime)-15s %(levelname)s %(message)s"
-logging.basicConfig(format=FORMAT)
 pipelineLogger = logging.getLogger("pipeline")
-pipelineLogger.setLevel(logging.DEBUG)
 
 
 class BaseSourceSettings(Settings):
