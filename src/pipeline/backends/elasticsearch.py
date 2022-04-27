@@ -9,8 +9,6 @@ from ..tap import SourceTap, BaseSourceSettings, DestinationTap, BaseDestination
 from ..message import MessageBase
 
 
-FORMAT = "%(asctime)-15s %(levelname)s %(message)s"
-logging.basicConfig(format=FORMAT)
 pipelineLogger = logging.getLogger("pipeline")
 
 
