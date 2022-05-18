@@ -47,6 +47,9 @@ class MongodbSource(SourceTap):
     def __repr__(self) -> str:
         return f'MongodbSource(host="{self.settings.uri}", topic="{self.topic}")'
 
+    def __len__(self) -> int:
+        return -1
+
     def read(self) -> Iterator[MessageBase]:
         for content in self.collection.find(self.query):
             yield MessageBase(
@@ -98,6 +101,9 @@ class MongodbDestination(DestinationTap):
 
     def __repr__(self) -> str:
         return f'MongdbDestination(host="{self.settings.uri}", topic="{self.topic}")'
+
+    def __len__(self) -> int:
+        return -1
 
     def get_filter_keyname(self, dct):
         return {self.keyname: dct.get(self.keyname)}

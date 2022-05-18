@@ -68,6 +68,9 @@ class PulsarSource(SourceTap):
             self.subscription,
         )
 
+    def __len__(self) -> int:
+        return -1
+
     def read(self) -> Iterator[MessageBase]:
         timeout_ms = self.settings.timeout * 1000 if self.settings.timeout else None
         msg = self.consumer.receive(timeout_millis=timeout_ms)
@@ -122,6 +125,9 @@ class PulsarDestination(DestinationTap):
             self.settings.pulsar,
             self.name,
         )
+
+    def __len__(self) -> int:
+        return -1
 
     def write(self, message: MessageBase) -> int:
         serialized = message.serialize(compress=self.settings.compress)

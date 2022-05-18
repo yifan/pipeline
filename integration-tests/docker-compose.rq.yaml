@@ -1,7 +1,19 @@
 version: '3'
 services:
+  redis:
+    image: redis
+
+  monitor:
+    image: eoranged/rq-dashboard
+    environment:
+      - RQ_DASHBOARD_REDIS_URL=redis://redis:6379
+      - RQ_DASHBOARD_USERNAME=rq
+      - RQ_DASHBOARD_PASSWORD=password
+    ports:
+      - "9181:9181"
+
   producer:
-    build:  
+    build:
       context: .
       dockerfile: test-producer/Dockerfile
     links:
@@ -10,12 +22,13 @@ services:
      - OUT_KIND=RQ
      - OUT_REDIS=redis://redis:6379
      - OUT_TOPIC=test-q-logger
-     - OUT_GROUP=test
+     - OUT_LIMIT=10
     depends_on:
-      - redis
-      - init_redis
+      redis:
+        condition: service_started
+
   processor1:
-    build:  
+    build:
       context: .
       dockerfile: test-processor/Dockerfile
     links:
@@ -28,6 +41,10 @@ services:
      - IN_REDIS=redis://redis:6379
      - IN_TOPIC=test-q-processor
      - IN_GROUP=test
+    depends_on:
+      redis:
+        condition: service_started
+
   logger:
     image: logger-worker
     links:
@@ -42,13 +59,29 @@ services:
      - REDIS_URL=redis://redis:6379
     depends_on:
       - redis
-      - init_redis
       - producer
-  redis:
-    image: redis
-  init_redis:
-    image: redis
-    command: redis-cli FLUSHALL
+
+  processor2:
+    build:
+      context: .
+      dockerfile: test-processor/Dockerfile
+    links:
+     - redis
+    environment:
+     - OUT_KIND=RQ
+     - OUT_REDIS=redis://redis:6379
+     - OUT_GROUP=test
+     - IN_KIND=RQ
+     - IN_REDIS=redis://redis:6379
+     - IN_TOPIC=test-q-processor
+     - IN_GROUP=test
     depends_on:
       redis:
         condition: service_started
+
+  # init_redis:
+  #   image: redis
+  #   command: redis-cli FLUSHALL
+  #   depends_on:
+  #     redis:
+  #       condition: service_started

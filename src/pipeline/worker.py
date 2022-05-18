@@ -308,6 +308,7 @@ class Producer(Worker):
                 human_readable_size = ByteSize(size).human_readable()
                 self.logger.info(f"Message size: {human_readable_size}")
                 self.monitor.record_write(self.destination.topic)
+
         except StopIteration:
             pass
         except PipelineError as e:
@@ -599,6 +600,7 @@ class Processor(Worker):
             self.timer.log(self.logger)
 
             self.source.acknowledge()
+            self.logger.info("Acknowledged %d-th message", i)
 
             if i == self.limit:
                 self.logger.info(f"Limit {self.limit} reached, exiting")

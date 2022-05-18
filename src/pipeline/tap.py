@@ -53,6 +53,9 @@ class SourceTap(ABC):
     def __repr__(self) -> str:
         return f"Source(topic=({self.topic}), settings=({self.settings}))"
 
+    def __len__(self) -> int:
+        raise NotImplementedError()
+
     @abstractmethod
     def read(self) -> Iterator[MessageBase]:
         """receive message."""
@@ -114,6 +117,9 @@ class DestinationTap(ABC):
     def __repr__(self) -> str:
         return f"Destination(topic=({self.topic}), settings=({self.settings}))"
 
+    def __len__(self) -> int:
+        raise NotImplementedError()
+
     @abstractmethod
     def write(self, message: MessageBase) -> int:
         """send message."""
@@ -168,6 +174,9 @@ class MemorySource(SourceTap):
 
         self.reset()
 
+    def __len__(self):
+        return len(self.data)
+
     def reset(self):
         self.load_data(self.settings.data)
 
@@ -208,6 +217,9 @@ class MemoryDestination(DestinationTap):
         super().__init__(settings=settings, logger=logger)
         self.results: List[MessageBase] = []
         self.storage: List[bytes] = []
+
+    def __len__(self):
+        return len(self.results)
 
     def reset(self):
         self.results = []
@@ -257,6 +269,9 @@ class FileSource(SourceTap):
 
     def __repr__(self) -> str:
         return 'FileSource("{}")'.format(self.filename)
+
+    def __len__(self) -> int:
+        return -1
 
     def read(self) -> Iterator[MessageBase]:
         if self.settings.content_only:
@@ -312,6 +327,9 @@ class FileDestination(DestinationTap):
 
     def __repr__(self) -> str:
         return 'FileDestination("{}")'.format(self.filename)
+
+    def __len__(self) -> int:
+        return -1
 
     def write(self, message: MessageBase) -> int:
         if self.settings.content_only:
@@ -373,6 +391,9 @@ class CsvSource(SourceTap):
     def __repr__(self) -> str:
         return 'CsvSource("{}")'.format(self.filename)
 
+    def __len__(self) -> int:
+        return -1
+
     def read(self) -> Iterator[MessageBase]:
         for row in self.reader:
             yield Message(content=row)
@@ -415,6 +436,9 @@ class CsvDestination(DestinationTap):
 
     def __repr__(self) -> str:
         return 'CsvDestination("{}")'.format(self.filename)
+
+    def __len__(self) -> int:
+        return -1
 
     def write(self, message: MessageBase) -> int:
         if self.writer is None:

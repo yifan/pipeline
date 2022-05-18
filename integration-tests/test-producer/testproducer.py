@@ -9,6 +9,10 @@ logging.basicConfig(level=logging.INFO, format=FORMAT)
 logger = logging.getLogger("worker")
 
 
+class TestProducerSettings(ProducerSettings):
+    limit: int = 10
+
+
 class Output(BaseModel):
     id: str
     value: int
@@ -17,7 +21,7 @@ class Output(BaseModel):
 
 class TestProducer(Producer):
     def __init__(self):
-        settings = ProducerSettings(
+        settings = TestProducerSettings(
             name=__worker__,
             version=__version__,
             description="Test Producer",
@@ -25,7 +29,7 @@ class TestProducer(Producer):
         super().__init__(settings, output_class=Output)
 
     def generate(self):
-        for i in range(0, 10):
+        for i in range(self.settings.limit):
             yield Output(
                 id=f"message-{i}",
                 value=i,

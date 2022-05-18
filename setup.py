@@ -49,7 +49,7 @@ setup(
             "pika",
             "pymongo==3.12.*",
             "elasticsearch==7.15.*",
-            "rq@git+https://github.com/qcrisw/rq.git@ddb7a6c311e347e40cb27d312afb0e2cacdd28c2#egg=rq",
+            "rq==1.10.*",
         ],
         "redis": ["redis"],
         "kafka": ["confluent-kafka==1.3.*"],
@@ -59,5 +59,6 @@ setup(
         "azure": ["azure-cosmosdb-table"],
         "mongodb": ["pymongo"],
         "elastic": ["elasticsearch==7.15.*"],
+        "rq": ["rq==1.10.*"],
     },
 )

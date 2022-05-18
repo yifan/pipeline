@@ -34,7 +34,7 @@ upload: $(VPY) test
 	rm -rf dist; \
 	$(VPY) setup.py sdist bdist_wheel; \
 	$(VPY) -m twine check dist/*; \
-	$(VPY) -m twine upload dist/*
+	$(VPY) -m twine upload --verbose dist/*
 
 integration: $(VPY)
 	rm -rf integration-tests/dist; \

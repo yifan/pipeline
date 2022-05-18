@@ -79,6 +79,9 @@ class KafkaSource(SourceTap):
             self.settings.kafka, self.settings.group_id, self.topic
         )
 
+    def __len__(self) -> int:
+        return -1
+
     def read(self) -> Iterator[MessageBase]:
         # sometimes it is better to make constant call to KAFKA
         # to keep the connection alive.
@@ -151,6 +154,9 @@ class KafkaDestination(DestinationTap):
         return 'KafkaDestination(host="{}",topic="{}")'.format(
             self.settings.kafka, self.topic
         )
+
+    def __len__(self) -> int:
+        return -1
 
     def write(self, message: MessageBase) -> int:
         def delivery_report(err, msg):  # type: ignore

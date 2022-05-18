@@ -66,6 +66,9 @@ class RabbitMQSource(SourceTap):
     def __repr__(self) -> str:
         return f'RabbitMQSource(queue="{self.name}")'
 
+    def __len__(self) -> int:
+        return -1
+
     def read(self) -> Iterator[MessageBase]:
         timedOut = False
         lastMessageBaseTime = time.time()
@@ -143,6 +146,9 @@ class RabbitMQDestination(DestinationTap):
 
     def __repr__(self) -> str:
         return f'RabbitMQDestination(queue="{self.name}")'
+
+    def __len__(self) -> int:
+        return -1
 
     def write(self, message: MessageBase) -> int:
         serialized = message.serialize()

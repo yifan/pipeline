@@ -1,6 +1,5 @@
 import time
 import uuid
-import json
 import logging
 from logging import Logger
 from typing import Iterator, ClassVar, Any
@@ -53,11 +52,12 @@ class RQSource(SourceTap):
         self.queue = Queue(self.topic, connection=self.redis)
         self.consumer = str(uuid.uuid1())
         self.last_msg = None
+        self.last_job = None
 
     def __repr__(self) -> str:
         return f'RQSource(host="{self.settings.redis}", topic="{self.topic}")'
 
-    def length(self) -> int:
+    def __len__(self) -> int:
         return len(self.queue)
 
     def read(self) -> Iterator[MessageBase]:
@@ -76,8 +76,8 @@ class RQSource(SourceTap):
 
                     self.logger.info("Read message %s", job.id)
                     data = job.args[0]
-                    if not isinstance(data, dict):
-                        data = json.loads(data)
+
+                    self.last_job = job
                     yield Message(content=data)
                     last_message_time = time.time()
                 else:
@@ -98,7 +98,9 @@ class RQSource(SourceTap):
                     timedOut = True
 
     def acknowledge(self) -> None:
-        pass
+        if self.last_job:
+            self.last_job.delete()
+            self.last_job = None
 
     def close(self) -> None:
         self.redis.close()
@@ -136,7 +138,7 @@ class RQDestination(DestinationTap):
     def __repr__(self) -> str:
         return f'RQDestination(host="{self.settings.redis}", topic="{self.topic}")'
 
-    def length(self) -> int:
+    def __len__(self) -> int:
         return len(self.queue)
 
     def write(self, message: MessageBase) -> int:
@@ -145,7 +147,7 @@ class RQDestination(DestinationTap):
 
         self.queue.enqueue(
             self.settings.task,
-            json.dumps(message.content).encode("utf-8"),
+            message.content,
             result_ttl=0,
             description=_safe_id(message.content) or message.id,
         )

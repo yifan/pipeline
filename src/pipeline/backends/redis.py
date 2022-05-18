@@ -62,7 +62,7 @@ class RedisStreamSource(SourceTap):
             self.logger.error(str(e))
             raise
 
-    def length(self) -> int:
+    def __len__(self) -> int:
         return self.redis.xlen(self.topic)
 
     def read(self) -> Iterator[MessageBase]:
@@ -122,7 +122,7 @@ class RedisStreamSource(SourceTap):
 
 class RedisStreamDestinationSettings(DestinationSettings):
     redis: str = Field("redis://localhost:6379/0", title="redis url")
-    maxlen: int = Field(1, title="maximum length for stream")
+    maxlen: int = Field(1, title="maximum __len__ for stream")
 
 
 class RedisStreamDestination(DestinationTap):
@@ -152,7 +152,7 @@ class RedisStreamDestination(DestinationTap):
     def __repr__(self) -> str:
         return f'RedisStreamDestination(host="{self.settings.redis}", topic="{self.topic}")'
 
-    def length(self) -> int:
+    def __len__(self) -> int:
         return self.redis.xlen(self.topic)
 
     def write(self, message: MessageBase) -> int:
@@ -205,7 +205,7 @@ class RedisListSource(SourceTap):
     def __repr__(self) -> str:
         return f'RedisListSource(host="{self.settings.redis}", topic="{self.topic}")'
 
-    def length(self) -> int:
+    def __len__(self) -> int:
         return self.redis.llen(self.topic)
 
     def read(self) -> Iterator[MessageBase]:
@@ -242,7 +242,7 @@ class RedisListSource(SourceTap):
 
 class RedisListDestinationSettings(DestinationSettings):
     redis: str = Field("redis://localhost:6379/0", title="redis url")
-    maxlen: int = Field(1, title="maximum length for stream")
+    maxlen: int = Field(1, title="maximum __len__ for stream")
 
 
 class RedisListDestination(DestinationTap):
@@ -274,7 +274,7 @@ class RedisListDestination(DestinationTap):
             f'RedisListDestination(host="{self.settings.redis}", topic="{self.topic}")'
         )
 
-    def length(self) -> int:
+    def __len__(self) -> int:
         return self.redis.llen(self.topic)
 
     def write(self, message: MessageBase) -> int:

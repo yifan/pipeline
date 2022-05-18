@@ -16,6 +16,7 @@ pulsar-client = {version = "2.5.*", optional = true}
 elasticsearch = {version = "7.15.*", optional = true}
 pymongo = {version = "3.12.*", optional = true}
 python-dotenv = {version = "^0.19.2", optional = true}
+rq = {version = "1.10.*", optional = true}
 
 [tool.poetry.dev-dependencies]
 tox = "^3.23.1"
@@ -25,6 +26,7 @@ Sphinx = "^4.0.2"
 pytest = "^6.2.4"
 pytest-cov = "^2.12.1"
 mypy = "^0.901"
+fakeredis = "^1.7.5"
 
 [tool.poetry.scripts]
 pipeline-copy = "pipeline.__main__:copy"

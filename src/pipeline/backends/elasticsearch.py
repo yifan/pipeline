@@ -46,6 +46,9 @@ class ElasticSearchSource(SourceTap):
     def __repr__(self) -> str:
         return f'ElasticSearchSource(host="{self.settings.uri}", topic="{self.topic}")'
 
+    def __len__(self) -> int:
+        return -1
+
     def read(self) -> Iterator[MessageBase]:
         res = self.elastic.search(
             index=self.topic,
@@ -90,6 +93,9 @@ class ElasticSearchDestination(DestinationTap):
 
     def __repr__(self) -> str:
         return f'ElasticSearchDestination(host="{self.settings.uri}", topic="{self.topic}")'
+
+    def __len__(self) -> int:
+        return -1
 
     def write(self, message: MessageBase) -> int:
         self.elastic.update(
