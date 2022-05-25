@@ -1,6 +1,7 @@
 from unittest import TestCase
 
 import pytest
+from pydantic import BaseModel
 
 from pipeline import (
     Message,
@@ -53,3 +54,21 @@ class TestMessage(TestCase):
     def test_parsing_exception(self):
         with pytest.raises(PipelineMessageError):
             Message.deserialize(b"HFHGKDJFHG")
+
+    def test_as_model(self):
+        class Input(BaseModel):
+            key: str
+
+        m = Message(content={"key": "value"})
+        i = m.as_model(model_class=Input)
+        assert i.key == "value"
+
+    def test_as_model_with_mappings(self):
+        class Input(BaseModel):
+            key: str
+
+        mappings = {"k": "key"}
+
+        m = Message(content={"k": "value"})
+        i = m.as_model(model_class=Input, mappings=mappings)
+        assert i.key == "value"

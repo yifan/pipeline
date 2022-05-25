@@ -47,7 +47,9 @@ class MessageBase(BaseModel):
     def deserialize(self, raw: bytes) -> "MessageBase":
         return deserialize_message(raw)
 
-    def as_model(self, model_class: Type[BaseModel]) -> BaseModel:
+    def as_model(
+        self, model_class: Type[BaseModel], mappings: Optional[Dict[str, str]] = None
+    ) -> BaseModel:
         """return content as another BaseModel instance
 
         Parameters:
@@ -56,7 +58,11 @@ class MessageBase(BaseModel):
             :return: BaseModel
             :rtype: BaseModel
         """
-        return model_class(**self.content)
+        if mappings:
+            content = {mappings.get(k, k): v for k, v in self.content.items()}
+        else:
+            content = self.content
+        return model_class(**content)
 
     def update_content(self, other: BaseModel) -> KeysView[str]:
         """add fields from other model to update message's content

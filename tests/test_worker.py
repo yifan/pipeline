@@ -212,6 +212,35 @@ class TestWorkerCore:
         m = processor.destination.results[0]
         assert m.get("newkey") == "newval"
 
+    def test_processor_with_mappings(self):
+        class Input(BaseModel):
+            key: str
+
+        class Output(BaseModel):
+            key: str
+            newkey: str
+
+        class MyProcessor(Processor):
+            def process(self, input, id):
+                return Output(key=input.key, newkey="newval")
+
+        msgs = [{"k": "1"}, {"k": "2"}, {"k": "3"}]
+        settings = ProcessorSettings(
+            name="processor",
+            version="0.0.0",
+            description="",
+            monitoring=False,
+        )
+        processor = MyProcessor(settings, input_class=Input, output_class=Output)
+        processor.parse_args(
+            args="--in-kind MEM --out-kind MEM --out-topic test --in-mappings k:key".split()
+        )
+        processor.source.load_data(msgs)
+        processor.start()
+        assert len(processor.destination.results) == 3
+        m = processor.destination.results[0]
+        assert m.get("newkey") == "newval"
+
     def test_processor_datetime(self):
         class Input(BaseModel):
             key: str

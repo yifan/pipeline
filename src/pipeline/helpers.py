@@ -21,6 +21,15 @@ def namespaced_topic(topic: str, namespace: str = None) -> str:
         return topic
 
 
+def parse_mappings(mappings: str) -> Dict[str, str]:
+    d = {}
+    if mappings:
+        for pair in mappings.split(","):
+            map_from, map_to = (n.strip() for n in pair.split(":"))
+            d[map_from] = map_to
+    return d
+
+
 StrPath = Union[str, PathLike]
 env_file_sentinel = str(object())
 

@@ -494,7 +494,9 @@ class Processor(Worker):
             if isinstance(self.input_class, dict):
                 input_data = msg.content
             else:
-                input_data = msg.as_model(self.input_class)
+                input_data = msg.as_model(
+                    self.input_class, mappings=self.source.mappings
+                )
             self.logger.info(f"Prepared input {input_data}")
         except ValidationError as e:
             self.logger.exception(

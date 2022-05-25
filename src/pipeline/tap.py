@@ -11,7 +11,7 @@ from typing import Optional, Dict, Tuple, Iterator, List, ClassVar, Type, Union,
 
 from pydantic import BaseModel, Field
 
-from .helpers import Settings
+from .helpers import Settings, parse_mappings
 from .message import MessageBase, Message, deserialize_message, serialize_message
 from .importor import import_class
 
@@ -20,6 +20,14 @@ pipelineLogger = logging.getLogger("pipeline")
 
 
 class BaseSourceSettings(Settings):
+    mappings: str = Field(
+        "",
+        title=(
+            "input field names mapping (e.g. 'content:text,source:url' will rename input's "
+            "content and source fields to text and url)"
+        ),
+    )
+
     class Config:
         env_prefix = "in_"
 
@@ -46,6 +54,7 @@ class SourceTap(ABC):
         self.settings = settings
         self.topic = settings.topic
         self.logger = logger
+        self.mappings = parse_mappings(settings.mappings)
 
     def __str__(self) -> str:
         return self.__repr__()
