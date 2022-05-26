@@ -1,17 +1,11 @@
 import sys
 import time
-import orjson
 from argparse import ArgumentParser, Action
 from typing import List, Dict, Any, Optional, Union
 from os import PathLike
 from logging import Logger
 
 from pydantic import BaseSettings
-
-
-def orjson_dumps(v, *, default):
-    # orjson.dumps returns bytes, to match standard json.dumps we need to decode
-    return orjson.dumps(v, default=default).decode()
 
 
 def namespaced_topic(topic: str, namespace: str = None) -> str:

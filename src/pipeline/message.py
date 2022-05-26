@@ -1,12 +1,11 @@
 import uuid
-import orjson
+import json
 from datetime import datetime
 from enum import Enum
 from typing import Any, Type, Dict, List, Optional, KeysView, Set, Union
 from pydantic import BaseModel, parse_obj_as
 import zstandard
 
-from .helpers import orjson_dumps
 from .exception import PipelineMessageError
 
 
@@ -35,10 +34,6 @@ class MessageBase(BaseModel):
     created: datetime = datetime.now()
     logs: List[Log] = []
     content: Dict[str, Any] = {}
-
-    class Config:
-        json_loads = orjson.loads
-        json_dumps = orjson_dumps
 
     def serialize(self, compress: bool = False) -> bytes:
         return serialize_message(self, compress)
@@ -122,9 +117,9 @@ def serialize_message(message: MessageBase, compress: bool = False) -> bytes:
 
 def deserialize_message(raw: bytes) -> Union[Message, Command]:
     if raw[0] == ord("{"):
-        message_dict = orjson.loads(raw.decode("utf-8"))
+        message_dict = json.loads(raw.decode("utf-8"))
     elif raw[0] == ord("Z"):
-        message_dict = orjson.loads(zstandard.decompress(raw[1:]).decode("utf-8"))
+        message_dict = json.loads(zstandard.decompress(raw[1:]).decode("utf-8"))
     else:
         raise PipelineMessageError("Unknown bytes string cannot be deserialized")
 

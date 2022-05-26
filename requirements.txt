@@ -2,4 +2,3 @@ prometheus-client==0.7.*
 zstandard==0.15.*
 pydantic==1.8.*
 python-dotenv==0.19.*
-orjson==3.6.*
