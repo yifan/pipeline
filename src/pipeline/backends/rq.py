@@ -18,7 +18,6 @@ pipelineLogger = logging.getLogger("pipeline")
 
 class RQSourceSettings(SourceSettings):
     redis: str = Field("redis://localhost:6379/0", title="redis url")
-    group: str = Field(..., title="redis consumer group name")
     min_idle_time: int = Field(
         3600000,
         title="messages not acknowledged after min-idle-time will be reprocessed",
@@ -30,7 +29,7 @@ class RQSource(SourceTap):
 
     >>> import logging
     >>> from unittest.mock import patch
-    >>> settings = RQSourceSettings(group="reader")
+    >>> settings = RQSourceSettings()
     >>> RQSource(settings=settings, logger=logging)
     RQSource(host="redis://localhost:6379/0", topic="in-topic")
     """
@@ -45,7 +44,6 @@ class RQSource(SourceTap):
     ) -> None:
         super().__init__(settings, logger)
         self.settings = settings
-        self.group = settings.group
         self.topic = namespaced_topic(settings.topic, settings.namespace)
         self.timeout = settings.timeout
         self.redis = Redis.from_url(settings.redis)

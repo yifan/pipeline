@@ -117,7 +117,7 @@ class TestBackends(TestCase):
         destination.close()
 
         source_and_settings_classes = SourceTap.of(TapKind.RQ)
-        settings = source_and_settings_classes.settings_class(group="group")
+        settings = source_and_settings_classes.settings_class()
         settings.parse_args("--in-topic test".split())
         source = source_and_settings_classes.source_class(settings)
         message_read = next(source.read())
