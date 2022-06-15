@@ -16,7 +16,7 @@ class ElasticSearchSourceSettings(BaseSourceSettings):
     uri: str = Field("http://localhost:9200", title="Elastic Search url")
     topic: str = Field(..., title="Elastic Search index")
     query: Json = Field('{"match_all": {}}', title="query as a json string")
-    keyname: str = Field("id", title="id field name")
+    keyname: str = Field("_id", title="id field name, default is _id")
     size: int = Field(10, title="limit results in each query")
 
 
@@ -57,7 +57,8 @@ class ElasticSearchSource(SourceTap):
         )
         for hit in res["hits"]["hits"]:
             content = hit["_source"]
-            yield MessageBase(id=content[self.keyname], content=content)
+            _id = content[self.keyname] if self.keyname != "_id" else hit["_id"]
+            yield MessageBase(id=_id, content=content)
 
     def acknowledge(self) -> None:
         """no acknowledge for Elastic Search"""

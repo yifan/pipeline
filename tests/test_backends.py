@@ -22,6 +22,7 @@ class TestBackends(TestCase):
         def mock_update(index, id, body):
             results["hits"]["hits"].append(
                 {
+                    "_id": id,
                     "_source": body["doc"],
                 }
             )
@@ -34,19 +35,19 @@ class TestBackends(TestCase):
             _args="--out-namespace out --out-topic test --out-uri uri".split()
         )
         destination = destination_and_settings_classes.destination_class(settings)
-        message_written = Message(content={"key": "written"})
+        message_written = Message(id="1234", content={"key": "written"})
         destination.write(message_written)
         destination.close()
 
         source_and_settings_classes = SourceTap.of(TapKind.ELASTIC)
         settings = source_and_settings_classes.settings_class(
-            _args="--in-namespace in --in-topic test --in-keyname key --in-uri uri".split()
+            _args="--in-namespace in --in-topic test --in-uri uri".split()
         )
         source = source_and_settings_classes.source_class(settings)
         messages_read = list(source.read())
         self.assertEquals(len(messages_read), 1)
         for message_read in messages_read:
-            self.assertEquals(message_read.id, "written")
+            self.assertEquals(message_read.id, "1234")
             self.destination.write(message_read)
 
     @mock.patch("pipeline.backends.mongodb.Collection")
