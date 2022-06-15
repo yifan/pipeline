@@ -6,7 +6,7 @@ from pydantic import Field, Json
 from elasticsearch import Elasticsearch
 
 from ..tap import SourceTap, BaseSourceSettings, DestinationTap, BaseDestinationSettings
-from ..message import MessageBase
+from ..message import MessageBase, Message
 
 
 pipelineLogger = logging.getLogger("pipeline")
@@ -58,7 +58,7 @@ class ElasticSearchSource(SourceTap):
         for hit in res["hits"]["hits"]:
             content = hit["_source"]
             _id = content[self.keyname] if self.keyname != "_id" else hit["_id"]
-            yield MessageBase(id=_id, content=content)
+            yield Message(id=_id, content=content)
 
     def acknowledge(self) -> None:
         """no acknowledge for Elastic Search"""
