@@ -84,7 +84,7 @@ class TestTaps(TestCase):
             source = source_and_settings_classes.source_class(settings)
             message_read = next(source.read())
 
-        assert message_written == message_read
+        assert message_written.content == message_read.content
 
     def test_file_stdout(self):
         destination_and_settings_classes = DestinationTap.of(TapKind.FILE)

@@ -72,3 +72,8 @@ class TestMessage(TestCase):
         m = Message(content={"k": "value"})
         i = m.as_model(model_class=Input, mappings=mappings)
         assert i.key == "value"
+
+    def test_message_defaults(self):
+        m1 = Message(content={"k": "value"})
+        m2 = Message(content={"k": "value"})
+        assert m1.id != m2.id

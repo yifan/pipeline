@@ -3,7 +3,7 @@ import json
 from datetime import datetime
 from enum import Enum
 from typing import Any, Type, Dict, List, Optional, KeysView, Set, Union
-from pydantic import BaseModel, parse_obj_as
+from pydantic import BaseModel, Field, parse_obj_as
 import zstandard
 
 from .exception import PipelineMessageError
@@ -24,14 +24,18 @@ class Log(BaseModel):
     elapsed: Optional[float] = None
 
 
+def hex_uuid():
+    return uuid.uuid1().hex
+
+
 class MessageBase(BaseModel):
     """:class:`Message` is a container for data in pipeline. Data will be wrapped in
     :class:`Message` in order to pass through a pipeline constructed with this library.
     """
 
     kind: Kind = Kind.Base
-    id: str = uuid.uuid1().hex
-    created: datetime = datetime.now()
+    id: str = Field(default_factory=hex_uuid)
+    created: datetime = Field(default_factory=datetime.now)
     logs: List[Log] = []
     content: Dict[str, Any] = {}
 
