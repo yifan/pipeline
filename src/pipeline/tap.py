@@ -241,6 +241,7 @@ class MemoryDestination(DestinationTap):
 
 
 class FileSourceSettings(SourceSettings):
+    keyname: str = Field("", title="field name to be used as key")
     filename: str = Field("-", title="input filename, use '-' for stdin", required=True)
     content_only: bool = Field(True, title="input contains only content for messages")
 
@@ -286,8 +287,10 @@ class FileSource(SourceTap):
         if self.settings.content_only:
             for line in self.infile:
                 content = json.loads(line)
-                if content.get("id"):
-                    yield Message(content=content, id=content.get("id"))
+                if self.settings.keyname:
+                    yield Message(
+                        content=content, id=content.get(self.settings.keyname)
+                    )
                 else:
                     yield Message(content=content)
         else:

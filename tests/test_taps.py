@@ -26,19 +26,18 @@ class TestTaps(TestCase):
             settings = destination_and_settings_classes.settings_class()
             settings.parse_args(f"--out-filename {out_filename}".split())
             destination = destination_and_settings_classes.destination_class(settings)
-            message_written = Message(content={"key": "written\U0001f604"})
+            message_written = Message(content={"ke": "written\U0001f604"})
             destination.write(message_written)
             destination.close()
 
             source_and_settings_classes = SourceTap.of(TapKind.FILE)
             settings = source_and_settings_classes.settings_class()
-            settings.parse_args(f"--in-filename {out_filename}".split())
+            settings.parse_args(f"--in-filename {out_filename} --in-keyname ke".split())
             source = source_and_settings_classes.source_class(settings)
             message_read = next(source.read())
 
-        self.assertEqual(
-            message_written.content.get("key"), message_read.content.get("key")
-        )
+        assert message_written.content.get("ke") == message_read.content.get("ke")
+        assert message_written.content.get("ke") == message_read.id
 
     def test_file_content_only(self):
         destination_and_settings_classes = DestinationTap.of(TapKind.FILE)
