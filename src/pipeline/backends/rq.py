@@ -1,3 +1,4 @@
+import json
 import time
 import uuid
 import logging
@@ -22,6 +23,7 @@ class RQSourceSettings(SourceSettings):
         3600000,
         title="messages not acknowledged after min-idle-time will be reprocessed",
     )
+    zaman: bool = Field(False, title="Zaman compatible mode, double serialized")
 
 
 class RQSource(SourceTap):
@@ -75,6 +77,9 @@ class RQSource(SourceTap):
                     self.logger.info("Read message %s", job.id)
                     data = job.args[0]
 
+                    if self.settings.zaman:
+                        data = json.loads(data.decode("utf-8"))
+
                     self.last_job = job
                     yield Message(content=data)
                     last_message_time = time.time()
@@ -107,6 +112,7 @@ class RQSource(SourceTap):
 class RQDestinationSettings(DestinationSettings):
     redis: str = Field("redis://localhost:6379/0", title="redis url")
     task: str = Field("base.tasks.do_task", title="task name for rq")
+    zaman: bool = Field(False, title="Zaman compatible mode, double serialization")
 
 
 class RQDestination(DestinationTap):
@@ -143,12 +149,21 @@ class RQDestination(DestinationTap):
         def _safe_id(obj):
             return str(obj.get("id")) if "id" in obj else None
 
-        self.queue.enqueue(
-            self.settings.task,
-            message.content,
-            result_ttl=0,
-            description=_safe_id(message.content) or message.id,
-        )
+        if self.settings.zaman:
+            self.queue.enqueue(
+                self.settings.task,
+                json.dumps(message.content).encode("utf-8"),
+                raw=True,
+                result_ttl=0,
+                description=_safe_id(message.content) or message.id,
+            )
+        else:
+            self.queue.enqueue(
+                self.settings.task,
+                message.content,
+                result_ttl=0,
+                description=_safe_id(message.content) or message.id,
+            )
         return 0
 
     def close(self) -> None:

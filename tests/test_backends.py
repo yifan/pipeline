@@ -123,3 +123,21 @@ class TestBackends(TestCase):
         source = source_and_settings_classes.source_class(settings)
         message_read = next(source.read())
         assert message_read.content["key"] == "written"
+
+    @mock.patch("pipeline.backends.rq.Redis.from_url")
+    def test_rq_zaman(self, mock_redis):
+        mock_redis.return_value = fakeredis.FakeStrictRedis()
+        destination_and_settings_classes = DestinationTap.of(TapKind.RQ)
+        settings = destination_and_settings_classes.settings_class()
+        settings.parse_args("--out-topic test --out-zaman".split())
+        destination = destination_and_settings_classes.destination_class(settings)
+        message_written = Message(content={"key": "written"})
+        destination.write(message_written)
+        destination.close()
+
+        source_and_settings_classes = SourceTap.of(TapKind.RQ)
+        settings = source_and_settings_classes.settings_class()
+        settings.parse_args("--in-topic test --in-zaman".split())
+        source = source_and_settings_classes.source_class(settings)
+        message_read = next(source.read())
+        assert message_read.content["key"] == "written"
