@@ -278,6 +278,12 @@ Contribute
 
 Use `pre-commit` to run `black` and `flake8`
 
+.. code-block:: bash
+
+    # install pre-commit
+    pre-commit install
+
+
 
 Credits
 -------
