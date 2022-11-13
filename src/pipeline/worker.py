@@ -379,16 +379,9 @@ class Splitter(Worker):
         if self.settings.debug:
             self.logger.setLevel(level=logging.DEBUG)
 
-        # if options.rewind:
-        #     # consumer.seek(pulsar.MessageId.earliest)
-        #     self.logger.info("seeked to earliest message available as requested")
-
         self.setup()
 
         self.logger.info("start listening")
-        # if batch_mode:
-        #  self._run_batch()
-        # else:
 
         if self.settings.monitoring:
             self.monitor.expose()
@@ -491,12 +484,7 @@ class Processor(Worker):
 
     def process_message(self, msg: Message) -> Union[KeysView[str], None]:
         try:
-            if isinstance(self.input_class, dict):
-                input_data = msg.content
-            else:
-                input_data = msg.as_model(
-                    self.input_class, mappings=self.source.mappings
-                )
+            input_data = msg.as_model(self.input_class, mappings=self.source.mappings)
             self.logger.info(f"Prepared input {input_data}")
         except ValidationError as e:
             self.logger.exception(
@@ -561,10 +549,6 @@ class Processor(Worker):
         self.limit = (
             self.settings.limit - 1 if self.settings.limit else self.settings.limit
         )
-
-        # if options.rewind:
-        #     # consumer.seek(pulsar.MessageId.earliest)
-        #     self.logger.info("seeked to earliest message available as requested")
 
         self.setup()
 

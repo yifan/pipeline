@@ -22,7 +22,7 @@ from pipeline import (
 )
 
 
-def make_output(filename):
+def make_output(filename, content_only=True):
     class Output(BaseModel):
         key: int
         language: str
@@ -34,7 +34,12 @@ def make_output(filename):
 
     settings = ProducerSettings(name="producer", version="0.1.0", description="")
     producer = MyProducer(settings, output_class=Output)
-    producer.parse_args(args=f"--out-kind FILE --out-filename {filename}".split())
+    if content_only:
+        producer.parse_args(args=f"--out-kind FILE --out-filename {filename}".split())
+    else:
+        producer.parse_args(
+            args=f"--out-kind FILE --out-filename {filename} --out-no-content-only".split()
+        )
     producer.start()
 
 
@@ -164,24 +169,33 @@ class TestWorkerCore:
 
     def test_processor_dict(self):
         class Output(BaseModel):
-            key: str
-            newkey: str
+            key: int
+            language: str
 
         class MyProcessor(Processor):
-            def process(self, input, id):
-                return Output(key=input.get("key"), newkey="newval")
+            def process(self, msg, message_id) -> Output:
+                return Output(key=msg["key"], language=msg["language"])
 
-        msgs = [{"key": "1"}, {"key": "2"}, {"key": "3"}]
-        settings = ProcessorSettings(name="processor", version="0.0.0", description="")
-        processor = MyProcessor(settings, input_class=dict, output_class=Output)
-        processor.parse_args(
-            args="--in-kind MEM --out-kind MEM --out-topic test".split()
-        )
-        processor.source.load_data(msgs)
-        processor.start()
-        assert len(processor.destination.results) == 3
-        m = processor.destination.results[0]
-        assert m.get("newkey") == "newval"
+        with tempfile.NamedTemporaryFile() as tmpInFile:
+            make_output(tmpInFile.name, content_only=False)
+
+            settings = ProcessorSettings(
+                name="processor", version="0.0.0", description=""
+            )
+            processor = MyProcessor(settings, input_class=dict, output_class=Output)
+            processor.parse_args(
+                args=[
+                    "--in-kind",
+                    "FILE",
+                    "--in-filename",
+                    tmpInFile.name,
+                    "--in-no-content-only",
+                    "--out-kind",
+                    "MEM",
+                ]
+            )
+            processor.start()
+            assert len(processor.destination.results) == 3
 
     def test_processor(self):
         class Input(BaseModel):
