@@ -44,6 +44,16 @@ def make_output(filename, content_only=True):
 
 
 class TestWorkerCore:
+    def test_parse_args(self):
+        class Output(BaseModel):
+            key: int
+            language: str
+
+        settings = ProducerSettings(name="producer", version="0.1.0", description="")
+        producer = Producer(settings, output_class=Output)
+        producer.parse_args(args="--out-kind MEM")
+        assert producer.destination.kind == "MEM"
+
     def test_mem_producer(self, monkeypatch):
         class Output(BaseModel):
             key: int

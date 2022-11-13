@@ -132,7 +132,13 @@ class Worker(ABC):
     def has_output(self) -> bool:
         return self.worker_type != WorkerType.NoOutput
 
-    def parse_args(self, args: List[str] = sys.argv[1:]) -> None:
+    def parse_args(self, args: Union[List[str], str] = sys.argv[1:]) -> None:
+        """parse command line arguments
+        args: a list of arguments or a command line arguments string
+        """
+        if isinstance(args, str):
+            args = args.split()
+
         parser = ArgumentParser(add_help=False)
         parser.add_argument(
             "-V",
