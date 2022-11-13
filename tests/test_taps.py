@@ -25,6 +25,7 @@ class TestTaps(TestCase):
             out_filename = tmpfile.name
             settings = destination_and_settings_classes.settings_class()
             settings.parse_args(f"--out-filename {out_filename}".split())
+            assert settings.content_only is True
             destination = destination_and_settings_classes.destination_class(settings)
             message_written = Message(content={"ke": "written\U0001f604"})
             destination.write(message_written)
@@ -33,38 +34,44 @@ class TestTaps(TestCase):
             source_and_settings_classes = SourceTap.of(TapKind.FILE)
             settings = source_and_settings_classes.settings_class()
             settings.parse_args(f"--in-filename {out_filename} --in-keyname ke".split())
+            assert settings.content_only is True
             source = source_and_settings_classes.source_class(settings)
             message_read = next(source.read())
 
         assert message_written.content.get("ke") == message_read.content.get("ke")
         assert message_written.content.get("ke") == message_read.id
 
-    def test_file_content_only(self):
+    def test_file_no_content_only(self):
         destination_and_settings_classes = DestinationTap.of(TapKind.FILE)
         with tempfile.NamedTemporaryFile() as tmpfile:
             out_filename = tmpfile.name
             settings = destination_and_settings_classes.settings_class()
             settings.parse_args(
-                f"--out-filename {out_filename} --out-content-only".split()
+                f"--out-filename {out_filename} --no-out-content-only".split()
             )
-            assert settings.content_only is True
+            assert settings.content_only is False
             destination = destination_and_settings_classes.destination_class(settings)
-            message_written = Message(content={"key": "written"})
+            message_written = Message(content={"key": "written", "value": "written"})
             destination.write(message_written)
             destination.close()
 
             source_and_settings_classes = SourceTap.of(TapKind.FILE)
             settings = source_and_settings_classes.settings_class()
-            settings.parse_args(
-                f"--in-filename {out_filename} --in-content-only".split()
-            )
+            settings.parse_args(f"--in-filename {out_filename}".split())
             assert settings.content_only is True
             source = source_and_settings_classes.source_class(settings)
             message_read = next(source.read())
+            assert message_written.created < message_read.created
+            assert message_read.content["content"] == message_written.content
 
-        self.assertEqual(
-            message_written.content.get("key"), message_read.content.get("key")
-        )
+            settings.parse_args(
+                f"--in-filename {out_filename} --no-in-content-only".split()
+            )
+            assert settings.content_only is False
+            source = source_and_settings_classes.source_class(settings)
+            message_read = next(source.read())
+            assert message_written.created == message_read.created
+            assert message_written.content == message_read.content
 
     def test_csv_file(self):
         destination_and_settings_classes = DestinationTap.of(TapKind.CSV)
