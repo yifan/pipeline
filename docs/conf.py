@@ -37,8 +37,8 @@ release = "0.12.9"
 pygments_style = "trac"
 templates_path = ["."]
 extlinks = {
-    "issue": ("https://github.com/yifan/pipeline/issues/%s", "#"),
-    "pr": ("https://github.com/yifan/pipeline/pulls/%s", "PR #"),
+    "issue": ("https://github.com/yifan/pipeline/issues/%s", "issue %s"),
+    "pr": ("https://github.com/yifan/pipeline/pulls/%s", "pullrequest %s"),
 }
 # import sphinx_py3doc_enhanced_theme
 # html_theme = "sphinx_py3doc_enhanced_theme"
