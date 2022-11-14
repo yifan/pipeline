@@ -20,6 +20,7 @@ protobuf = ">=3.0.0"
 pymmh3 = ">=0.0.5"
 pytz = "*"
 requests = ">=2.18.0,<3.0.0dev"
+setuptools = ">=34.0.0"
 six = ">=1.10.0"
 
 [[package]]
@@ -47,10 +48,10 @@ optional = false
 python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*"
 
 [package.extras]
-dev = ["coverage[toml] (>=5.0.2)", "hypothesis", "pympler", "pytest (>=4.3.0)", "six", "mypy", "pytest-mypy-plugins", "zope.interface", "furo", "sphinx", "sphinx-notfound-page", "pre-commit"]
-docs = ["furo", "sphinx", "zope.interface", "sphinx-notfound-page"]
-tests = ["coverage[toml] (>=5.0.2)", "hypothesis", "pympler", "pytest (>=4.3.0)", "six", "mypy", "pytest-mypy-plugins", "zope.interface"]
-tests_no_zope = ["coverage[toml] (>=5.0.2)", "hypothesis", "pympler", "pytest (>=4.3.0)", "six", "mypy", "pytest-mypy-plugins"]
+dev = ["coverage[toml] (>=5.0.2)", "furo", "hypothesis", "mypy", "pre-commit", "pympler", "pytest (>=4.3.0)", "pytest-mypy-plugins", "six", "sphinx", "sphinx-notfound-page", "zope.interface"]
+docs = ["furo", "sphinx", "sphinx-notfound-page", "zope.interface"]
+tests = ["coverage[toml] (>=5.0.2)", "hypothesis", "mypy", "pympler", "pytest (>=4.3.0)", "pytest-mypy-plugins", "six", "zope.interface"]
+tests-no-zope = ["coverage[toml] (>=5.0.2)", "hypothesis", "mypy", "pympler", "pytest (>=4.3.0)", "pytest-mypy-plugins", "six"]
 
 [[package]]
 name = "babel"
@@ -127,8 +128,8 @@ optional = true
 python-versions = "*"
 
 [package.extras]
-avro = ["fastavro", "requests", "avro", "avro-python3"]
-dev = ["pytest-timeout", "flake8", "fastavro", "requests", "pytest (==4.6.4)", "avro", "avro-python3", "pytest"]
+avro = ["avro", "avro-python3", "fastavro", "requests"]
+dev = ["avro", "avro-python3", "fastavro", "flake8", "pytest", "pytest (==4.6.4)", "pytest-timeout", "requests"]
 
 [[package]]
 name = "coverage"
@@ -153,7 +154,7 @@ python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
 wrapt = ">=1.10,<2"
 
 [package.extras]
-dev = ["tox", "bump2version (<1)", "sphinx (<2)", "importlib-metadata (<3)", "importlib-resources (<4)", "configparser (<5)", "sphinxcontrib-websupport (<2)", "zipp (<2)", "PyTest (<5)", "PyTest-Cov (<2.6)", "pytest", "pytest-cov"]
+dev = ["PyTest", "PyTest (<5)", "PyTest-Cov", "PyTest-Cov (<2.6)", "bump2version (<1)", "configparser (<5)", "importlib-metadata (<3)", "importlib-resources (<4)", "sphinx (<2)", "sphinxcontrib-websupport (<2)", "tox", "zipp (<2)"]
 
 [[package]]
 name = "distlib"
@@ -172,14 +173,6 @@ optional = false
 python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*"
 
 [[package]]
-name = "dotenv"
-version = "0.0.5"
-description = "Handle .env files"
-category = "main"
-optional = false
-python-versions = "*"
-
-[[package]]
 name = "elasticsearch"
 version = "7.15.2"
 description = "Python client for Elasticsearch"
@@ -193,17 +186,9 @@ urllib3 = ">=1.21.1,<2"
 
 [package.extras]
 async = ["aiohttp (>=3,<4)"]
-develop = ["requests (>=2.0.0,<3.0.0)", "coverage", "mock", "pyyaml", "pytest", "pytest-cov", "sphinx (<1.7)", "sphinx-rtd-theme", "black", "jinja2"]
+develop = ["black", "coverage", "jinja2", "mock", "pytest", "pytest-cov", "pyyaml", "requests (>=2.0.0,<3.0.0)", "sphinx (<1.7)", "sphinx-rtd-theme"]
 docs = ["sphinx (<1.7)", "sphinx-rtd-theme"]
 requests = ["requests (>=2.4.0,<3.0.0)"]
-
-[[package]]
-name = "enum34"
-version = "1.1.10"
-description = "Python 3.4 Enum backported to 3.3, 3.2, 3.1, 2.7, 2.6, 2.5, and 2.4"
-category = "main"
-optional = true
-python-versions = "*"
 
 [[package]]
 name = "fakeredis"
@@ -224,16 +209,20 @@ lua = ["lupa (>=1.13,<2.0)"]
 
 [[package]]
 name = "fastavro"
-version = "1.4.1"
+version = "0.24.0"
 description = "Fast read/write of AVRO files"
 category = "main"
 optional = true
-python-versions = ">=3.6"
+python-versions = "*"
+
+[package.dependencies]
+pytz = "*"
 
 [package.extras]
-codecs = ["python-snappy", "zstandard", "lz4"]
+codecs = ["backports.lzma", "lz4", "python-snappy", "zstandard"]
 lz4 = ["lz4"]
 snappy = ["python-snappy"]
+xz = ["backports.lzma"]
 zstandard = ["zstandard"]
 
 [[package]]
@@ -295,8 +284,8 @@ typing-extensions = {version = ">=3.6.4", markers = "python_version < \"3.8\""}
 zipp = ">=0.5"
 
 [package.extras]
-docs = ["sphinx", "jaraco.packaging (>=8.2)", "rst.linker (>=1.9)"]
-testing = ["pytest (>=4.6)", "pytest-checkdocs (>=2.4)", "pytest-flake8", "pytest-cov", "pytest-enabler (>=1.0.1)", "packaging", "pep517", "pyfakefs", "flufl.flake8", "pytest-black (>=0.3.7)", "pytest-mypy", "importlib-resources (>=1.3)"]
+docs = ["jaraco.packaging (>=8.2)", "rst.linker (>=1.9)", "sphinx"]
+testing = ["flufl.flake8", "importlib-resources (>=1.3)", "packaging", "pep517", "pyfakefs", "pytest (>=4.6)", "pytest-black (>=0.3.7)", "pytest-checkdocs (>=2.4)", "pytest-cov", "pytest-enabler (>=1.0.1)", "pytest-flake8", "pytest-mypy"]
 
 [[package]]
 name = "iniconfig"
@@ -428,7 +417,7 @@ six = ">=1.9"
 
 [[package]]
 name = "pulsar-client"
-version = "2.5.2"
+version = "2.7.5"
 description = "Apache Pulsar Python client library"
 category = "main"
 optional = true
@@ -437,11 +426,10 @@ python-versions = "*"
 [package.dependencies]
 apache-bookkeeper-client = ">=4.9.2"
 certifi = "*"
-enum34 = ">=1.1.9"
-fastavro = "*"
+fastavro = "0.24.0"
 grpcio = "*"
 prometheus-client = "*"
-protobuf = ">=3.6.1"
+protobuf = ">=3.6.1,<=3.20"
 ratelimit = "*"
 six = "*"
 
@@ -472,7 +460,7 @@ python-versions = ">=3.6"
 [package.extras]
 dotenv = ["python-dotenv (>=0.10.4)"]
 email = ["email-validator (>=1.0.3)"]
-typing_extensions = ["typing-extensions (>=3.7.2)"]
+typing-extensions = ["typing-extensions (>=3.7.2)"]
 
 [[package]]
 name = "pygments"
@@ -502,7 +490,7 @@ python-versions = "*"
 aws = ["pymongo-auth-aws (<2.0.0)"]
 encryption = ["pymongocrypt (>=1.1.0,<2.0.0)"]
 gssapi = ["pykerberos"]
-ocsp = ["pyopenssl (>=17.2.0)", "requests (<3.0.0)", "service-identity (>=18.1.0)", "certifi"]
+ocsp = ["certifi", "pyopenssl (>=17.2.0)", "requests (<3.0.0)", "service-identity (>=18.1.0)"]
 snappy = ["python-snappy"]
 srv = ["dnspython (>=1.16.0,<1.17.0)"]
 tls = ["ipaddress"]
@@ -552,7 +540,7 @@ pytest = ">=4.6"
 toml = "*"
 
 [package.extras]
-testing = ["fields", "hunter", "process-tests", "six", "pytest-xdist", "virtualenv"]
+testing = ["fields", "hunter", "process-tests", "pytest-xdist", "six", "virtualenv"]
 
 [[package]]
 name = "python-dotenv"
@@ -618,7 +606,7 @@ idna = ">=2.5,<3"
 urllib3 = ">=1.21.1,<1.27"
 
 [package.extras]
-security = ["pyOpenSSL (>=0.14)", "cryptography (>=1.3.4)"]
+security = ["cryptography (>=1.3.4)", "pyOpenSSL (>=0.14)"]
 socks = ["PySocks (>=1.5.6,!=1.5.7)", "win-inet-pton"]
 
 [[package]]
@@ -632,6 +620,19 @@ python-versions = ">=3.5"
 [package.dependencies]
 click = ">=5.0.0"
 redis = ">=3.5.0"
+
+[[package]]
+name = "setuptools"
+version = "65.5.1"
+description = "Easily download, build, install, upgrade, and uninstall Python packages"
+category = "main"
+optional = false
+python-versions = ">=3.7"
+
+[package.extras]
+docs = ["furo", "jaraco.packaging (>=9)", "jaraco.tidelift (>=1.4)", "pygments-github-lexers (==0.0.5)", "rst.linker (>=1.9)", "sphinx (>=3.5)", "sphinx-favicon", "sphinx-hoverxref (<2)", "sphinx-inline-tabs", "sphinx-notfound-page (==0.8.3)", "sphinx-reredirects", "sphinxcontrib-towncrier"]
+testing = ["build[virtualenv]", "filelock (>=3.4.0)", "flake8 (<5)", "flake8-2020", "ini2toml[lite] (>=0.9)", "jaraco.envs (>=2.2)", "jaraco.path (>=3.2.0)", "pip (>=19.1)", "pip-run (>=8.8)", "pytest (>=6)", "pytest-black (>=0.3.7)", "pytest-checkdocs (>=2.4)", "pytest-cov", "pytest-enabler (>=1.3)", "pytest-flake8", "pytest-mypy (>=0.9.1)", "pytest-perf", "pytest-timeout", "pytest-xdist", "tomli-w (>=1.0.0)", "virtualenv (>=13.0.0)", "wheel"]
+testing-integration = ["build[virtualenv]", "filelock (>=3.4.0)", "jaraco.envs (>=2.2)", "jaraco.path (>=3.2.0)", "pytest", "pytest-enabler", "pytest-xdist", "tomli", "virtualenv (>=13.0.0)", "wheel"]
 
 [[package]]
 name = "six"
@@ -675,6 +676,7 @@ Jinja2 = ">=2.3"
 packaging = "*"
 Pygments = ">=2.0"
 requests = ">=2.5.0"
+setuptools = "*"
 snowballstemmer = ">=1.1"
 sphinxcontrib-applehelp = "*"
 sphinxcontrib-devhelp = "*"
@@ -685,8 +687,8 @@ sphinxcontrib-serializinghtml = "*"
 
 [package.extras]
 docs = ["sphinxcontrib-websupport"]
-lint = ["flake8 (>=3.5.0)", "isort", "mypy (>=0.800)", "docutils-stubs"]
-test = ["pytest", "pytest-cov", "html5lib", "cython", "typed-ast"]
+lint = ["docutils-stubs", "flake8 (>=3.5.0)", "isort", "mypy (>=0.800)"]
+test = ["cython", "html5lib", "pytest", "pytest-cov", "typed-ast"]
 
 [[package]]
 name = "sphinxcontrib-applehelp"
@@ -697,7 +699,7 @@ optional = false
 python-versions = ">=3.5"
 
 [package.extras]
-lint = ["flake8", "mypy", "docutils-stubs"]
+lint = ["docutils-stubs", "flake8", "mypy"]
 test = ["pytest"]
 
 [[package]]
@@ -709,7 +711,7 @@ optional = false
 python-versions = ">=3.5"
 
 [package.extras]
-lint = ["flake8", "mypy", "docutils-stubs"]
+lint = ["docutils-stubs", "flake8", "mypy"]
 test = ["pytest"]
 
 [[package]]
@@ -721,8 +723,8 @@ optional = false
 python-versions = ">=3.6"
 
 [package.extras]
-lint = ["flake8", "mypy", "docutils-stubs"]
-test = ["pytest", "html5lib"]
+lint = ["docutils-stubs", "flake8", "mypy"]
+test = ["html5lib", "pytest"]
 
 [[package]]
 name = "sphinxcontrib-jsmath"
@@ -733,7 +735,7 @@ optional = false
 python-versions = ">=3.5"
 
 [package.extras]
-test = ["pytest", "flake8", "mypy"]
+test = ["flake8", "mypy", "pytest"]
 
 [[package]]
 name = "sphinxcontrib-qthelp"
@@ -744,7 +746,7 @@ optional = false
 python-versions = ">=3.5"
 
 [package.extras]
-lint = ["flake8", "mypy", "docutils-stubs"]
+lint = ["docutils-stubs", "flake8", "mypy"]
 test = ["pytest"]
 
 [[package]]
@@ -756,7 +758,7 @@ optional = false
 python-versions = ">=3.5"
 
 [package.extras]
-lint = ["flake8", "mypy", "docutils-stubs"]
+lint = ["docutils-stubs", "flake8", "mypy"]
 test = ["pytest"]
 
 [[package]]
@@ -788,7 +790,7 @@ virtualenv = ">=16.0.0,<20.0.0 || >20.0.0,<20.0.1 || >20.0.1,<20.0.2 || >20.0.2,
 
 [package.extras]
 docs = ["pygments-github-lexers (>=0.0.5)", "sphinx (>=2.0.0)", "sphinxcontrib-autoprogram (>=0.1.5)", "towncrier (>=18.5.0)"]
-testing = ["flaky (>=3.4.0)", "freezegun (>=0.3.11)", "psutil (>=5.6.1)", "pytest (>=4.0.0)", "pytest-cov (>=2.5.1)", "pytest-mock (>=1.10.0)", "pytest-randomly (>=1.0.0)", "pytest-xdist (>=1.22.2)", "pathlib2 (>=2.3.3)"]
+testing = ["flaky (>=3.4.0)", "freezegun (>=0.3.11)", "pathlib2 (>=2.3.3)", "psutil (>=5.6.1)", "pytest (>=4.0.0)", "pytest-cov (>=2.5.1)", "pytest-mock (>=1.10.0)", "pytest-randomly (>=1.0.0)", "pytest-xdist (>=1.22.2)"]
 
 [[package]]
 name = "tox-pyenv"
@@ -827,7 +829,7 @@ python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*, <4"
 
 [package.extras]
 brotli = ["brotlipy (>=0.6.0)"]
-secure = ["pyOpenSSL (>=0.14)", "cryptography (>=1.3.4)", "idna (>=2.0.0)", "certifi", "ipaddress"]
+secure = ["certifi", "cryptography (>=1.3.4)", "idna (>=2.0.0)", "ipaddress", "pyOpenSSL (>=0.14)"]
 socks = ["PySocks (>=1.5.6,!=1.5.7,<2.0)"]
 
 [[package]]
@@ -847,7 +849,7 @@ six = ">=1.9.0,<2"
 
 [package.extras]
 docs = ["proselint (>=0.10.2)", "sphinx (>=3)", "sphinx-argparse (>=0.2.5)", "sphinx-rtd-theme (>=0.4.3)", "towncrier (>=19.9.0rc1)"]
-testing = ["coverage (>=4)", "coverage-enable-subprocess (>=1)", "flaky (>=3)", "pytest (>=4)", "pytest-env (>=0.6.2)", "pytest-freezegun (>=0.4.1)", "pytest-mock (>=2)", "pytest-randomly (>=1)", "pytest-timeout (>=1)", "packaging (>=20.0)", "xonsh (>=0.9.16)"]
+testing = ["coverage (>=4)", "coverage-enable-subprocess (>=1)", "flaky (>=3)", "packaging (>=20.0)", "pytest (>=4)", "pytest-env (>=0.6.2)", "pytest-freezegun (>=0.4.1)", "pytest-mock (>=2)", "pytest-randomly (>=1)", "pytest-timeout (>=1)", "xonsh (>=0.9.16)"]
 
 [[package]]
 name = "wrapt"
@@ -866,8 +868,8 @@ optional = false
 python-versions = ">=3.6"
 
 [package.extras]
-docs = ["sphinx", "jaraco.packaging (>=8.2)", "rst.linker (>=1.9)"]
-testing = ["pytest (>=4.6)", "pytest-checkdocs (>=1.2.3)", "pytest-flake8", "pytest-cov", "pytest-enabler", "jaraco.itertools", "func-timeout", "pytest-black (>=0.3.7)", "pytest-mypy"]
+docs = ["jaraco.packaging (>=8.2)", "rst.linker (>=1.9)", "sphinx"]
+testing = ["func-timeout", "jaraco.itertools", "pytest (>=4.6)", "pytest-black (>=0.3.7)", "pytest-checkdocs (>=1.2.3)", "pytest-cov", "pytest-enabler", "pytest-flake8", "pytest-mypy"]
 
 [[package]]
 name = "zstandard"
@@ -895,7 +897,7 @@ redis = ["redis"]
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.7"
-content-hash = "2c61e027c6c33ec9926568792400ab395e68239c0f1cc4b174b25111969a053f"
+content-hash = "328c5d31b6fc4051281a6cb31d1fd46ec885ac1ba9a2233d01b0c036d575fc2c"
 
 [metadata.files]
 alabaster = [
@@ -1093,37 +1095,37 @@ docutils = [
     {file = "docutils-0.17.1-py2.py3-none-any.whl", hash = "sha256:cf316c8370a737a022b72b56874f6602acf974a37a9fba42ec2876387549fc61"},
     {file = "docutils-0.17.1.tar.gz", hash = "sha256:686577d2e4c32380bb50cbb22f575ed742d58168cee37e99117a854bcd88f125"},
 ]
-dotenv = [
-    {file = "dotenv-0.0.5.tar.gz", hash = "sha256:b58d2ab3f83dbd4f8a362b21158a606bee87317a9444485566b3c8f0af847091"},
-]
 elasticsearch = [
     {file = "elasticsearch-7.15.2-py2.py3-none-any.whl", hash = "sha256:83c299a08fc8737c72454e6d3b2a01ba1b194e4f4d9e4f8bae7058cec326f39f"},
     {file = "elasticsearch-7.15.2.tar.gz", hash = "sha256:436f871848a5020bf9b47495812b229b59bd0c5d7e40adbd5e3c89896b311704"},
-]
-enum34 = [
-    {file = "enum34-1.1.10-py2-none-any.whl", hash = "sha256:a98a201d6de3f2ab3db284e70a33b0f896fbf35f8086594e8c9e74b909058d53"},
-    {file = "enum34-1.1.10-py3-none-any.whl", hash = "sha256:c3858660960c984d6ab0ebad691265180da2b43f07e061c0f8dca9ef3cffd328"},
-    {file = "enum34-1.1.10.tar.gz", hash = "sha256:cce6a7477ed816bd2542d03d53db9f0db935dd013b70f336a95c73979289f248"},
 ]
 fakeredis = [
     {file = "fakeredis-1.8.1-py3-none-any.whl", hash = "sha256:4a0f8fe0d5c18147864db50ae2e86f667420ea06653bec08b3a5fccfd3fbde6f"},
     {file = "fakeredis-1.8.1.tar.gz", hash = "sha256:ca516f86181f85615cd8210854b43acbe7b1f37ed8a082c5557749c73f2f0dd3"},
 ]
 fastavro = [
-    {file = "fastavro-1.4.1-cp36-cp36m-macosx_10_14_x86_64.whl", hash = "sha256:3f99237de0f853f083a0f9929f54155b408a5c4b04fcfa8c59e589aa853f2111"},
-    {file = "fastavro-1.4.1-cp36-cp36m-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:18ed93c24ba96ed0e6cacf50170805188cc53a5e50c40fc94316387a98aa497b"},
-    {file = "fastavro-1.4.1-cp36-cp36m-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:c298d2b2389049dfc6a06326a0a2f9809c7045e8cadb82b9e7e948fd32270547"},
-    {file = "fastavro-1.4.1-cp36-cp36m-win_amd64.whl", hash = "sha256:948e69da16f4bf20bea65805ea210d793eae55f5f24f8be2c4d18c2a773aaf7b"},
-    {file = "fastavro-1.4.1-cp37-cp37m-macosx_10_14_x86_64.whl", hash = "sha256:a4b6c2b2d126bf6246bead79cba43e17f07a1b99a25ccceb315c6e75ab7c9d39"},
-    {file = "fastavro-1.4.1-cp37-cp37m-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:453676a26e99f2f3af7f57c4236ceeee4e453ab7b9bd5f09e9c89bad5e572c78"},
-    {file = "fastavro-1.4.1-cp37-cp37m-win_amd64.whl", hash = "sha256:5bd8a134daff2ea5ef0d72a528ca42dfe6c01deac7103dedf77d1a55936a981e"},
-    {file = "fastavro-1.4.1-cp38-cp38-macosx_10_14_x86_64.whl", hash = "sha256:a8c5df1aa6c29409bbfe571504e87bf23553c88083a83febb42a74ec0cabe2ba"},
-    {file = "fastavro-1.4.1-cp38-cp38-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:741cd757b7789e6ab821a1de02c1e18dfada417e1cfccae3f20dc2aadd6654fc"},
-    {file = "fastavro-1.4.1-cp38-cp38-win_amd64.whl", hash = "sha256:6d7d4032ecb28bef3dd41e8c91c986df351e3323f526c901d1cbb53425617756"},
-    {file = "fastavro-1.4.1-cp39-cp39-macosx_10_14_x86_64.whl", hash = "sha256:72c81690cef6ed9c87a146eaf9f608150bf78fd537a7e796780381b4a7baabb8"},
-    {file = "fastavro-1.4.1-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:cad3ecbac1fe1d319c617ff01104639795020cb72faf7e30ebe802c1d60ec915"},
-    {file = "fastavro-1.4.1-cp39-cp39-win_amd64.whl", hash = "sha256:3e804c4fc9875314aa41901055941b199f87aeb1c880cc6fe3ad258fa08b24c6"},
-    {file = "fastavro-1.4.1.tar.gz", hash = "sha256:237a741668316a2aadb14ba0532666a305dd14b4043aace89bcb0c6419c08162"},
+    {file = "fastavro-0.24.0-cp27-cp27m-macosx_10_14_x86_64.whl", hash = "sha256:45ef3dacc097e938af6094f8ef36f7f15c856ad475267dbd5669bcdf4dd409a1"},
+    {file = "fastavro-0.24.0-cp27-cp27m-manylinux2010_x86_64.whl", hash = "sha256:1f22938edb53eafcbdd5c12aad330b77c3768e01307cd016f46cd19cdd394f67"},
+    {file = "fastavro-0.24.0-cp27-cp27m-win32.whl", hash = "sha256:37ab048bbb54e3eaf9a197ca5fa322de91ecff12d50e42a288e33b8d60fa9002"},
+    {file = "fastavro-0.24.0-cp27-cp27m-win_amd64.whl", hash = "sha256:830fb690a7b8a6113b4fa206569faf30afcdea3ed9713d64cf4c1ece53d9ee17"},
+    {file = "fastavro-0.24.0-cp27-cp27mu-manylinux2010_x86_64.whl", hash = "sha256:9aedf11262201d62e75733e59138949133e81d79b9eff8c3b80316d0767b8dea"},
+    {file = "fastavro-0.24.0-cp35-cp35m-macosx_10_14_x86_64.whl", hash = "sha256:a6b7c04c55b1f94fc0279cc683acf356906a7225212219e66b0a40fe5b6ac6ff"},
+    {file = "fastavro-0.24.0-cp35-cp35m-manylinux2010_x86_64.whl", hash = "sha256:1f6aff816277a39e8a176b6da05789e5ab40259fd72c789a32cf79c9721e7136"},
+    {file = "fastavro-0.24.0-cp35-cp35m-win32.whl", hash = "sha256:7f58a9fbf2d5c9e2c50729870b28f84a6b6346bf0f05edc493957926e32599f3"},
+    {file = "fastavro-0.24.0-cp35-cp35m-win_amd64.whl", hash = "sha256:e73f5c2035b6a977ccd7bfef7a790fa2076f8d7571a9b78b26435f3f8a8eb67a"},
+    {file = "fastavro-0.24.0-cp36-cp36m-macosx_10_14_x86_64.whl", hash = "sha256:e9f2074c043697e5d7d881a6d3c0169b906a5a3dad9adf870a23485046752fb7"},
+    {file = "fastavro-0.24.0-cp36-cp36m-manylinux2010_x86_64.whl", hash = "sha256:07ee13f885db65a9c8da4b8cef2e1f5edb9c7b7bf67281e5b88f09958e0f7fb3"},
+    {file = "fastavro-0.24.0-cp36-cp36m-win32.whl", hash = "sha256:e3f8ef203a256e4b0417847647cfd4612966d88b36bd0bb815f162ab08c86081"},
+    {file = "fastavro-0.24.0-cp36-cp36m-win_amd64.whl", hash = "sha256:f3897f068f9838a1a9ceccbe3d7ca63d339cbed1ab883f46110ac64a21fb147d"},
+    {file = "fastavro-0.24.0-cp37-cp37m-macosx_10_14_x86_64.whl", hash = "sha256:eb4ba6d6c7b41552dd3b650af4380a04ec78f8935b643fb9a31418619e9d66fd"},
+    {file = "fastavro-0.24.0-cp37-cp37m-manylinux2010_x86_64.whl", hash = "sha256:418246adc0f6f37e1798b707eb6809ca1abda0fc430237217494178ecd9651f9"},
+    {file = "fastavro-0.24.0-cp37-cp37m-win32.whl", hash = "sha256:4ea53ed61ff8022d4ddbd633d9b89e53781b0103a5a08e206d700f958f923573"},
+    {file = "fastavro-0.24.0-cp37-cp37m-win_amd64.whl", hash = "sha256:78a2d37017fbcf5129b6738006b3f7eb79f8160fa4a30f2746c2edba43d63217"},
+    {file = "fastavro-0.24.0-cp38-cp38-macosx_10_14_x86_64.whl", hash = "sha256:e2e00b62520d6607cda21318524d8d735ac858e32f88bdc03cc8440dbb1707d6"},
+    {file = "fastavro-0.24.0-cp38-cp38-manylinux2010_x86_64.whl", hash = "sha256:014a7be33a147382574066ea84187dcd51b141734886b06d1f0a5cee78d97152"},
+    {file = "fastavro-0.24.0-cp38-cp38-win32.whl", hash = "sha256:41be776e853f46d50a859e317e17fcdfb7fd13b3607c4a7166151ba07aaa6bab"},
+    {file = "fastavro-0.24.0-cp38-cp38-win_amd64.whl", hash = "sha256:0b02c1750551e083712631ed074d4025a453b31a8cf938294555db9719d8f51f"},
+    {file = "fastavro-0.24.0.tar.gz", hash = "sha256:28b2462c83164cf5a4a6944fc8a5425d15499dffeadb1b8a328ed78988d02022"},
 ]
 filelock = [
     {file = "filelock-3.0.12-py3-none-any.whl", hash = "sha256:929b7d63ec5b7d6b71b0fa5ac14e030b3f70b75747cef1b10da9b879fef15836"},
@@ -1347,19 +1349,16 @@ protobuf = [
     {file = "protobuf-3.17.3.tar.gz", hash = "sha256:72804ea5eaa9c22a090d2803813e280fb273b62d5ae497aaf3553d141c4fdd7b"},
 ]
 pulsar-client = [
-    {file = "pulsar_client-2.5.2-cp27-cp27m-macosx_10_14_x86_64.whl", hash = "sha256:260f4da59ae5c2e3bef5ce4eb11b72a5a632fd11e917821a37284d2ef02a5d1c"},
-    {file = "pulsar_client-2.5.2-cp27-cp27m-macosx_10_15_x86_64.whl", hash = "sha256:795791e2777dffbf6f5c3440739495bd4081395bf52dbed9f651697717a9daf9"},
-    {file = "pulsar_client-2.5.2-cp27-cp27m-manylinux1_x86_64.whl", hash = "sha256:6036e5e1e2656809797263bf6c36f7afcb7b2a8750eae6862335ff1fb15aadef"},
-    {file = "pulsar_client-2.5.2-cp27-cp27mu-manylinux1_x86_64.whl", hash = "sha256:39831e2db1cdf4e6dae05984b0cbc3d6fb96b1cd376f29c92ef47ea71bca7968"},
-    {file = "pulsar_client-2.5.2-cp34-cp34m-manylinux1_x86_64.whl", hash = "sha256:cb81c5791d9170d49d1ca8e6febdbb5850c5fbb67011115d0346b5aa0c795d58"},
-    {file = "pulsar_client-2.5.2-cp35-cp35m-manylinux1_x86_64.whl", hash = "sha256:338045898175d8d5ebb2e86b9055f772f70067824eb55dd8dc1fc7ec073cd4b8"},
-    {file = "pulsar_client-2.5.2-cp36-cp36m-manylinux1_x86_64.whl", hash = "sha256:b09be66004002ce5452e4b109974a0216cd46023f845d751f6ace335ae1fc2ee"},
-    {file = "pulsar_client-2.5.2-cp37-cp37m-macosx_10_14_x86_64.whl", hash = "sha256:649cbb822731df54532f6ae914035e51aeb03e4c0e2220fc052324464f2dbb71"},
-    {file = "pulsar_client-2.5.2-cp37-cp37m-macosx_10_15_x86_64.whl", hash = "sha256:9ff48c615bfbffbfcc6795de3e818f9feafdb282ce771d05056a58f063cb920c"},
-    {file = "pulsar_client-2.5.2-cp37-cp37m-manylinux1_x86_64.whl", hash = "sha256:2d4ebef14de0d78024166c501995fe37e97801d9101646902b240bf16b04a0de"},
-    {file = "pulsar_client-2.5.2-cp38-cp38-macosx_10_14_x86_64.whl", hash = "sha256:2edb3a14c3e293b550df735530c4153f981c0ce493d83f31bd2ffd6e4a2cec4d"},
-    {file = "pulsar_client-2.5.2-cp38-cp38-macosx_10_15_x86_64.whl", hash = "sha256:6322add45a7c80ea7bedf6e6afb30e8a779ae4536ed25d18e25beb9fa179aaf3"},
-    {file = "pulsar_client-2.5.2-cp38-cp38-manylinux1_x86_64.whl", hash = "sha256:dc448fc9b2e2390bd7d1101301436919c2e6a5ff572f16667e6ea9ddf60add59"},
+    {file = "pulsar_client-2.7.5-cp27-cp27m-macosx_10_12_x86_64.whl", hash = "sha256:0251008ced6359e684fcb717dd6d4c4c16d416156c57083766a77ba503010709"},
+    {file = "pulsar_client-2.7.5-cp27-cp27m-macosx_10_13_x86_64.whl", hash = "sha256:1c63d0866902d47d2630b3762a9e35c565e554b1bd1a536a8144c670d06fa99e"},
+    {file = "pulsar_client-2.7.5-cp27-cp27m-manylinux1_x86_64.whl", hash = "sha256:375fa34d436ad43ecf8bb039cf594bf084378ed4480e2befd4d280b638f38097"},
+    {file = "pulsar_client-2.7.5-cp27-cp27mu-manylinux1_x86_64.whl", hash = "sha256:58d5037d6eaa2a3a4952fa1e15c3279f1657755a5f8e1b674559256798f86289"},
+    {file = "pulsar_client-2.7.5-cp35-cp35m-manylinux1_x86_64.whl", hash = "sha256:ec69e8540b3a1f9f8bfbd242453c18e07c0052eeb049b8038ddf115cd82a7953"},
+    {file = "pulsar_client-2.7.5-cp36-cp36m-manylinux1_x86_64.whl", hash = "sha256:80925f99b805e3d00b1ef66110d39047871a52349e7d39297620aebd6902d0da"},
+    {file = "pulsar_client-2.7.5-cp37-cp37m-macosx_10_12_x86_64.whl", hash = "sha256:aeb36786e3d42c3ba2eccdd8791de9eb27f058766e52a79a519b5ab73fa08413"},
+    {file = "pulsar_client-2.7.5-cp37-cp37m-macosx_10_13_x86_64.whl", hash = "sha256:c035f2cc5cfb60335ade4b0ac4e0bd540d44a5804dada73241930f0cdc236c6e"},
+    {file = "pulsar_client-2.7.5-cp37-cp37m-manylinux1_x86_64.whl", hash = "sha256:1007a70c2a67e9391980b0211b92acced956b76ac17db22935c756564d6912f7"},
+    {file = "pulsar_client-2.7.5-cp38-cp38-manylinux1_x86_64.whl", hash = "sha256:69ef5be0e5058824f36a670d2fb7cbdce186bebefe87ca229ee24711ebd14728"},
 ]
 py = [
     {file = "py-1.10.0-py2.py3-none-any.whl", hash = "sha256:3b80836aa6d1feeaa108e046da6423ab8f6ceda6468545ae8d02d9d58d18818a"},
@@ -1506,7 +1505,6 @@ pymongo = [
     {file = "pymongo-3.12.1-cp39-cp39-manylinux_2_5_x86_64.manylinux1_x86_64.whl", hash = "sha256:6f07888e3b73c0dfa46f12d098760494f5f23fd66923a6615edfe486e6a7649c"},
     {file = "pymongo-3.12.1-cp39-cp39-win32.whl", hash = "sha256:77dddf596fb065de29fb39992fbc81301f7fd0003be649b7fa7448c77ca53bed"},
     {file = "pymongo-3.12.1-cp39-cp39-win_amd64.whl", hash = "sha256:979e34db4f3dc5710c18db437aaf282f691092b352e708cb2afd4df287698c76"},
-    {file = "pymongo-3.12.1-py2.7-macosx-10.14-intel.egg", hash = "sha256:c04e84ccf590933a266180286d8b6a5fc844078a5d934432628301bd8b5f9ca7"},
     {file = "pymongo-3.12.1.tar.gz", hash = "sha256:704879b6a54c45ad76cea7c6789c1ae7185050acea7afd15b58318fa1932ed45"},
 ]
 pyparsing = [
@@ -1574,6 +1572,10 @@ requests = [
 rq = [
     {file = "rq-1.10.1-py2.py3-none-any.whl", hash = "sha256:92f4cf38b2364c1697b541e77c0fe62b7e5242fa864324f262be126ee2a07e3a"},
     {file = "rq-1.10.1.tar.gz", hash = "sha256:62d06b44c3acfa5d1933c5a4ec3fbc2484144a8af60e318d0b8447c5236271e2"},
+]
+setuptools = [
+    {file = "setuptools-65.5.1-py3-none-any.whl", hash = "sha256:d0b9a8433464d5800cbe05094acf5c6d52a91bfac9b52bcfc4d41382be5d5d31"},
+    {file = "setuptools-65.5.1.tar.gz", hash = "sha256:e197a19aa8ec9722928f2206f8de752def0e4c9fc6953527360d1c36d94ddb2f"},
 ]
 six = [
     {file = "six-1.16.0-py2.py3-none-any.whl", hash = "sha256:8abb2f1d86890a2dfb989f9a77cfcfd3e47c2a354b01111771326f8aa26e0254"},
