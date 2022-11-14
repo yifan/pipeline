@@ -28,7 +28,12 @@ class Pipeline(object):
       from .tap import TapKind, MemorySourceSettings, MemoryDestinationSettings
       in_settings = MemorySourceSettings()
       out_settings = MemoryDestinationSettings()
-      pipeline = Pipeline( in_kind=TapKind.MEM, in_settings=in_settings, out_kind=TapKind.MEM, out_settings=out_settings)
+      pipeline = Pipeline(
+        in_kind=TapKind.MEM,
+        in_settings=in_settings,
+        out_kind=TapKind.MEM,
+        out_settings=out_settings
+      )
 
     Take command line arguments:
 
