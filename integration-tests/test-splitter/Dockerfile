@@ -28,6 +28,6 @@ WORKDIR /code
 COPY test-splitter/* /code/
 COPY dist /code
 
-RUN python3 -m pip install "tanbih-pipeline[full]@file:///code/tanbih_pipeline-0.12.12-py3-none-any.whl"
+RUN python3 -m pip install "tanbih-pipeline[full]@file:///code/tanbih_pipeline-0.12.13-py3-none-any.whl"
 ENV PYTHONPATH=/code
 CMD /wait && python testsplitter.py
