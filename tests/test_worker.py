@@ -132,7 +132,8 @@ class TestWorkerCore:
         with pytest.raises(PipelineOutputError):
             processor.start()
 
-    def test_processor_has_output(self):
+    @mock.patch("pipeline.monitor.start_http_server")
+    def test_processor_has_output(self, mock_start_http_server):
         class Input(BaseModel):
             key: str
 
@@ -207,7 +208,8 @@ class TestWorkerCore:
             processor.start()
             assert len(processor.destination.results) == 3
 
-    def test_processor(self):
+    @mock.patch("pipeline.monitor.start_http_server")
+    def test_processor(self, mock_start_http_server):
         class Input(BaseModel):
             key: str
 
@@ -481,7 +483,8 @@ class TestWorkerCore:
                 splitter.start()
                 assert len(splitter.destinations) == 3
 
-    def test_logging(self, monkeypatch):
+    @mock.patch("pipeline.monitor.start_http_server")
+    def test_logging(self, mock_start_http_server):
         class Input(BaseModel):
             key: int
 
@@ -509,7 +512,6 @@ class TestWorkerCore:
         )
         processor.parse_args(args="--out-topic test".split())
         processor.source.load_data(msgs)
-        monkeypatch.setattr(processor, "monitor", mock.MagicMock())
         processor.start()
         assert len(processor.destination.results) == 3
         logger.info.assert_any_call("logging")
