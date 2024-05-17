@@ -60,7 +60,7 @@ setup(
         "azure": ["azure-cosmosdb-table"],
         "mongodb": ["pymongo"],
         "elastic": ["elasticsearch==7.*"],
-        "http": ["aiohttp]"],
+        "http": ["aiohttp"],
         "rq": ["rq==1.10.*"],
     },
 )
