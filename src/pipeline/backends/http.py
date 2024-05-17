@@ -69,14 +69,10 @@ class HTTPSource(SourceTap):
     def __len__(self) -> int:
         return len(self.queue)
 
-    async def sleep_task(self):
-        await asyncio.sleep(0.01)
-
     def read(self) -> Iterator[MessageBase]:
         while True:
             if not self.messages:
-                print("sleep in read()")
-                task = self.loop.create_task(self.sleep_task())
+                task = self.loop.create_task(asyncio.sleep(0.01))
                 self.loop.run_until_complete(task)
                 continue
             message = self.messages.popleft()

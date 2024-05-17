@@ -17,6 +17,7 @@ elasticsearch = {version = "7.15.*", optional = true}
 pymongo = {version = "3.12.*", optional = true}
 python-dotenv = {version = "^0.19.2", optional = true}
 rq = {version = "1.10.*", optional = true}
+aiohttp = {optional = true}
 
 [tool.poetry.dev-dependencies]
 tox = "^3.23.1"
@@ -38,6 +39,7 @@ kafka=["conflucent-kafka"]
 pulsar=["pulsar-client"]
 elastic=["elasticsearch"]
 mongodb=["pymongo"]
+http=["aoihttp"]
 cli=["python-dotenv"]
 
 [tool.poetry.urls]
