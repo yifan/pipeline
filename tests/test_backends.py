@@ -1,3 +1,5 @@
+import requests
+import pytest  # NOQA
 from unittest import TestCase, mock
 
 import fakeredis
@@ -141,3 +143,43 @@ class TestBackends(TestCase):
         source = source_and_settings_classes.source_class(settings)
         message_read = next(source.read())
         assert message_read.content["key"] == "written"
+
+
+def test_http_source(aiohttp_client, loop):
+    source_and_settings_classes = SourceTap.of(TapKind.HTTP)
+    settings = source_and_settings_classes.settings_class()
+    settings.parse_args("--in-host 127.0.0.1 --in-port 8080".split())
+    source = source_and_settings_classes.source_class(settings)
+
+    client = loop.run_until_complete(aiohttp_client(source.app))
+
+    loop.run_until_complete(
+        client.post(
+            "/",
+            headers={"Content-Type": "application/octet-stream"},
+            data=Message(id=0, content={"key": "written"}).serialize(),
+        )
+    )
+
+    message_read = next(source.read())
+    source.close()
+
+    assert message_read.content["key"] == "written"
+
+
+def test_http_destination(monkeypatch):
+    message_written = []
+
+    def mock_post(url, headers, data):
+        message_written.append(Message.deserialize(data))
+        return mock.MagicMock()
+
+    monkeypatch.setattr(requests, "post", mock_post)
+    destination_and_settings_classes = DestinationTap.of(TapKind.HTTP)
+    settings = destination_and_settings_classes.settings_class()
+    settings.parse_args("--out-host 127.0.0.1 --out-port 8080".split())
+    destination = destination_and_settings_classes.destination_class(settings)
+    destination.write(Message(content={"key": "written"}))
+    destination.close()
+
+    assert message_written[0].content["key"] == "written"

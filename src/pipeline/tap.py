@@ -599,6 +599,16 @@ def tap_kinds() -> Dict[
                 settings_class="pipeline.backends.rq:RQDestinationSettings",
             ),
         ),
+        "HTTP": (
+            TapAndSettingsImportStrings(
+                tap_class="pipeline.backends.http:HTTPSource",
+                settings_class="pipeline.backends.http:HTTPSourceSettings",
+            ),
+            TapAndSettingsImportStrings(
+                tap_class="pipeline.backends.http:HTTPDestination",
+                settings_class="pipeline.backends.http:HTTPDestinationSettings",
+            ),
+        ),
     }
 
 

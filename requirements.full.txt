@@ -8,3 +8,4 @@ pika
 elasticsearch
 pymongo
 rq==1.10.*
+aiohttp

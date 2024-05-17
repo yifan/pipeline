@@ -7,5 +7,7 @@ pre-commit
 sphinx
 pytest
 pytest-cov
+pytest-asyncio
+pytest-aiohttp
 mypy
 fakeredis
