@@ -50,6 +50,7 @@ setup(
             "pymongo==3.*",
             "elasticsearch==7.*",
             "rq==1.10.*",
+            "aiohttp",
         ],
         "redis": ["redis"],
         "kafka": ["confluent-kafka==1.*"],
