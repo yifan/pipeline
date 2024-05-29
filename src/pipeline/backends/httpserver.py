@@ -8,7 +8,7 @@ from typing import Iterator, ClassVar
 from aiohttp import web
 
 from ..tap import SourceTap, SourceSettings, DestinationTap, DestinationSettings
-from ..message import MessageBase
+from ..message import MessageBase, Message
 
 
 pipelineLogger = logging.getLogger("pipeline")
@@ -23,9 +23,7 @@ class Singleton(type):
         return cls._instances[cls]
 
 
-class Server(object):
-    __metaclass__ = Singleton
-
+class Server(metaclass=Singleton):
     def __init__(self, host, port, path="/", logger=pipelineLogger) -> None:
         self.host = host
         self.port = port
@@ -34,6 +32,8 @@ class Server(object):
         self._request = None
         self._result = None
         self.started = False
+        self.request_condition = asyncio.Condition()
+        self.result_condition = asyncio.Condition()
 
     def start(self, loop):
         if not self.started:
@@ -56,50 +56,40 @@ class Server(object):
         self.logger.info(f"HTTP server started at {self.host}:{self.port}")  # NOQA
 
     async def handle_request(self, request):
-        print("Server: handle request")
-        if self._request is not None:
-            print("Server: _request is not None")
-            return web.Response(status=503, text="server busy")
-
         try:
             # only handle one request at a time
             # self.logger.info("Received HTTP request")
-            data = await request.read()
+            data = await request.json()
             self._request = data
 
-            print("Server: waiting for result")
-            # wait for job to be done
-            while self._result is None:
-                await asyncio.sleep(0.01)
+            # notify to process
+            async with self.request_condition:
+                self.request_condition.notify()
 
-            self._request = None
+            # wait for result
+            async with self.result_condition:
+                await self.result_condition.wait()
 
             if self._result is None:
                 return web.Response(status=500, text="something thing wrong")
 
             result = self._result
             self._result = None
-            return web.Response(status=200, body=result)
+            return web.json_response(result)
 
         except json.JSONDecodeError:
             return web.Response(status=400, text="failure")
 
     async def read_request(self):
-        print("Server: read_request waiting")
-        while self._request is None:
-            await asyncio.sleep(0.01)
-
-        print("Server: read_request read")
+        async with self.request_condition:
+            await self.request_condition.wait()
 
         return self._request
 
     async def write_response(self, response):
-        print("Server: write_response waiting")
-        while self._response is not None:
-            await asyncio.sleep(0.01)
-
-        print("Server: write_response written")
-        self._response = response
+        async with self.result_condition:
+            self._result = response
+            self.result_condition.notify()
 
     async def close(self):
         if self.started:
@@ -133,7 +123,10 @@ class HTTPServerSource(SourceTap):
         self.loop = asyncio.get_event_loop()
 
     def __repr__(self) -> str:
-        return f'HTTPSource(host="{self.settings.host}", port="{self.settings.port}", path="{self.settings.path}")'
+        return (
+            f'HTTPServerSource(host="{self.settings.host}"'
+            f', port="{self.settings.port}", path="{self.settings.path}")'
+        )
 
     def __len__(self) -> int:
         return len(self.queue)
@@ -141,8 +134,9 @@ class HTTPServerSource(SourceTap):
     def read(self) -> Iterator[MessageBase]:
         self.server.start(self.loop)
         while True:
-            message = MessageBase.deserialize(
-                self.loop.run_until_complete(self.server.read_request())
+            message = Message(
+                id="none",
+                content=self.loop.run_until_complete(self.server.read_request()),
             )
             if message is not None:
                 yield message
@@ -175,6 +169,7 @@ class HTTPServerDestination(DestinationTap):
         super().__init__(settings, logger)
         self.settings = settings
         self.server = Server(settings.host, settings.port, settings.path)
+        self.loop = asyncio.get_event_loop()
 
     def __repr__(self) -> str:
         return (
@@ -186,9 +181,8 @@ class HTTPServerDestination(DestinationTap):
         return 0
 
     def write(self, message: MessageBase) -> int:
-        data = message.serialize()
-        self.server.write_response(data)
-        return len(data)
+        self.loop.run_until_complete(self.server.write_response(message.content))
+        return 0
 
     def close(self) -> None:
         self.server.close()
