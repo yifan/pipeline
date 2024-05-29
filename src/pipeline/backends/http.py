@@ -35,8 +35,9 @@ class HTTPSource(SourceTap):
         settings: HTTPSourceSettings,
         logger: Logger = pipelineLogger,
     ) -> None:
-        super().__init__(settings, logger)
+        super().__init__(settings, logger=pipelineLogger)
         self.settings = settings
+        self.logger = logger
         self.messages = deque()
 
         self.loop = asyncio.get_event_loop()
@@ -105,8 +106,9 @@ class HTTPDestination(DestinationTap):
         settings: HTTPDestinationSettings,
         logger: Logger = pipelineLogger,
     ) -> None:
-        super().__init__(settings, logger)
+        super().__init__(settings, logger=pipelineLogger)
         self.settings = settings
+        self.logger = logger
 
     def __repr__(self) -> str:
         return f'HTTPDestination(host="{self.settings.host}", port="{self.settings.port}", path="{self.settings.path}")'
