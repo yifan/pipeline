@@ -157,7 +157,7 @@ def test_http_source(aiohttp_client, loop):
         client.post(
             "/",
             headers={"Content-Type": "application/octet-stream"},
-            data=Message(id=0, content={"key": "written"}).serialize(),
+            data=Message(id="0", content={"key": "written"}).serialize(),
         )
     )
 

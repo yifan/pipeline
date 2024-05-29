@@ -21,7 +21,7 @@ from typing import (
 from logging import Logger
 
 from pydantic import BaseModel, ByteSize, Field, ValidationError, parse_obj_as
-from pydantic.schema import model_schema
+from pydantic.type_adapter import TypeAdapter
 
 from .version import version
 from .exception import PipelineError, PipelineInputError, PipelineOutputError
@@ -66,13 +66,15 @@ class Definition(BaseModel):
             )
         if "input_class" in data:
             input_class = data.get("input_class")
-            input_schema = model_schema(input_class, ref_prefix="#/components/schemas/")
+            input_schema = TypeAdapter(input_class).json_schema(
+                ref_template="#/components/schemas/{model}"
+            )
             del data["input_class"]
             data["input_schema"] = input_schema
         if "output_class" in data:
             output_class = data.get("output_class")
-            output_schema = model_schema(
-                output_class, ref_prefix="#/components/schemas/"
+            output_schema = TypeAdapter(output_class).json_schema(
+                ref_template="#/components/schemas/{model}"
             )
             del data["output_class"]
             data["output_schema"] = output_schema
@@ -89,8 +91,8 @@ class WorkerSettings(Settings):
     name: str
     version: str
     description: str
-    in_kind: TapKind = Field(None, title="input kind")
-    out_kind: TapKind = Field(None, title="output kind")
+    in_kind: TapKind = Field(TapKind.MEM, title="input kind")
+    out_kind: TapKind = Field(TapKind.MEM, title="output kind")
     debug: bool = Field(False, title="print DEBUG log")
     monitoring: bool = Field(False, title="enable prometheus monitoring")
 
@@ -144,7 +146,7 @@ class Worker(ABC):
             "-V",
             action="version",
             version=f"{self.version} (pipeline {version})",
-            help="show version",
+            help="show version",  # NOQA
         )
         parser.add_argument(
             "-h", "--help", action="store_true", default=False, help="display help"
@@ -331,8 +333,8 @@ class Producer(Worker):
 
 
 class SplitterSettings(WorkerSettings):
-    in_kind: TapKind = Field(None, title="input kind")
-    out_kind: TapKind = Field(None, title="output kind")
+    in_kind: TapKind = Field(TapKind.MEM, title="input kind")
+    out_kind: TapKind = Field(TapKind.MEM, title="output kind")
 
 
 class Splitter(Worker):
@@ -409,7 +411,7 @@ class Splitter(Worker):
 
 
 class ProcessorSettings(WorkerSettings):
-    limit: int = Field(
+    limit: Optional[int] = Field(
         None, title="set a limit to number of messages to process before exiting"
     )
 
@@ -485,7 +487,7 @@ class Processor(Worker):
 
         if self.has_output():
             size = self.destination.write(msg)
-            self.logger.info(f"Wrote message {msg}(size:{size})")
+            self.logger.info(f"Wrote message {msg}(size: {size})")
             self.monitor.record_write(self.destination.topic)
 
     def process_message(self, msg: Message) -> Union[KeysView[str], None]:

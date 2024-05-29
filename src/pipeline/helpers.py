@@ -1,11 +1,12 @@
 import sys
 import time
+from enum import Enum
 from argparse import ArgumentParser, Action
 from typing import List, Dict, Any, Optional, Union
 from os import PathLike
 from logging import Logger
 
-from pydantic import BaseSettings
+from pydantic_settings import BaseSettings
 
 
 def namespaced_topic(topic: str, namespace: str = None) -> str:
@@ -50,6 +51,7 @@ class Settings(BaseSettings):
 
     def __init__(
         __pipeline_self,
+        _env_prefix: Optional[str] = None,
         _env_file: Optional[StrPath] = env_file_sentinel,
         _env_file_encoding: Optional[str] = None,
         _secrets_dir: Optional[StrPath] = None,
@@ -79,7 +81,7 @@ class Settings(BaseSettings):
         args = vars(options)
 
         for name, field in self.__fields__.items():
-            fullname = self.Config.env_prefix + name
+            fullname = self.model_config.get("env_prefix", "") + name
             value = args.get(fullname, None)
             if value is not None:
                 values[name] = value
@@ -93,6 +95,7 @@ class Settings(BaseSettings):
         :param update: True if update Settings in place
         """
         settings_ref: Settings = self
+        env_prefix = self.model_config.get("env_prefix", "")
 
         class BooleanOptionalAction(Action):
             settings = settings_ref
@@ -134,8 +137,8 @@ class Settings(BaseSettings):
 
             def __call__(self, parser, namespace, values, option_string=None):  # type: ignore
                 dest = self.dest
-                if self.settings.Config.env_prefix:
-                    base_dest = self.dest[len(self.settings.Config.env_prefix) :]
+                if env_prefix:
+                    base_dest = self.dest[len(env_prefix) :]  # NOQA
                 else:
                     base_dest = self.dest
                 if option_string in self.option_strings:
@@ -156,8 +159,8 @@ class Settings(BaseSettings):
 
             def __call__(self, parser, namespace, values, option_string=None):  # type: ignore
                 dest = self.dest
-                if self.settings.Config.env_prefix:
-                    base_dest = self.dest[len(self.settings.Config.env_prefix) :]
+                if env_prefix:
+                    base_dest = self.dest[len(env_prefix) :]  # NOQA
                 else:
                     base_dest = self.dest
                 if update and hasattr(self.settings, base_dest):
@@ -165,20 +168,47 @@ class Settings(BaseSettings):
                 else:
                     setattr(namespace, dest, values)
 
+        class SetEnumSettingsAction(Action):
+            settings = settings_ref
+
+            def __call__(self, parser, namespace, value, option_string=None):  # type: ignore
+                if value in tuple(val.name for val in self.annotation):
+                    value = self.annotation[value]
+                dest = self.dest
+                if env_prefix:
+                    base_dest = self.dest[len(env_prefix) :]  # NOQA
+                else:
+                    base_dest = self.dest
+                if update and hasattr(self.settings, base_dest):
+                    setattr(self.settings, base_dest, value)
+                else:
+                    setattr(namespace, dest, value)
+
         if parser is None:
             parser = ArgumentParser(add_help=False)
 
         for name, field in self.__fields__.items():
-            name = (self.Config.env_prefix + name).replace("_", "-")
-            if field.type_ == bool:
+            name = (env_prefix + name).replace("_", "-")
+            if field.annotation == bool:
                 action = BooleanOptionalAction
+            elif isinstance(field.annotation, type) and issubclass(
+                field.annotation, Enum
+            ):
+                class_attrs = {
+                    "annotation": field.annotation,
+                }
+                action = type(
+                    "SetEnumSettingsAction" + (env_prefix + name),
+                    (SetEnumSettingsAction,),
+                    class_attrs,
+                )
             else:
                 action = SetSettingsAction
             parser.add_argument(
                 f"--{name}",
-                type=field.type_,
+                type=field.annotation,
                 action=action,
-                help=field.field_info.title,
+                help=field.title,
             )
 
         options, unknown = parser.parse_known_args(args)

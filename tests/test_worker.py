@@ -15,7 +15,6 @@ from pipeline import (
     Processor,
     SplitterSettings,
     Splitter,
-    PipelineError,
     PipelineOutputError,
     CommandActions,
     Definition,
@@ -417,18 +416,6 @@ class TestWorkerCore:
         assert len(processor.destination.results) == 0
         assert not hasattr(processor, "message")
 
-    def test_mem_processor_raise(self):
-        class Input(BaseModel):
-            pass
-
-        class Output(BaseModel):
-            pass
-
-        settings = ProcessorSettings(name="processor", version="0.0.0", description="")
-        processor = Processor(settings, input_class=Input, output_class=Output)
-        with pytest.raises(PipelineError):
-            processor.parse_args(args="--in-kind MEM".split())
-
     def test_splitter(self):
         msgs = [{"language": "en"}, {"language": "it"}]
         settings = SplitterSettings(
@@ -494,10 +481,10 @@ class TestWorkerCore:
         class MyProcessor(Processor):
             def process(self, msg, id):
                 self.logger.info("logging")
-                return msg
+                return Output(key=msg.key)
 
         logger = mock.MagicMock()
-        msgs = [{"key": "1"}, {"key": "2"}, {"key": "3"}]
+        msgs = [{"key": 1}, {"key": 2}, {"key": 3}]
         settings = ProcessorSettings(
             name="processor",
             version="0.0.0",

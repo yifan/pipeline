@@ -38,7 +38,7 @@ class BaseDestinationSettings(Settings):
 
 
 class SourceSettings(BaseSourceSettings):
-    namespace: str = Field(None, title="source namespace")
+    namespace: str = Field("", title="source namespace")
     topic: str = Field("in-topic", title="source topic")
     timeout: int = Field(0, title="seconds to time out")
 
@@ -107,7 +107,7 @@ class SourceTap(ABC):
 
 
 class DestinationSettings(BaseDestinationSettings):
-    namespace: str = Field(None, title="destination namespace")
+    namespace: str = Field("", title="destination namespace")
     topic: str = Field("out-topic", title="output topic")
     compress: bool = Field(False, title="turn on compression")
 

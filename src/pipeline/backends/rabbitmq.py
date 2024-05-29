@@ -1,10 +1,11 @@
 import time
 import logging
 from logging import Logger
-from typing import ClassVar, Iterator
+from typing import ClassVar, Iterator, Annotated
 
 import pika
-from pydantic import AnyUrl, Field
+from pydantic.networks import Url, UrlConstraints
+from pydantic import Field
 
 from ..tap import SourceTap, SourceSettings, DestinationTap, DestinationSettings
 from ..message import MessageBase
@@ -14,10 +15,7 @@ from ..helpers import namespaced_topic
 pipelineLogger = logging.getLogger("pipeline")
 
 
-class RabbitMQDsn(AnyUrl):
-    allowed_schemes = {
-        "amqp",
-    }
+RabbitMQDsn = Annotated[Url, UrlConstraints(allowed_schemes=["amqp"])]
 
 
 class RabbitMQSourceSettings(SourceSettings):

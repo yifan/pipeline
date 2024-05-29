@@ -1,7 +1,7 @@
 import os
 from unittest import TestCase, mock
 
-from pipeline import TapKind, Pipeline, Message, PipelineError
+from pipeline import TapKind, Pipeline, Message
 
 
 class TestPipeline(TestCase):
@@ -58,7 +58,3 @@ class TestPipeline(TestCase):
         del os.environ["IN_KIND"]
         del os.environ["OUT_KIND"]
         assert pipeline is not None
-
-    def test_pipeline_notset(self):
-        with self.assertRaises(PipelineError):
-            Pipeline()

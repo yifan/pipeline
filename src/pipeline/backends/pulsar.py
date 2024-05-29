@@ -1,10 +1,11 @@
 import time
 import logging
 from logging import Logger
-from typing import ClassVar, Iterator
+from typing import ClassVar, Iterator, Annotated
 
 import pulsar
-from pydantic import AnyUrl, Field
+from pydantic.networks import Url, UrlConstraints
+from pydantic import Field
 
 from ..tap import SourceTap, DestinationTap, SourceSettings, DestinationSettings
 from ..message import MessageBase
@@ -13,14 +14,17 @@ from ..message import MessageBase
 pipelineLogger = logging.getLogger("pipeline")
 
 
-class PulsarDsn(AnyUrl):
-    allowed_schemes = {
-        "pulsar",
-    }
+# class PulsarDsn(AnyUrl):
+#     allowed_schemes = {
+#         "pulsar",
+#     }
+PulsarDsn = Annotated[
+    Url, UrlConstraints(allowed_schemes=["pulsar"], default_port=6650)
+]
 
 
 class PulsarSourceSettings(SourceSettings):
-    pulsar: PulsarDsn = Field("pulsar://localhost:6650", title="pulsar url")
+    pulsar: PulsarDsn = Field(PulsarDsn("pulsar://localhost:6650"), title="pulsar url")
     tenant: str = Field(..., title="pulsar tenant, always is meganews")
     subscription: str = Field(..., title="subscription to read")
 

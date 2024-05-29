@@ -1,4 +1,5 @@
 prometheus-client
 zstandard
 pydantic
+pydantic-settings
 python-dotenv
