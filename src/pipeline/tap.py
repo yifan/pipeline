@@ -609,6 +609,16 @@ def tap_kinds() -> Dict[
                 settings_class="pipeline.backends.http:HTTPDestinationSettings",
             ),
         ),
+        "HTTPSERVER": (
+            TapAndSettingsImportStrings(
+                tap_class="pipeline.backends.httpserver:HTTPServerSource",
+                settings_class="pipeline.backends.httpserver:HTTPServerSourceSettings",
+            ),
+            TapAndSettingsImportStrings(
+                tap_class="pipeline.backends.httpserver:HTTPServerDestination",
+                settings_class="pipeline.backends.httpserver:HTTPServerDestinationSettings",
+            ),
+        ),
     }
 
 
