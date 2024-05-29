@@ -1,6 +1,6 @@
 import logging
 from logging import Logger
-from typing import ClassVar, Iterator
+from typing import ClassVar, Iterator, Optional
 
 from pydantic import Field, Json
 from elasticsearch import Elasticsearch
@@ -14,6 +14,7 @@ pipelineLogger = logging.getLogger("pipeline")
 
 class ElasticSearchSourceSettings(BaseSourceSettings):
     uri: str = Field("http://localhost:9200", title="Elastic Search url")
+    apikey: Optional[str] = None
     topic: str = Field(..., title="Elastic Search index")
     query: Json = Field('{"match_all": {}}', title="query as a json string")
     keyname: str = Field("_id", title="id field name, default is _id")
@@ -37,7 +38,10 @@ class ElasticSearchSource(SourceTap):
     ) -> None:
         super().__init__(settings, logger)
         self.settings = settings
-        self.elastic = Elasticsearch([settings.uri])
+        elastic_kwargs = {}
+        if settings.apikey:
+            elastic_kwargs["api_key"] = settings.apikey
+        self.elastic = Elasticsearch(settings.uri, **elastic_kwargs)
         self.topic = settings.topic
         self.query = settings.query
         self.keyname = settings.keyname
@@ -70,6 +74,7 @@ class ElasticSearchSource(SourceTap):
 
 class ElasticSearchDestinationSettings(BaseDestinationSettings):
     uri: str = Field("http://localhost:9200", title="ElasticSearch url")
+    apikey: Optional[str] = None
     topic: str = Field(..., title="Elastic Search index")
 
 
@@ -88,7 +93,10 @@ class ElasticSearchDestination(DestinationTap):
     ) -> None:
         super().__init__(settings, logger)
         self.settings = settings
-        self.elastic = Elasticsearch([settings.uri])
+        elastic_kwargs = {}
+        if settings.apikey:
+            elastic_kwargs["api_key"] = settings.apikey
+        self.elastic = Elasticsearch(settings.uri, **elastic_kwargs)
         self.elastic.indices.create(index=settings.topic, ignore=400)
         self.topic = settings.topic
 
