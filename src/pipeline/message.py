@@ -37,7 +37,7 @@ class MessageBase(BaseModel):
     id: str = Field(default_factory=hex_uuid)
     created: datetime = Field(default_factory=datetime.now)
     logs: List[Log] = []
-    content: Dict[str, Any] = {}
+    content: Dict[str, Any] = Field(dict(), repr=False)
 
     def serialize(self, compress: bool = False) -> bytes:
         return serialize_message(self, compress)
