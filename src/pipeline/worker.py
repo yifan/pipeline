@@ -514,7 +514,9 @@ class Processor(Worker):
         if self.has_output():
             try:
                 output_model = parse_obj_as(self.output_class, output_data)
-                self.logger.info(f"Validated output {output_model}")
+                self.logger.info(
+                    f"Validated output {output_model.model_dump_json(indent=2)}"
+                )
             except ValidationError as e:
                 self.logger.exception(
                     f"Output validation failed for message {msg}", exc_info=e
